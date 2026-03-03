@@ -40,14 +40,14 @@ def create_invoice_schema(cursor):
     -- Invoices table: records all invoices linked to a customer.
     CREATE TABLE IF NOT EXISTS invoices (
     invoice_id      INTEGER PRIMARY KEY,
-    customer_id         INTEGER NOT NULL,
+    customer_id     INTEGER NOT NULL,
     date_issued     TEXT    NOT NULL,
     date_due        TEXT,
     total           INTEGER NOT NULL DEFAULT 0 
                     CHECK (total >= 0 AND total = CAST(total AS INTEGER)),
     created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
     updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-    FOREIGN KEY (customer_id) REFERENCES customer(id) ON DELETE CASCADE -- deletes invoices when customer removed
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE -- deletes invoices when customer removed
     );
                          
     -- Index frequent queries and filtering patterns.

@@ -1,5 +1,5 @@
 import sqlite3
-from validators import normalize_name, normalize_email
+from .validators import normalize_name, normalize_email
 
 # Create
 def create_customer(cursor, name, email):

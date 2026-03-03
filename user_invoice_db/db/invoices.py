@@ -1,6 +1,6 @@
-from customers import assert_customer_exists, get_customer_id_by_email
-from validators import validate_total
-from utils import to_iso, to_cents
+from .customers import assert_customer_exists, get_customer_id_by_email
+from .validators import validate_total
+from .utils import to_iso, to_cents
 
 # Create
 def add_invoice_to_customer(cursor, customer_id, date_issued, total, date_due=None):

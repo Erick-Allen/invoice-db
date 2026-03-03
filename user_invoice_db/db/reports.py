@@ -1,4 +1,4 @@
-from utils import to_cents
+from .utils import to_cents
 
 # ----- REPORT / ANALYTICS -----#
 def get_customers(cursor, min_total_dollars=0):
