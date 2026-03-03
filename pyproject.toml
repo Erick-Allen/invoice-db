@@ -1,9 +1,9 @@
 [project]
-name = "user-invoice-db"
+name = "invoice-db"
 authors = [{name = "Erick-Allen"}]
 version = "0.5.0"
 dependencies = ["typer", "rich",]
 [project.scripts]
-userdb = "user_invoice_db.cli:app"
+invoicedb = "invoice_db.cli:app"
 [project.optional-dependencies]
 dev = ["pytest"]

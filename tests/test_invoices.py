@@ -1,6 +1,6 @@
 import sqlite3
 import unittest
-from user_invoice_db.db import schema, customers, invoices, reports, utils
+from invoice_db.db import schema, customers, invoices, reports, utils
 
 TEST_NAME_1 = "John Doe"
 TEST_EMAIL_1 = "johndoe@gmail.com"
