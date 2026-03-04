@@ -4,6 +4,6 @@ authors = [{name = "Erick-Allen"}]
 version = "0.5.0"
 dependencies = ["typer", "rich",]
 [project.scripts]
-invoicedb = "invoice_db.cli:app"
+invoicedb = "invoice_db.cli.app:app"
 [project.optional-dependencies]
 dev = ["pytest"]

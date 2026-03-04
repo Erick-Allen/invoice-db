@@ -2,9 +2,9 @@ import re
 import pytest
 from typer.testing import CliRunner
 
-from invoice_db.cli import app
+from invoice_db.cli.app import app
 
-customer_ID_REGEX = re.compile(r"id=(\d+)")
+CUSTOMER_ID_REGEX = re.compile(r"id=(\d+)")
 INVOICE_ID_REGEX = re.compile(r"Invoice\s+(\d+)")
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def temp_db(runner, tmp_path):
 def customer_john(runner, temp_db):
     result = runner.invoke(app, ["customers", "create", "--name", "John", "--email", "john@test.com", "--db", temp_db])
     assert result.exit_code == 0, result.stdout
-    match = customer_ID_REGEX.search(result.stdout)
+    match = CUSTOMER_ID_REGEX.search(result.stdout)
     assert match, f"Could not parse customer id from output: {result.stdout}"
     return int(match.group(1))
 
@@ -30,7 +30,7 @@ def customer_john(runner, temp_db):
 def customer_alice(runner, temp_db):
     result = runner.invoke(app, ["customers", "create", "--name", "Alice", "--email", "alice@test.com", "--db", temp_db])
     assert result.exit_code == 0, result.stdout
-    match = customer_ID_REGEX.search(result.stdout)
+    match = CUSTOMER_ID_REGEX.search(result.stdout)
     assert match, f"Could not parse customer id from output: {result.stdout}"
     return int(match.group(1))
 

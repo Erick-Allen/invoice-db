@@ -1,2 +1,2 @@
 #!/bin/sh
-docker run --rm -it -v userdb_data:/data userdb "$@"
+docker run --rm -it -v invoicedb_data:/data invoicedb "$@"

@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import os
 
 
-DB_PATH = os.getenv("USERDB_PATH", "userdb.sqlite")
+DB_PATH = os.getenv("INVOICEDB_PATH", "invoicedb.sqlite")
 
 # HELPERS
 def open_db(db_file=DB_PATH):
