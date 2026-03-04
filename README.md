@@ -1,10 +1,10 @@
-# user-invoice-db
+# invoice-db
 
-A relational database project built with **SQLite** and **Python**. It manages users and their invoices with full **CRUD operations** through a **Command Line Interface (CLI)**.
+A relational database project built with **SQLite** and **Python**. It manages customers and their invoices with full **CRUD operations** through a **Command Line Interface (CLI)**.
 
-As of **v0.5.0**, the **CLI** includes support for: 
+As of **v0.5.1**, the **CLI** includes support for: 
 - Database initialization, reset, and deletion
-- User management
+- customer management
 - Invoice management
 - Rich terminal output
 - Dockerized runtime with persistent storage
@@ -25,8 +25,8 @@ The CLI is built with [Typer](https://typer.tiangolo.com/)
 ### Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/Erick-Allen/user-invoice-db.git
-cd user-invoice-db
+git clone https://github.com/Erick-Allen/customer-invoice-db.git
+cd invoice-db
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -35,7 +35,7 @@ pip install -e .
 ### Verify installation:
  
 ```bash
-userdb --help
+invoicedb --help
 ```
 
 # Installation (Docker)
@@ -43,9 +43,9 @@ userdb --help
 ### Clone the repository and build the Docker image locally:
 
 ```bash
-git clone https://github.com/Erick-Allen/user-invoice-db.git
-cd user-invoice-db
-docker build -t userdb .
+git clone https://github.com/Erick-Allen/customer-invoice-db.git
+cd customer-invoice-db
+docker build -t invoicedb .
 ```
 
 ### Docker Runner:
@@ -57,49 +57,49 @@ docker build -t userdb .
 ### Interactive Shell:
 
 ```bash
-docker run --rm -it -v userdb_data:/data --entrypoint /bin/sh userdb
+docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 ```
 
 # Usage
 
 **Database commands**
 
-- `userdb db init`
-- `userdb db drop`
-- `userdb db delete`
+- `invoicedb db init`
+- `invoicedb db drop`
+- `invoicedb db delete`
 
-**User commands**
-- `userdb users create`
-- `userdb users list`
-- `userdb users get`
-- `userdb users update`
-- `userdb users delete`
+**customer commands**
+- `invoicedb customers create`
+- `invoicedb customers list`
+- `invoicedb customers get`
+- `invoicedb customers update`
+- `invoicedb customers delete`
 
 **Invoice commands**
-- `userdb invoices create`
-- `userdb invoices list`
-- `userdb invoices get`
-- `userdb invoices count`
-- `userdb invoices update`
-- `userdb invoices delete`
+- `invoicedb invoices create`
+- `invoicedb invoices list`
+- `invoicedb invoices get`
+- `invoicedb invoices count`
+- `invoicedb invoices update`
+- `invoicedb invoices delete`
 
 **Other**
-- `userdb --version`
+- `invoicedb --version`
 
 # Demo & Development Scripts
 
 The 'scripts/' folder contains helper scripts for:
 - Resetting the database
-- Seeding demo users and invoices
+- Seeding demo customers and invoices
 - Running a full demo workflow
 
-The demo workflow runs against a dedicated `demo.sqlite` database in the project root and does not affect normal user data.
+The demo workflow runs against a dedicated `demo.sqlite` database in the project root and does not affect normal customer data.
 
 # Version History
 ## [v0.5.0]
 ### Added
 - Rich-based terminal output
-- Packaged CLI as a global console command (`userdb`)
+- Packaged CLI as a global console command (`invoicedb`)
 - Docker support
 - Demo automation scripts
 
@@ -109,7 +109,7 @@ The demo workflow runs against a dedicated `demo.sqlite` database in the project
 
 ## [v0.3.0]
 ### Added
-- Introduced Typer-based CLI for user and database management
+- Introduced Typer-based CLI for customer and database management
 
 ## [v0.1.0]
 ### Added

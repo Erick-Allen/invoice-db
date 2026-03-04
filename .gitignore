@@ -6,5 +6,5 @@ venv/
 *.db
 *.vscode
 demo.sqlite
-userdb.sqlite
+invoicedb.sqlite
 *.egg-info

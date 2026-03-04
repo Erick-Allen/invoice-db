@@ -6,6 +6,6 @@ if [ -f "$VENV_ACTIVATE" ]; then
   source "$VENV_ACTIVATE"
 fi
 
-userdb users create -n "John" -e $JOHN_EMAIL
-userdb users create -n "Alice" -e $ALICE_EMAIL
-userdb users create -n "Tommy" -e $TOMMY_EMAIL
+invoicedb customers create -n "John" -e $JOHN_EMAIL
+invoicedb customers create -n "Alice" -e $ALICE_EMAIL
+invoicedb customers create -n "Tommy" -e $TOMMY_EMAIL

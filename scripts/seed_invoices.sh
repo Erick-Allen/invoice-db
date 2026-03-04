@@ -9,11 +9,11 @@ get_id() {
     grep -m1 -o '[0-9]\+'
 }
 
-JOHN_ID=$(userdb users get --email "$JOHN_EMAIL" | get_id)
-ALICE_ID=$(userdb users get --email "$ALICE_EMAIL" | get_id)
-TOMMY_ID=$(userdb users get --email "$TOMMY_EMAIL" | get_id)
+JOHN_ID=$(invoicedb customers get --email "$JOHN_EMAIL" | get_id)
+ALICE_ID=$(invoicedb customers get --email "$ALICE_EMAIL" | get_id)
+TOMMY_ID=$(invoicedb customers get --email "$TOMMY_EMAIL" | get_id)
 
-userdb invoices create --id "$JOHN_ID" --total 400
-userdb invoices create --id "$JOHN_ID" --total 100 --date-due "12/20/2026"
-userdb invoices create --id "$ALICE_ID" --total 200 --date-due "12/30/2026"
-userdb invoices create --id "$TOMMY_ID" --total 300 --date-due "10/11/2026"
+invoicedb invoices create --id "$JOHN_ID" --total 400
+invoicedb invoices create --id "$JOHN_ID" --total 100 --date-due "12/20/2026"
+invoicedb invoices create --id "$ALICE_ID" --total 200 --date-due "12/30/2026"
+invoicedb invoices create --id "$TOMMY_ID" --total 300 --date-due "10/11/2026"

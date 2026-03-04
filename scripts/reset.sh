@@ -7,5 +7,5 @@ if [ -f "$VENV_ACTIVATE" ]; then
 fi
 
 echo "Resetting tables..."
-userdb db drop
-userdb db init
+invoicedb db drop
+invoicedb db init

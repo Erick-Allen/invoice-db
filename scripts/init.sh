@@ -7,4 +7,4 @@ if [ -f "$VENV_ACTIVATE" ]; then
 fi
 
 echo "Initalizing database"
-userdb db init
+invoicedb db init
