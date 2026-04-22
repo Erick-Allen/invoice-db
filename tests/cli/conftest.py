@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 
 CUSTOMER_ID_REGEX = re.compile(r"id=(\d+)")
-INVOICE_ID_REGEX = re.compile(r"Invoice\s+(\d+)")
+INVOICE_ID_REGEX = re.compile(r"Created invoice \(id=(\d+)\)")
 
 #CLI fixtures
 @pytest.fixture
@@ -49,7 +49,7 @@ def customer_alice(runner, temp_db):
 def invoice_john(runner, temp_db, customer_john):
     result = runner.invoke(app, [
         "invoices", "create", 
-        "--id", str(customer_john), 
+        "--customer-id", str(customer_john), 
         "--total", "1234", 
         "--db", temp_db
     ])
@@ -62,7 +62,7 @@ def invoice_john(runner, temp_db, customer_john):
 def invoice_alice(runner, temp_db, customer_alice):
     result = runner.invoke(app, [
         "invoices", "create", 
-        "--id", str(customer_alice), 
+        "--customer-id", str(customer_alice), 
         "--total", "9999", 
         "--db", temp_db
     ])

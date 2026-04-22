@@ -4,7 +4,7 @@ from invoice_db.db import invoices as invoices_db
 from .common import console
     
 #CLI APP
-__version__ = "0.5.2"
+__version__ = "0.6.0"
 
 app = typer.Typer(
     help=(

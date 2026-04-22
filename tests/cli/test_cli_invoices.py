@@ -27,7 +27,7 @@ def test_invoice_list_all(customer_john, invoice_john, customer_alice, invoice_a
     assert "9999" in result.stdout
 
 def test_invoice_list_one_customer(customer_john, invoice_john, runner, temp_db):
-    result = runner.invoke(app, ["invoices", "create", "--id", str(customer_john), "--total", "777", "--db", temp_db])
+    result = runner.invoke(app, ["invoices", "create", "--customer-id", str(customer_john), "--total", "777", "--db", temp_db])
     assert result.exit_code == 0, result.stdout
     result = runner.invoke(app, ["invoices", "list", "--customer-id", str(customer_john), "--db", temp_db])
     assert result.exit_code == 0, result.stdout
@@ -52,7 +52,7 @@ def test_invoice_delete(customer_john, invoice_john, runner, temp_db):
 
 # Negative Test
 def test_create_invoice_invalid_customer_fails(customer_john, runner, temp_db):
-    result = runner.invoke(app, ["invoices", "create", "--id", "-9999", "--total", "1234", "--db", temp_db])
+    result = runner.invoke(app, ["invoices", "create", "--customer-id", "-9999", "--total", "1234", "--db", temp_db])
     assert result.exit_code == 1, result.stdout
     assert "Customer not found" in result.stdout
 

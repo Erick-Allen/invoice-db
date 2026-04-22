@@ -6,7 +6,7 @@ import os
 DB_PATH = os.getenv("INVOICEDB_PATH", "invoicedb.sqlite")
 
 # HELPERS
-def open_db(db_file=DB_PATH):
+def open_db(db_file=DB_PATH) -> sqlite3.Connection:
     connect = sqlite3.connect(db_file)
     connect.execute("PRAGMA foreign_keys = ON;")
     connect.execute("PRAGMA recursive_triggers = OFF;")

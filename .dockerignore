@@ -1,11 +1,26 @@
+# Virtual environments
 .venv/
+venv/
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
+*.py[cod]
+
+# IDE / editor settings
 .vscode
+
+# Packaging / test artifacts
 *.egg-info/
 .pytest_cache/
 .dist/
 build/
+
+# Git metadata
 .git/
+
+# Local data
 data/
 mydatabase.db
+
+# Personal notes
+PersonalLog.md

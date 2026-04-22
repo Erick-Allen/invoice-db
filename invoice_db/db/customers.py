@@ -1,8 +1,9 @@
 import sqlite3
 from .validators import normalize_name, normalize_email
+from .utils import to_cents
 
 # Create
-def create_customer(cursor, name, email):
+def create_customer(cursor, name: str, email: str) -> int:
     name = normalize_name(name)
     email = normalize_email(email)
     assert_email_unique(cursor, email)
@@ -16,21 +17,42 @@ def create_customer(cursor, name, email):
         raise ValueError("Email already exists") from e
 
 # Read
-def get_customer_by_id(cursor, customer_id):
+def get_customer_by_id(cursor, customer_id: int) -> dict:
     cursor.execute("SELECT * FROM customers WHERE id = ?", (customer_id,))
     return cursor.fetchone()
 
-def get_customer_by_email(cursor, email):
+def get_customer_by_email(cursor, email: str) -> dict:
     cursor.execute("SELECT * FROM customers WHERE lower(email) = lower(?)", (email,))
     return cursor.fetchone()
 
-def get_customer_id_by_email(cursor, email):
+def get_customer_id_by_email(cursor, email: str) -> int:
     row = get_customer_by_email(cursor, email)
     return row['id'] if row else None
 
+def get_customers(cursor, min_total_dollars: int = 0) -> list:
+    min_cents = to_cents(min_total_dollars)
+    cursor.execute("""
+        SELECT 
+            c.id, 
+            c.name, 
+            c.email, 
+            COALESCE(SUM(i.total), 0) AS total
+        FROM customers c
+        LEFT JOIN invoices i ON i.customer_id = c.id
+        GROUP BY c.id, c.name, c.email
+        HAVING COALESCE(SUM(i.total), 0) >= ?
+        ORDER BY c.id
+    """, (min_cents,))
+    return cursor.fetchall()
+
+def get_customer_invoice_summary(cursor) -> list:
+    """Return a list of customers with their invoice counts and total from view customer_invoice_summary"""
+    cursor.execute("SELECT * FROM customer_invoice_summary ORDER BY customer_id")
+    return cursor.fetchall()
+
 
 # Update
-def update_customer(cursor, customer_id, name=None, email=None):
+def update_customer(cursor, customer_id: int, name: str = None, email: str = None) -> bool:
     updates, params = [], []
 
     if name:
@@ -50,7 +72,7 @@ def update_customer(cursor, customer_id, name=None, email=None):
     return cursor.rowcount > 0
 
 # Delete
-def delete_customer(cursor, customer_id):
+def delete_customer(cursor, customer_id: int) -> bool:
     cursor.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
     return cursor.rowcount > 0
 

@@ -18,7 +18,7 @@ THEME = Theme({
 console = Console(highlight=False, theme=THEME)
 
 @contextmanager
-def get_connection(db_path=connection.DB_PATH):
+def get_connection(db_path: str = connection.DB_PATH):
     connect = sqlite3.connect(db_path)
     connect.row_factory = sqlite3.Row
     cursor = connect.cursor()

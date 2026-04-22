@@ -1,8 +1,0 @@
-click==8.3.1
-markdown-it-py==4.0.0
-mdurl==0.1.2
-Pygments==2.19.2
-rich
-shellingham==1.5.4
-typer
-typing_extensions==4.15.0

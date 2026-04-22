@@ -1,7 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 
-def to_cents(amount) -> int:
+def to_cents(amount: int) -> int:
     """Coerce 12.34 / '12.34' -> 1234 (int cents)."""
     return int((Decimal(str(amount)) * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
@@ -9,7 +9,7 @@ def fmt_dollars(cents: int) -> str:
     """Convert integer cents (e.g. 35025) → formatted string '$350.25'."""
     return f"${(Decimal(cents) / Decimal(100)).quantize(Decimal('0.01'))}"
 
-def fmt_optional(value: str | None, empty: str = "-"):
+def fmt_optional(value: str | None, empty: str = "-") -> str:
     return "-" if value is None else str(value)
 
 def to_iso(date_str: str) -> str:

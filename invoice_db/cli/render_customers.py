@@ -3,11 +3,11 @@ from rich.table import Table
 
 def customer_not_found(customer_id: int | None = None, email: str | None = None) -> None:
     if customer_id is not None:
-        common.console.print(f"customer not found (id={customer_id})", style="warning")
+        common.console.print(f"Customer not found (id={customer_id})", style="warning")
     elif email is not None:
-        common.console.print(f"customer not found (email={email})", style="warning")
+        common.console.print(f"Customer not found (email={email})", style="warning")
     else:
-        common.console.print("customer not found", style="warning")    
+        common.console.print("Customer not found", style="warning")    
 
 def no_customers_found() -> None:
     common.console.print("No customers found", style="warning")
@@ -20,7 +20,7 @@ def print_customer_summary(customer: dict) -> None:
         f"{customer['email']}\n"
     )
 
-def print_customers_table(customers) -> None:
+def print_customers_table(customers: dict) -> None:
     table = Table(title="customers")
     table.add_column("ID", justify="right")
     table.add_column("Name")

@@ -2,8 +2,8 @@ import typer, sqlite3
 from typing import Optional
 
 from invoice_db.db import customers as customers_db
-from invoice_db.db import connection, reports
-from . import common, render_customers, render_invoices, validators, require
+from invoice_db.db import connection
+from . import common, render_customers, validators, require
 
 customers_app = typer.Typer(help="customer commands.")
 
@@ -25,7 +25,7 @@ def create_customer(
         except sqlite3.Error as e:  
             common.db_error(e)
         
-    common.console.print(f"Created customer {customer['name']} <{customer['email']}> (id={customer['id']})", style="success")
+    common.console.print(f"Created customer: {customer['name']} <{customer['email']}> (id={customer['id']})", style="success")
         
 @customers_app.command("get", help="Get customer by id or email.")
 def get_customer(
@@ -63,7 +63,7 @@ def list_customers(
 ):
     with common.get_connection(db_path) as (connect, cursor):
         try:
-            customers = reports.get_customers(cursor)
+            customers = customers_db.get_customers(cursor)
             
         except sqlite3.Error as e:
             common.db_error(e)
@@ -98,7 +98,7 @@ def update_customer(
         try:
             customer = require.require_customer(cursor, id, email_selector)
             
-            validators.ensure_customer_has_changes(customer, new_name, new_email)
+            validators.validate_customer_changes(customer, new_name, new_email)
             
             updated = customers_db.update_customer(cursor, customer['id'], new_name, new_email)
                 
@@ -130,4 +130,8 @@ def delete_customer_by_id(
         except sqlite3.Error as e:  
             common.db_error(e)
 
-        common.console.print(f"Deleted customer: (id={customer_id})", style="success")
+        if not deleted:
+            common.console.print(f"Customer not found with id={customer_id}", style="error")
+            raise typer.Exit(code=1)
+
+        common.console.print(f"Deleted customer (id={customer_id})", style="success")

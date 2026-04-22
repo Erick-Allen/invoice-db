@@ -1,4 +1,5 @@
 import pytest
+from datetime import date, timedelta
 from invoice_db.db import invoices
 
 INVALID_CUSTOMER_ID = 9999
@@ -52,3 +53,32 @@ def test_get_invoices_by_customer_and_range_invalid_end_raises(cursor, customer_
 def test_get_invoices_by_customer_id_empty_list(cursor, customer_john):
     invoice_list = invoices.get_invoices_by_customer_id(cursor, customer_john)
     assert invoice_list == []
+
+def test_invalid_transition_draft_to_paid_raises(cursor, invoice_john):
+    with pytest.raises(ValueError):
+        invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="paid")
+    
+@pytest.mark.parametrize("new_status", ["draft", "sent", "paid"])
+def test_invalid_transition_from_void_raises(cursor, new_status, invoice_john):
+    invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="sent")
+    invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="void")
+    with pytest.raises(ValueError):
+        invoices.set_invoice_status(cursor, invoice_id=invoice_john, status=new_status)
+
+def test_draft_to_sent_rejects_past_due_date(cursor, customer_john):
+    invoice_id = invoices.add_invoice_to_customer(cursor, customer_id=customer_john, total=100, date_due="01/01/2020")
+    with pytest.raises(ValueError):
+        invoices.set_invoice_status(cursor, invoice_id=invoice_id, status="sent")
+
+def test_new_invoice_rejects_due_before_issued(cursor, customer_john):
+    future_date = (date.today() + timedelta(days=30)).isoformat()
+    today = date.today().isoformat()
+    with pytest.raises(ValueError):
+        invoice_id = invoices.add_invoice_to_customer(cursor, customer_id=customer_john, total=100, date_issued=future_date, date_due=today)
+
+def test_updated_invoice_rejects_due_before_issued(cursor, customer_john):
+    future_date = (date.today() + timedelta(days=30)).isoformat()
+    today = date.today().isoformat()
+    invoice_id = invoices.add_invoice_to_customer(cursor, customer_id=customer_john, total=100, date_issued=future_date)
+    with pytest.raises(ValueError):
+        invoices.update_invoice(cursor, invoice_id=invoice_id, date_due=today)

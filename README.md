@@ -1,66 +1,70 @@
 # invoice-db
 
-A relational database project built with **SQLite** and **Python**. It manages customers and their invoices with full **CRUD operations** through a **Command Line Interface (CLI)**.
+A **relational database and CLI application** built with **Python** and **SQLite** for managing customers and invoices from the terminal. The project emphasizes practical backend design: normalized relational schema design, business-rule validation, command-line workflows, query filtering/sorting, and automated test coverage.
 
-As of **v0.5.2**, the **CLI** includes support for: 
-- Database initialization, reset, and deletion
-- customer management
-- Invoice management
+## Features
+
+As of **v0.6.0**, the **CLI** includes support for: 
+
+- Customer and invoice management from the terminal
+- Full CRUD operations for customers and invoices
+- Invoice lifecycle/status management
+- Filtering, sorting, and improved invoice queries
 - Rich terminal output
 - Dockerized runtime with persistent storage
+- Automated tests with `pytest`
 
-The CLI is built with [Typer](https://typer.tiangolo.com/)
-
-### Built With
+## Tech Stack
 - SQLite 3
 - Python 3
 - Typer
 - Rich
 - Docker
+- pytest
+- uv
 
----
+## Installation (Local)
 
-# Installation (Local)
+### 1. Install `uv`
+Install `uv` first if you do not already have it installed.
 
-### Clone the repository and install dependencies:
-
+### 2. Clone the repository
 ```bash
-git clone https://github.com/Erick-Allen/customer-invoice-db.git
+git clone https://github.com/Erick-Allen/invoice-db.git
 cd invoice-db
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
+```
+### 3. Sync the project environment
+```bash
+uv sync --extra dev
+```
+### 4. Run the CLI
+```bash
+uv run invoicedb --help
 ```
 
-### Verify installation:
- 
-```bash
-invoicedb --help
-```
+## Installation (Docker)
 
-# Installation (Docker)
-
-### Clone the repository and build the Docker image locally:
+### Clone the repository and build the Docker image locally
 
 ```bash
-git clone https://github.com/Erick-Allen/customer-invoice-db.git
-cd customer-invoice-db
+git clone https://github.com/Erick-Allen/invoice-db.git
+cd invoice-db
 docker build -t invoicedb .
 ```
 
-### Docker Runner:
+### Docker Runner
 
 ```bash
 ./run <command>
 ```
 
-### Interactive Shell:
+### Interactive Shell
 
 ```bash
 docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 ```
 
-# Usage
+## Usage
 
 **Database commands**
 
@@ -68,7 +72,7 @@ docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 - `invoicedb db drop`
 - `invoicedb db delete`
 
-**customer commands**
+**Customer commands**
 - `invoicedb customers create`
 - `invoicedb customers list`
 - `invoicedb customers get`
@@ -81,45 +85,61 @@ docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 - `invoicedb invoices get`
 - `invoicedb invoices count`
 - `invoicedb invoices update`
+- `invoicedb invoices set-status`
 - `invoicedb invoices delete`
 
 **Other**
 - `invoicedb --version`
 
-# Demo & Development Scripts
+## Sample Data & Demo
+```bash
+uv run python scripts/seed.py
+uv run python scripts/demo.py
+```
 
-The 'scripts/' folder contains helper scripts for:
-- Resetting the database
-- Seeding demo customers and invoices
-- Running a full demo workflow
+**Note:** `seed.py` seeds the regular project database, while the demo workflow uses a dedicated `demo.sqlite` database in the project root.
 
-The demo workflow runs against a dedicated `demo.sqlite` database in the project root and does not affect normal customer data.
 
-# Version History
-## [v0.5.0]
-### Added
+## Testing
+```bash
+uv run pytest --cov=invoice_db --cov-report=term-missing
+```
+
+## Version History
+
+### [v0.6.0]
+#### Added
+- Invoice lifecycle/status logic
+- Overdue invoice querying
+
+#### Changed
+- Improved invoice list and count querying
+
+### [v0.5.0]
+#### Added
 - Rich-based terminal output
 - Packaged CLI as a global console command (`invoicedb`)
 - Docker support
 - Demo automation scripts
 
-## [v0.4.0]
-### Added
+### [v0.4.0]
+#### Added
 - Full invoice CRUD support in the CLI
 
-## [v0.3.0]
-### Added
+### [v0.3.0]
+#### Added
 - Introduced Typer-based CLI for customer and database management
 
-## [v0.1.0]
-### Added
+### [v0.1.0]
+#### Added
 - Initial SQLite schema and core CRUD functionality
 
-# Roadmap
 
-## [v0.6.0] (Minor)
-- Invoice state, filtering and sorting
-- Query usability improvements
+## Roadmap
 
-## [v0.7.0] (Minor)
-- Reporting and analytics commands
+### [v0.7.0] (Minor)
+- Add API layer
+
+### [v0.8.0] (Minor)
+- Add UI layer
+
