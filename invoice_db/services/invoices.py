@@ -363,9 +363,9 @@ def update_invoice_by_id(
 
     return _to_invoice_record(updated_invoice)
     
-def set_invoice_status(cursor, invoice_id: int, status: str) -> InvoiceRecord:
+def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecord:
     invoice = _require_invoice(cursor, invoice_id)
-    normalized_status = _normalize_invoice_status(status)
+    normalized_status = _normalize_invoice_status(new_status)
 
     if normalized_status == invoice['status']:
         raise exceptions.ValidationError("No status change detected.")

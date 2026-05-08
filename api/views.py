@@ -6,10 +6,17 @@ from rest_framework.views import APIView
 
 from invoice_db.db import connection
 from invoice_db.services import customers as customer_services
+from invoice_db.services import invoices as invoice_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError
 
-
-from .serializers import CustomerSerializer, CustomerUpdateSerializer
+from .serializers import (
+    CustomerSerializer,
+    CustomerUpdateSerializer,
+    InvoiceCreateSerializer,
+    InvoiceSerializer,
+    InvoiceUpdateSerializer,
+    InvoiceStatusUpdateSerializer
+)
 
 class CustomerListCreateView(APIView):
     def get(self, request):
@@ -52,7 +59,8 @@ class CustomerListCreateView(APIView):
             )
         except sqlite3.Error:
             return Response(
-                {"detail": "A database error occurred while creating the customer"}
+                {"detail": "A database error occurred while creating the customer"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         
         serializer = CustomerSerializer(customer)
@@ -81,7 +89,9 @@ class CustomerDetailView(APIView):
             )
         except sqlite3.Error:
             return Response(
-                {"detail": "A database error occurred while creating the customer"}
+                {"detail": "A database error occurred while creating the customer"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+
             )
         
         serializer = CustomerSerializer(customer)
@@ -119,7 +129,8 @@ class CustomerDetailView(APIView):
             )
         except sqlite3.Error:
             return Response(
-                {"detail": "A database error occurred while creating the customer"}
+                {"detail": "A database error occurred while creating the customer"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         
         serializer = CustomerSerializer(customer)
@@ -130,6 +141,12 @@ class CustomerDetailView(APIView):
              with connection.db_session(connection.DB_PATH) as (connect, cursor):
                  customer_services.delete_customer_by_id(cursor, customer_id=customer_id)
 
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
         except NotFoundError as e:
             return Response(
                 {"detail": str(e)},
@@ -142,7 +159,204 @@ class CustomerDetailView(APIView):
             )
         except sqlite3.Error:
             return Response(
-                {"detail": "A database error occurred while creating the customer"}
+                {"detail": "A database error occurred while creating the customer"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+class InvoiceListCreateView(APIView):
+    def get(self, request):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoices = invoice_services.list_invoices(cursor=cursor)
+
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving invoices."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        
+        serializer = InvoiceSerializer(invoices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        serializer = InvoiceCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        date_issued = serializer.validated_data.get("date_issued")
+        date_due = serializer.validated_data.get("date_due")
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice = invoice_services.create_invoice(
+                    cursor,
+                    customer_id=serializer.validated_data['customer_id'],
+                    date_issued=date_issued.isoformat() if date_issued else None,
+                    date_due=date_due.isoformat() if date_due else None,
+                    total=serializer.validated_data['total'],
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError as e:
+            return Response(
+                {"detail": "Something went wrong while creating the invoice."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the invoice."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+class InvoiceDetailView(APIView):
+    def get(self, request, invoice_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice = invoice_services.get_invoice_by_id(
+                    cursor=cursor,
+                    invoice_id=invoice_id
+                )
+
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the invoice."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def patch(self, request, invoice_id):
+        serializer = InvoiceUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        date_issued = serializer.validated_data.get("date_issued")
+        date_due = serializer.validated_data.get("date_due")
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice = invoice_services.update_invoice_by_id(
+                    cursor,
+                    invoice_id=invoice_id,
+                    new_date_issued=date_issued.isoformat() if date_issued else None,
+                    new_date_due=date_due.isoformat() if date_due else None,
+                    new_total=serializer.validated_data.get("total"),
+                    new_customer_id=serializer.validated_data.get("customer_id"),
+                )
+        
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError as e:
+            return Response(
+                {"detail": "Something went wrong while updating the invoice."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the invoice"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def delete(self, request, invoice_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice_services.delete_invoice(cursor, invoice_id=invoice_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError as e:
+            return Response(
+                {"detail": "Something went wrong while deleting the invoice."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the invoice"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
+        
+class InvoiceStatusUpdateView(APIView):
+    def patch(self, request, invoice_id):
+        serializer = InvoiceStatusUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice = invoice_services.set_invoice_status(
+                    cursor,
+                    invoice_id=invoice_id,
+                    new_status=serializer.validated_data['status'],
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError as e:
+            return Response(
+                {"detail": "Something went wrong while updating the invoice status."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the invoice status."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            )
+        
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
