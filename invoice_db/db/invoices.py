@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from .customers import assert_customer_exists, get_customer_id_by_email
 from .validators import validate_total, validate_status, validate_sort
-from .utils import to_iso, to_cents
+from ..utils import to_iso, to_cents
 
 # Create
 def add_invoice_to_customer(cursor, customer_id: int, date_issued: str = None, total: int = 0, date_due: str = None, status: str = "draft") -> int:

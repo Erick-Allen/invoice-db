@@ -32,10 +32,10 @@ def validate_total(amount: int | float) -> int:
         raise ValueError("Invoice total cannot be negative.")
     return amount
 
-def validate_status(status: str) -> None:
+def validate_status(status: str | None) -> None:
     ALLOWED_STATUSES = {"draft", "sent", "paid", "void"}
 
-    if status:
+    if status is not None:
         status = status.strip().lower()
     else:
         return

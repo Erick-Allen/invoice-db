@@ -1,3 +1,4 @@
+import sqlite3
 import pytest
 from invoice_db.db import customers
 
@@ -30,7 +31,7 @@ def test_create_customer_duplicate_name_allowed(cursor):
 
 def test_create_customer_duplicate_email_raises(cursor):
     customers.create_customer(cursor, "John Doe", "same@example.com")
-    with pytest.raises(ValueError):
+    with pytest.raises(sqlite3.IntegrityError):
         customers.create_customer(cursor, "John Doe", "same@example.com")
 
 def test_update_customer_duplicate_email_raises(cursor, customer_john, customer_alice):

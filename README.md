@@ -142,4 +142,3 @@ uv run pytest --cov=invoice_db --cov-report=term-missing
 
 ### [v0.8.0] (Minor)
 - Add UI layer
-

@@ -1,9 +1,10 @@
 import typer, sqlite3
 from typing import Optional
 
-from invoice_db.db import customers as customers_db
 from invoice_db.db import connection
-from . import common, render_customers, validators, require
+from invoice_db.services import customers as customers_services
+from invoice_db.services import exceptions as service_exceptions
+from . import render_customers, ui 
 
 customers_app = typer.Typer(help="customer commands.")
 
@@ -13,19 +14,20 @@ def create_customer(
     email: str = typer.Option(..., "-e", "--email", help="Email of the customer."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
 ):
-    with common.get_connection(db_path) as (connect, cursor):
+    with connection.db_session(db_path) as (connect, cursor):
         try:
-            customer_id = customers_db.create_customer(cursor, customer_name, email)
+            customer = customers_services.create_customer(cursor, customer_name, email)
 
-            customer = customers_db.get_customer_by_id(cursor, customer_id)
-
-        except ValueError as ve:
-            common.console.print(f"{ve}", style="error")
+        except service_exceptions.ValidationError as e:
+            ui.console.print(f"{e}", style="error")
             raise typer.Exit(code=1)
+        except service_exceptions.ServiceError as e:
+            ui.console.print(f"{e}", style="error")
+            raise typer.Exit(code=1)        
         except sqlite3.Error as e:  
-            common.db_error(e)
+            ui.db_error(e)
         
-    common.console.print(f"Created customer: {customer['name']} <{customer['email']}> (id={customer['id']})", style="success")
+    ui.console.print(f"Created customer: {customer['name']} <{customer['email']}> (id={customer['id']})", style="success")
         
 @customers_app.command("get", help="Get customer by id or email.")
 def get_customer(
@@ -35,43 +37,47 @@ def get_customer(
 
 ):
     if id is None and email_selector is None:
-        common.console.print("Please provide either --id or --email", style="warning")
+        ui.console.print("Please provide either --id or --email", style="warning")
         raise typer.Exit(code=1)
     
-    if id and email_selector:
-        common.console.print("Please provide only one of --id or --email (not both)", style="warning")
+    if id is not None and email_selector is not None:
+        ui.console.print("Please provide only one of --id or --email (not both)", style="warning")
         raise typer.Exit(code=1)
     
-    with common.get_connection(db_path) as (connect, cursor):
+    with connection.db_session(db_path) as (connect, cursor):
         try: 
-            if id:
-                customer = customers_db.get_customer_by_id(cursor, id)
+            if id is not None:
+                customer = customers_services.get_customer_by_id(cursor, id)
             else:
-                customer = customers_db.get_customer_by_email(cursor, email_selector)
+                customer = customers_services.get_customer_by_email(cursor, email_selector)
 
+        except service_exceptions.ValidationError as e:
+            ui.console.print(f"{e}", style="error")
+            raise typer.Exit(code=1)
+        except service_exceptions.NotFoundError as e:
+            ui.console.print(str(e), style="warning")
+            raise typer.Exit(code=1)
         except sqlite3.Error as e:
-            common.db_error(e)
+            ui.db_error(e)
         
-    if customer:
-        render_customers.print_customer_summary(customer)
-    else:
-        render_customers.customer_not_found(id)
+    render_customers.print_customer_summary(customer)
+
 
 @customers_app.command("list", help="List all customers in the database.")
 def list_customers(
         db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
 ):
-    with common.get_connection(db_path) as (connect, cursor):
+    with connection.db_session(db_path) as (connect, cursor):
         try:
-            customers = customers_db.get_customers(cursor)
+            customers = customers_services.list_customers(cursor)
             
         except sqlite3.Error as e:
-            common.db_error(e)
+            ui.db_error(e)
 
     if customers:
         render_customers.print_customers_table(customers)
     else:
-        common.console.print("No customers found", style="warning")
+        render_customers.no_customers_found()
         
 
 @customers_app.command("update", help="Update the customer's name or email.")
@@ -85,36 +91,45 @@ def update_customer(
     updated_customer = None
 
     if id is None and email_selector is None:
-        common.console.print("Please provide either --id or --email to select a customer", style="warning")
+        ui.console.print("Please provide either --id or --email to select a customer", style="warning")
         raise typer.Exit(code=1)
     if id is not None and email_selector is not None:
-        common.console.print("Please provide only one of --id or --email (not both)", style="warning")
+        ui.console.print("Please provide only one of --id or --email (not both)", style="warning")
         raise typer.Exit(code=1)
     if new_name is None and new_email is None:
-        common.console.print("Please provide --name and/or --new-email", style="warning")
+        ui.console.print("Please provide --name and/or --new-email", style="warning")
         raise typer.Exit(code=1)
     
-    with common.get_connection(db_path) as (connect, cursor):
+    with connection.db_session(db_path) as (connect, cursor):
         try:
-            customer = require.require_customer(cursor, id, email_selector)
-            
-            validators.validate_customer_changes(customer, new_name, new_email)
-            
-            updated = customers_db.update_customer(cursor, customer['id'], new_name, new_email)
-                
-            updated_customer = customers_db.get_customer_by_id(cursor, customer['id'])
+            if id is not None:
+                updated_customer = customers_services.update_customer_by_id(
+                    cursor, 
+                    customer_id=id, 
+                    new_name=new_name, 
+                    new_email=new_email
+                    )
+            else:
+                updated_customer = customers_services.update_customer_by_email(
+                    cursor, 
+                    customer_email=email_selector, 
+                    new_name=new_name, 
+                    new_email=new_email
+                    )
 
-        except ValueError as ve:
-            common.console.print(f"{ve}", style="error")
+        except service_exceptions.NotFoundError as e:
+            ui.console.print(f"{e}", style="warning")
+            raise typer.Exit(code=1)
+        except service_exceptions.ValidationError as e:
+            ui.console.print(f"{e}", style="warning")
+            raise typer.Exit(code=1)        
+        except service_exceptions.ServiceError as e:
+            ui.console.print(f"{e}", style="error")
             raise typer.Exit(code=1)
         except sqlite3.Error as e:
-            common.db_error(e)
+            ui.db_error(e)
 
-    if updated_customer:
-        render_customers.print_customer_summary(updated_customer)
-    else:
-        common.console.print("Updated customer, but failed to reload record.", style="error")
-        raise typer.Exit(code=1)
+    render_customers.print_customer_summary(updated_customer)
     
 
 
@@ -123,15 +138,17 @@ def delete_customer_by_id(
     customer_id: int = typer.Option(..., "-i", "--id", help="ID of the customer."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
 ):
-    with common.get_connection(db_path) as (connect, cursor):
+    with connection.db_session(db_path) as (connect, cursor):
         try:
-            deleted = customers_db.delete_customer(cursor=cursor, customer_id=customer_id)
+            customers_services.delete_customer_by_id(cursor=cursor, customer_id=customer_id)
 
-        except sqlite3.Error as e:  
-            common.db_error(e)
-
-        if not deleted:
-            common.console.print(f"Customer not found with id={customer_id}", style="error")
+        except service_exceptions.ValidationError as e:
+            ui.console.print(f"{e}", style="warning")
+            raise typer.Exit(code=1)      
+        except service_exceptions.NotFoundError as e:
+            ui.console.print(f"{e}", style="warning")
             raise typer.Exit(code=1)
+        except sqlite3.Error as e:  
+            ui.db_error(e)
 
-        common.console.print(f"Deleted customer (id={customer_id})", style="success")
+    ui.console.print(f"Deleted customer (id={customer_id})", style="success")

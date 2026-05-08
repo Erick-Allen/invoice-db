@@ -96,3 +96,9 @@ def create_customer_summary_view(cursor):
     GROUP BY 
         c.id, c.name, c.email;
     """)
+
+def create_schema(cursor):
+    create_customer_schema(cursor)
+    create_invoice_schema(cursor)
+    create_customer_summary_view(cursor)
+    create_triggers(cursor)
