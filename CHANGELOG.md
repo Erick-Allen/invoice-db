@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Service layer for customers and invoices
 - Converted from db sqlite.row to dictionaries in services  
+- Downloaded DJango and rest framework
+- Create api and tests for both customers and invoices
 
 ### Changed
 - Modify cli tests to service changes
@@ -30,6 +32,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Convert data from dict to dataclass or pydantic model
 - Look at and maybe seperate tests where id is 9999
 because -9999 is a validationerror and 9999 is notfounderror
-
-### Need to Change
-- create database services for create, drop, delete
+- Maybe change the fixtures in some of the db tests to use helpers
