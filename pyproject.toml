@@ -4,14 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invoice-db"
-version = "0.6.0"
+version = "0.7.0"
 authors = [{name = "Erick Allen" }]
-description = "A CLI tool for managing customers and invoices with SQLite. "
+description = "A relational database, CLI, and API application for managing customers and invoices with SQLite."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "typer>=0.9.0",
     "rich>=13.0.0",
+    "django>=5.2.13",
+    "djangorestframework>=3.17.1",
 ]
 
 [project.scripts]
@@ -20,5 +22,13 @@ invoicedb = "invoice_db.cli.app:app"
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
+    "pytest-django>=4.12.0",
 ]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "server.settings"
+python_files = ["tests.py", "test_*.py"]
+
+[tool.setuptools.packages.find]
+include = ["invoice_db*", "api*", "server*"]

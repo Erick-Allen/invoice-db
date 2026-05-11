@@ -2,7 +2,7 @@ import typer
 from rich.prompt import Confirm
 
 from invoice_db.db import schema, connection
-from .common import console, get_connection
+from .ui import console
 
 db_app = typer.Typer(help="Database commands.")
 
@@ -10,9 +10,8 @@ db_app = typer.Typer(help="Database commands.")
 def init_db_command(
         db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
 ):
-    with get_connection(db_path) as (connect, cursor):
-        schema.create_customer_schema(cursor)
-        schema.create_invoice_schema(cursor)
+    with connection.db_session(db_path) as (connect, cursor):
+        schema.create_schema(cursor)
         connect.commit()
     console.print("Initialized database", style="success")
 
@@ -21,7 +20,7 @@ def init_db_command(
 def drop_db_command(
         db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
 ):
-    with get_connection(db_path) as (connect, cursor):
+    with connection.db_session(db_path) as (connect, cursor):
         cursor.execute("DROP TABLE IF EXISTS invoices;")
         cursor.execute("DROP TABLE IF EXISTS customers;")
         connect.commit()

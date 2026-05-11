@@ -3,7 +3,8 @@ import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
-from invoice_db.db import schema, customers, invoices, utils
+from invoice_db.db import schema, customers, invoices
+from invoice_db import utils
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Seed invoicedb with sample data.")
@@ -26,9 +27,8 @@ def get_connection(db_path: str) -> sqlite3.Connection:
     return conn
 
 def init_db(cursor) -> None:
-    schema.create_customer_schema(cursor)
-    schema.create_invoice_schema(cursor)
-
+    schema.create_schema(cursor)
+    
 def seed_customers(cursor) -> dict[str, int]:
     john_id = customers.create_customer(
         cursor,

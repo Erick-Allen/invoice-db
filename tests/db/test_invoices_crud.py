@@ -1,6 +1,8 @@
 from datetime import date, timedelta
-from invoice_db.db import customers, invoices, utils
+from invoice_db.db import customers, invoices
 import pytest
+
+from invoice_db import utils
 
 CUSTOMER_JOHN_EMAIL = "john@test.com"
 

@@ -43,11 +43,17 @@ def test_create_customer_duplicate_email_fails(customer_john, runner, temp_db):
     result = runner.invoke(app, ["customers", "create", "--name", "Johnny", "--email", CUSTOMER_JOHN_EMAIL, "--db", temp_db])
     assert result.exit_code == 1, result.stdout
     assert "already exists" in result.stdout
+    
 
 def test_customer_get_invalid_id_fails(customer_john, runner, temp_db):
-    result = runner.invoke(app, ["customers", "get", "--id", "-9999", "--db", temp_db])
-    assert result.exit_code == 0, result.stdout
+    result = runner.invoke(app, ["customers", "get", "--id", "9999", "--db", temp_db])
+    assert result.exit_code == 1, result.stdout
     assert "Customer not found" in result.stdout
+
+def test_customer_get_empty_email_fails(customer_john, runner, temp_db):
+    result = runner.invoke(app, ["customers", "get", "--email", " ", "--db", temp_db])
+    assert result.exit_code == 1, result.stdout
+    assert "empty" in result.stdout
 
 def test_customer_update_no_fields_fails(customer_john, runner, temp_db):
     result = runner.invoke(app, ["customers", "update", "--db", temp_db])
@@ -55,13 +61,15 @@ def test_customer_update_no_fields_fails(customer_john, runner, temp_db):
     assert "provide either --id or --email" in result.stdout
 
 def test_customer_update_invalid_id_fails(customer_john, runner, temp_db):
-    result = runner.invoke(app, ["customers", "update", "--id", "-9999", "--name", "tommy", "--db", temp_db])
+    result = runner.invoke(app, ["customers", "update", "--id", "9999", "--name", "tommy", "--db", temp_db])
     assert result.exit_code == 1, result.stdout
     assert "Customer not found" in result.stdout
 
 def test_customer_delete_invalid_id_fails(customer_john, runner, temp_db):
-    result = runner.invoke(app, ["customers", "delete", "--id", "-9999", "--db", temp_db])
+    result = runner.invoke(app, ["customers", "delete", "--id", "9999", "--db", temp_db])
     assert result.exit_code == 1, result.stdout
     assert "Customer not found" in result.stdout
+
+
 
 # Invoice

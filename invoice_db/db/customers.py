@@ -1,20 +1,15 @@
-import sqlite3
 from .validators import normalize_name, normalize_email
-from .utils import to_cents
+from ..utils import to_cents
 
 # Create
 def create_customer(cursor, name: str, email: str) -> int:
     name = normalize_name(name)
     email = normalize_email(email)
-    assert_email_unique(cursor, email)
-    try:
-        cursor.execute("""
-            INSERT INTO customers (name, email) 
-            VALUES (?, ?)
-        """, (name, email))
-        return cursor.lastrowid
-    except sqlite3.IntegrityError as e:
-        raise ValueError("Email already exists") from e
+    cursor.execute("""
+        INSERT INTO customers (name, email) 
+        VALUES (?, ?)
+    """, (name, email))
+    return cursor.lastrowid
 
 # Read
 def get_customer_by_id(cursor, customer_id: int) -> dict:

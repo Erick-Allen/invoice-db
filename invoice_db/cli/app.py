@@ -1,10 +1,8 @@
 import typer 
-from invoice_db.db import customers as customers_db
-from invoice_db.db import invoices as invoices_db
-from .common import console
+from .ui import console
     
 #CLI APP
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 app = typer.Typer(
     help=(

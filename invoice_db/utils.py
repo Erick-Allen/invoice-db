@@ -5,6 +5,10 @@ def to_cents(amount: int) -> int:
     """Coerce 12.34 / '12.34' -> 1234 (int cents)."""
     return int((Decimal(str(amount)) * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
+def from_cents(cents: int) -> Decimal:
+    """Coerce 1234 cents -> Decimal('12.34')."""
+    return (Decimal(cents) / Decimal("100")).quantize(Decimal("0.01"))
+
 def fmt_dollars(cents: int) -> str:
     """Convert integer cents (e.g. 35025) → formatted string '$350.25'."""
     return f"${(Decimal(cents) / Decimal(100)).quantize(Decimal('0.01'))}"

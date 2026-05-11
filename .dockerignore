@@ -12,15 +12,21 @@ __pycache__/
 # Packaging / test artifacts
 *.egg-info/
 .pytest_cache/
-.dist/
+dist/
 build/
 
 # Git metadata
 .git/
+.gitignore
 
 # Local data
-data/
-mydatabase.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.*
 
 # Personal notes
 PersonalLog.md

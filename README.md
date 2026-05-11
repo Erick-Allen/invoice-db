@@ -1,24 +1,39 @@
 # invoice-db
 
-A **relational database and CLI application** built with **Python** and **SQLite** for managing customers and invoices from the terminal. The project emphasizes practical backend design: normalized relational schema design, business-rule validation, command-line workflows, query filtering/sorting, and automated test coverage.
+A **relational database, CLI, and API application** built with **Python** and **SQLite** for managing customers and invoices.
+
+The project emphasizes practical backend design: normalized relational schema design, business-rule validation, command-line workflows, HTTP API endpoints, query filtering/sorting, and automated test coverage.
 
 ## Features
 
-As of **v0.6.0**, the **CLI** includes support for: 
+As of **v0.7.0**, the project includes support for: 
 
-- Customer and invoice management from the terminal
+- Customer and invoice management
 - Full CRUD operations for customers and invoices
 - Invoice lifecycle/status management
 - Filtering, sorting, and improved invoice queries
-- Rich terminal output
+- Typer-based CLI with Rich terminal output
+- Django REST Framework API Layer
+- Shared service layer used by both CLI and API
 - Dockerized runtime with persistent storage
 - Automated tests with `pytest`
+
+## Architecture
+
+```text
+CLI        → services → db
+API/DRF    → services → db
+future UI  → API → services → db
+```
+
+For the full folder breakdown, see [`invoice_db/docs/PROJECT_STRUCTURE.md`](invoice_db/docs/PROJECT_STRUCTURE.md).
 
 ## Tech Stack
 - SQLite 3
 - Python 3
 - Typer
 - Rich
+- Django REST Framework
 - Docker
 - pytest
 - uv
@@ -40,6 +55,11 @@ uv sync --extra dev
 ### 4. Run the CLI
 ```bash
 uv run invoicedb --help
+```
+
+### 5. Run the API server
+```bash
+uv run python manage.py runserver
 ```
 
 ## Installation (Docker)
@@ -64,22 +84,21 @@ docker build -t invoicedb .
 docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 ```
 
-## Usage
+## CLI Usage
 
-**Database commands**
-
+### Database commands
 - `invoicedb db init`
 - `invoicedb db drop`
 - `invoicedb db delete`
 
-**Customer commands**
+### Customer commands
 - `invoicedb customers create`
 - `invoicedb customers list`
 - `invoicedb customers get`
 - `invoicedb customers update`
 - `invoicedb customers delete`
 
-**Invoice commands**
+### Invoice commands
 - `invoicedb invoices create`
 - `invoicedb invoices list`
 - `invoicedb invoices get`
@@ -90,6 +109,23 @@ docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 
 **Other**
 - `invoicedb --version`
+
+## API Endpoints
+
+### Customers
+- `GET /api/customers/`
+- `POST /api/customers/`
+- `GET /api/customers/{id}/`
+- `PATCH /api/customers/{id}/`
+- `DELETE /api/customers/{id}/`
+
+### Invoices
+- `GET /api/invoices/`
+- `POST /api/invoices/`
+- `GET /api/invoices/{id}/`
+- `PATCH /api/invoices/{id}/`
+- `DELETE /api/invoices/{id}/`
+- `PATCH /api/invoices/{id}/status/`
 
 ## Sample Data & Demo
 ```bash
@@ -106,6 +142,17 @@ uv run pytest --cov=invoice_db --cov-report=term-missing
 ```
 
 ## Version History
+
+### [v0.7.0]
+#### Added
+- Shared service layer for customers and invoices
+- Django REST Framework API Layer
+- Customer API endpoints
+- Invoice API endpoints
+- API test coverage for customer and invoice endpoints
+
+#### Changed
+- Updated CLI commands to use the shared service layer
 
 ### [v0.6.0]
 #### Added
@@ -130,16 +177,19 @@ uv run pytest --cov=invoice_db --cov-report=term-missing
 #### Added
 - Introduced Typer-based CLI for customer and database management
 
+### [v0.2.0]
+#### Added
+- Added customer and invoice test coverage
+
 ### [v0.1.0]
 #### Added
 - Initial SQLite schema and core CRUD functionality
 
-
 ## Roadmap
-
-### [v0.7.0] (Minor)
-- Add API layer
-
 ### [v0.8.0] (Minor)
 - Add UI layer
 
+### [v0.9.0] (Minor)
+- Add invoice line items
+
+For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).

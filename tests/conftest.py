@@ -10,9 +10,7 @@ def db():
     connect.row_factory = sqlite3.Row
     cursor = connect.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
-
-    schema.create_customer_schema(cursor)
-    schema.create_invoice_schema(cursor)
+    schema.create_schema(cursor)
     connect.commit()
 
     yield connect

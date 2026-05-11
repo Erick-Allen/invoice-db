@@ -1,0 +1,72 @@
+from rest_framework import serializers
+from invoice_db.services.invoices import VALID_INVOICE_STATUSES
+from invoice_db import utils
+
+class StrictSerializer(serializers.Serializer):
+    def validate(self, attrs):
+        allowed_fields = set(self.fields.keys())
+        received_fields = set(self.initial_data.keys())
+        unknown_fields = received_fields - allowed_fields
+
+        if unknown_fields:
+            raise serializers.ValidationError(
+                {
+                    "detail": f"Unknown field(s): {', '.join(sorted(unknown_fields))}"
+                }
+            )
+        return attrs
+
+class CustomerSerializer(StrictSerializer):
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(max_length=50)
+    email = serializers.EmailField(max_length=255)
+
+class CustomerUpdateSerializer(StrictSerializer):
+    name = serializers.CharField(max_length=50, required=False)
+    email = serializers.EmailField(max_length=255, required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        
+        if not attrs:
+            raise serializers.ValidationError(
+                "At least one field must be provided."
+            )
+        
+        return attrs
+    
+class InvoiceSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    customer_id = serializers.IntegerField()
+    date_issued = serializers.DateField(required=False, allow_null=True)
+    date_due = serializers.DateField(required=False, allow_null=True)
+    total = serializers.SerializerMethodField()
+    status = serializers.ChoiceField(choices=VALID_INVOICE_STATUSES)
+
+    def get_total(self, obj):
+        return utils.from_cents(obj["total"])
+
+class InvoiceCreateSerializer(StrictSerializer):
+    customer_id = serializers.IntegerField()
+    date_issued = serializers.DateField(required=False, allow_null=True)
+    date_due = serializers.DateField(required=False, allow_null=True)
+    total = serializers.IntegerField()
+
+class InvoiceUpdateSerializer(StrictSerializer):
+    customer_id = serializers.IntegerField(required=False)
+    date_issued = serializers.DateField(required=False, allow_null=True)
+    date_due = serializers.DateField(required=False, allow_null=True)
+    total = serializers.IntegerField(required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        if not attrs:
+            raise serializers.ValidationError(
+                "At least one field must be provided."
+            )
+        
+        return attrs
+    
+class InvoiceStatusUpdateSerializer(StrictSerializer):
+    status = serializers.ChoiceField(choices=VALID_INVOICE_STATUSES)

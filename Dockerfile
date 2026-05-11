@@ -4,7 +4,10 @@ WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY invoice_db ./invoice_db
+COPY api ./api
+COPY server ./server
 COPY scripts ./scripts
+COPY manage.py ./manage.py
 
 RUN pip install --no-cache-dir -e .
 
