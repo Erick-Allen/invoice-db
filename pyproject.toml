@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invoice-db"
-version = "0.6.0"
+version = "0.7.0"
 authors = [{name = "Erick Allen" }]
-description = "A CLI tool for managing customers and invoices with SQLite. "
+description = "A relational database, CLI, and API application for managing customers and invoices with SQLite."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0] - 2026-##-##
+
+### Added
+- Shared service layer for customers and invoices
+- Django REST Framework API layer
+- Customer and invoice API endpoints
+- API tests for customer and invoice endpoints
+
+### Changed
+- Modify cli tests to reflect service-layer archtiecture 
+
 ## [0.6.0] - 2026-04-14
 
 ### Added
@@ -16,20 +27,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Update invoice count filtering
 - Renamed invoice primary key from `invoice_id` to `id`
 - Updated invoice check constraints
-
-## [0.7.0] - 2026-##-##
-
-### Added
-- Service layer for customers and invoices
-- Converted from db sqlite.row to dictionaries in services  
-- Downloaded DJango and rest framework
-- Create api and tests for both customers and invoices
-
-### Changed
-- Modify cli tests to service changes
-
-### Considerations
-- Convert data from dict to dataclass or pydantic model
-- Look at and maybe seperate tests where id is 9999
-because -9999 is a validationerror and 9999 is notfounderror
-- Maybe change the fixtures in some of the db tests to use helpers
