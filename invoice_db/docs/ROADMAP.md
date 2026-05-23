@@ -15,9 +15,9 @@
 
 ## Planned
 
-- `v0.8.0`  — UI/public-facing release
-- `v0.9.0`  — Products 
-- `v0.10.0` — Invoice line items
-- `v0.11.0` — Reporting
-- `v0.12.0` — Final polish and reliability improvements
-- `v1.0.0`  — Full stable release
+- `v0.8.0`  —  React UI/public-facing release
+- `v0.9.0`  —  AI assistant MVP for simple invoice questions
+- `v0.10.0` —  Products table
+- `v0.11.0` —  Invoice line items
+- `v0.12.0` —  Expanded reporting + stronger AI assistant
+- `v1.0.0`  —  Stable deployable release
