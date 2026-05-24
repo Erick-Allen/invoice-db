@@ -8,6 +8,8 @@ from invoice_db.db import connection
 from invoice_db.services import customers as customer_services
 from invoice_db.services import invoices as invoice_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 from .serializers import (
     CustomerSerializer,
@@ -17,6 +19,18 @@ from .serializers import (
     InvoiceUpdateSerializer,
     InvoiceStatusUpdateSerializer
 )
+
+@api_view(["GET"])
+def api_root(request):
+    return Response(
+        {
+            "message": "Invoice DB API",
+            "endpoints": {
+                "customers": "/api/customers/",
+                "invoices": "/api/invoices",
+            }
+        }
+    )
 
 class CustomerListCreateView(APIView):
     def get(self, request):
