@@ -1,4 +1,5 @@
 import { CustomersPage } from './pages/CustomersPage';
+import { InvoicesPage } from './pages/InvoicesPage';
 
 function App() {
 return (
@@ -7,6 +8,7 @@ return (
     <p>React frontend connected to Django API.</p>
 
     <CustomersPage />
+    <InvoicesPage />
   </main>
 )
 
