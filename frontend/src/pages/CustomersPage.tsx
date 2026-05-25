@@ -55,7 +55,6 @@ export function CustomersPage() {
         setEmail("");
 
         await loadCustomers();
-        window.location.reload();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Faild to create customer.");
         } finally {
