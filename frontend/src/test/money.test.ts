@@ -1,5 +1,5 @@
 import { describe, expect, it} from "vitest";
-import { centsToDollars, dollarsToCents } from "./money";
+import { centsToDollars, dollarsToCents } from "../utils/money";
 
 describe("money helpers", () => {
     it("converts dollar strings to cents", () => {
@@ -19,6 +19,4 @@ describe("money helpers", () => {
         expect(() => dollarsToCents("10.999")).toThrow();
         expect(() => dollarsToCents("")).toThrow();
     });
-
-
 });
