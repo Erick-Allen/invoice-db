@@ -40,11 +40,8 @@ class InvoiceSerializer(serializers.Serializer):
     customer_id = serializers.IntegerField()
     date_issued = serializers.DateField(required=False, allow_null=True)
     date_due = serializers.DateField(required=False, allow_null=True)
-    total = serializers.SerializerMethodField()
+    total = serializers.IntegerField()
     status = serializers.ChoiceField(choices=VALID_INVOICE_STATUSES)
-
-    def get_total(self, obj):
-        return utils.from_cents(obj["total"])
 
 class InvoiceCreateSerializer(StrictSerializer):
     customer_id = serializers.IntegerField()

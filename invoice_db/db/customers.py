@@ -24,8 +24,7 @@ def get_customer_id_by_email(cursor, email: str) -> int:
     row = get_customer_by_email(cursor, email)
     return row['id'] if row else None
 
-def get_customers(cursor, min_total_dollars: int = 0) -> list:
-    min_cents = to_cents(min_total_dollars)
+def get_customers(cursor, min_total_cents: int = 0) -> list:
     cursor.execute("""
         SELECT 
             c.id, 
@@ -37,7 +36,7 @@ def get_customers(cursor, min_total_dollars: int = 0) -> list:
         GROUP BY c.id, c.name, c.email
         HAVING COALESCE(SUM(i.total), 0) >= ?
         ORDER BY c.id
-    """, (min_cents,))
+    """, (min_total_cents,))
     return cursor.fetchall()
 
 def get_customer_invoice_summary(cursor) -> list:

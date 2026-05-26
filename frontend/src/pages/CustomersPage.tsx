@@ -63,71 +63,72 @@ export function CustomersPage() {
     };
 
 return (
-    <section>
-        <h2>Customers</h2>
-        <p>Create customers and view existing customer records.</p>
+    <section className="page">
+        <div className="page-header">
+            <h2>Customers</h2>
+            <p>Create customers and view existing customer records.</p>
+        </div>
+        {error && <p className="error-message">{error}</p>}
 
-        {error && (
-            <p style={{ color: "red"}}>
-                {error}
-            </p>
-        )}
+        <form onSubmit={handleSubmit} className="form-card">
+            <div className="form-grid">
+                <div className="form-field">
+                    <label htmlFor="name">Name</label>
+                    <br />
+                    <input
+                        id="name"
+                        type="text"
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        placeholder="Jane Doe"
+                    />
+                </div>
 
-        <form onSubmit={handleSubmit} style={{ marginBottom: "2rem"}}>
-            <div style ={{ marginBottom: "1rem"}}>
-                <label htmlFor="name">Name</label>
-                <br />
-                <input
-                    id="name"
-                    type="text"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Jane Doe"
-                />
+                <div className="form-field">
+                    <label htmlFor="email">Email</label>
+                    <br />
+                    <input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="jane@example.com"
+                    />
+                </div>
+
+                <button className="primary-button" type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Creating..." : "Create Customer"}
+                </button>
             </div>
-
-            <div style={{ marginBottom: "1rem" }}>
-                <label htmlFor="email">Email</label>
-                <br />
-                <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="jane@example.com"
-                />
-            </div>
-
-            <button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Customer"}
-            </button>
         </form>
 
-        {isLoading ? (
-            <p>Loading customers...</p>
-        ) : customers.length === 0 ? (
-            <p>No customers found.</p>
-        ) : (
-            <table border={1} cellPadding={8}>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {customers.map((customer) => (
-                        <tr key={customer.id}>
-                            <td>{customer.id}</td>
-                            <td>{customer.name}</td>
-                            <td>{customer.email}</td>
+        <div className="table-wrapper">
+            {isLoading ? (
+                <p>Loading customers...</p>
+            ) : customers.length === 0 ? (
+                <p>No customers found.</p>
+            ) : (
+                <table className="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-        )}
+                    </thead>
+
+                    <tbody>
+                        {customers.map((customer) => (
+                            <tr key={customer.id}>
+                                <td>{customer.id}</td>
+                                <td>{customer.name}</td>
+                                <td>{customer.email}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+        </div>
     </section>
     );
 }

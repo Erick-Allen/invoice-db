@@ -1,8 +1,7 @@
 import { useEffect, useState, type SubmitEventHandler } from "react";
+import { dollarsToCents, centsToDollars } from "../utils/money";
 import { listCustomers, type Customer } from "../api/customers";
 import { createInvoice, listInvoices, updateInvoiceStatus, type Invoice, type InvoiceStatus } from "../api/invoices";
-
-const STATUSES: InvoiceStatus[] = ["draft", "sent", "paid", "void"];
 
 export function InvoicesPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -12,7 +11,6 @@ export function InvoicesPage() {
     const [dateIssued, setDateIssued] = useState("");
     const [dateDue, setDateDue] = useState("");
     const [totalDollars, setTotalDollars] = useState("");
-    const [status, setStatus] = useState<InvoiceStatus>("draft");
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,14 +59,13 @@ export function InvoicesPage() {
             customer_id: Number(customerId),
             date_issued: dateIssued || null,
             date_due: dateDue || null,
-            total: Number(totalDollars),
+            total: dollarsToCents(totalDollars),
         });
 
         setCustomerId("");
         setDateIssued("");
         setDateDue("");
         setTotalDollars("");
-        setStatus("draft");
 
         await loadData();
         } catch (err) {
@@ -110,117 +107,126 @@ export function InvoicesPage() {
 }
 
     return (
-        <section>
-            <h2>Invoices</h2>
-            <p>Create invoices and update invoice statuses.</p>
+        <section className="page">
+            <div className="page-header">
+                <h2>Invoices</h2>
+                <p>Create invoices and update invoice statuses.</p>
+            </div>
 
-            {error && <p style={{color: "red"}}>{error}</p>}
+            {error && <p className="error-message">{error}</p>}
 
-            <form onSubmit={handleSubmit} style={{ marginBottom: "2rem"}}>
-                <div style={{ marginBottom: "1rem" }}>
-                    <label htmlFor="customer">Customer</label>
-                    <br />
-                    <select
-                        id="customer"
-                        value={customerId}
-                        onChange={(event) => setCustomerId(event.target.value)}
-                    >
-                        <option value="">Select a customer</option>    
-                        {customers.map((customer) => (
-                            <option key={customer.id} value={customer.id}>
-                                {customer.name} - {customer.email}
-                            </option>
-                        ))}
-                    </select>
+            <form onSubmit={handleSubmit} className="form-card">
+                <div className="form-grid">
+                    <div className="form-field">
+                        <label htmlFor="customer">Customer</label>
+                        <br />
+                        <select
+                            id="customer"
+                            value={customerId}
+                            onChange={(event) => setCustomerId(event.target.value)}
+                        >
+                            <option value="">Select a customer</option>    
+                            {customers.map((customer) => (
+                                <option key={customer.id} value={customer.id}>
+                                    {customer.name} - {customer.email}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="form-field">
+                        <label htmlFor="dateIssued">Date Issued</label>
+                        <br />
+                        <input
+                            id="dateIssued"
+                            type="date"
+                            value={dateIssued}
+                            onChange={(event) => setDateIssued(event.target.value)}
+                        />
+                    </div>
+
+                    <div className="form-field">
+                        <label htmlFor="dateDue">Date Due</label>
+                        <br />
+                        <input
+                            id="dateDue"
+                            type="date"
+                            value={dateDue}
+                            onChange={(event) => setDateDue(event.target.value)}
+                        />
+                    </div>
+
+                    <div className="form-field">
+                        <label htmlFor="total">Total</label>
+                        <br />
+                        <input
+                            id="total"
+                            type="text"
+                            value={totalDollars}
+                            onChange={(event) => setTotalDollars(event.target.value)}
+                            placeholder="0"
+                        />
+                    </div>
+
+                    <button className="primary-button" type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? "Creating..." : "Create Invoice"}
+                    </button>
                 </div>
-
-                <div style={{ marginBottom: "1rem" }}>
-                    <label htmlFor="dateIssued">Date Issued</label>
-                    <br />
-                    <input
-                        id="dateIssued"
-                        type="date"
-                        value={dateIssued}
-                        onChange={(event) => setDateIssued(event.target.value)}
-                    />
-                </div>
-
-                <div style={{ marginBottom: "1rem" }}>
-                    <label htmlFor="dateDue">Date Due</label>
-                    <br />
-                    <input
-                        id="dateDue"
-                        type="date"
-                        value={dateDue}
-                        onChange={(event) => setDateDue(event.target.value)}
-                    />
-                </div>
-
-                <div style={{ marginBottom: "1rem" }}>
-                    <label htmlFor="total">Total</label>
-                    <br />
-                    <input
-                        id="total"
-                        type="text"
-                        value={totalDollars}
-                        onChange={(event) => setTotalDollars(event.target.value)}
-                        placeholder="125.00"
-                    />
-                </div>
-
-                <button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Creating..." : "Create Invoice"}
-                </button>
             </form>
 
-            {isLoading ? (
-                <p>Loading Invoices...</p>
-            ) : invoices.length === 0 ? (
-                <p>No invoices found.</p>
-            ) : (
-                <table border={1} cellPadding={8}>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Customer</th>
-                            <th>Date Issued</th>
-                            <th>Date Due</th>
-                            <th>Total</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {invoices.map((invoice) => (
-                            <tr key={invoice.id}>
-                                <td>{invoice.id}</td>
-                                <td>{"(" + invoice.customer_id + ")" + getCustomerName(invoice.customer_id)}</td>
-                                <td>{invoice.date_issued ?? "—"}</td>
-                                <td>{invoice.date_due ?? "—"}</td>
-                                <td>{(invoice.total)}</td>
-                                <td>{invoice.status}</td>
-                                <td>
-                                    {getNextStatuses(invoice.status).length === 0 ? (
-                                        <span>No actions</span>
-                                    ) : (
-                                        getNextStatuses(invoice.status).map((nextStatus) => (
-                                        <button
-                                            key={nextStatus}
-                                            type="button"
-                                            onClick={() => handleStatusChange(invoice.id, nextStatus)}
-                                            style={{ marginRight: "0.5rem" }}
-                                        >
-                                            Mark as {nextStatus}
-                                        </button>
-                                        ))
-                                    )}
-                                </td>
+            <div className="table-wrapper">
+                {isLoading ? (
+                    <p>Loading Invoices...</p>
+                ) : invoices.length === 0 ? (
+                    <p className="empty-state">No invoices found.</p>
+                ) : (
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Customer</th>
+                                <th>Date Issued</th>
+                                <th>Date Due</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            )}
+                        </thead>
+
+                        <tbody>
+                            {invoices.map((invoice) => (
+                                <tr key={invoice.id}>
+                                    <td>{invoice.id}</td>
+                                    <td>{"(" + invoice.customer_id + ")" + getCustomerName(invoice.customer_id)}</td>
+                                    <td>{invoice.date_issued ?? "—"}</td>
+                                    <td>{invoice.date_due ?? "—"}</td>
+                                    <td>${centsToDollars(invoice.total)}</td>
+                                    <td>
+                                        <span className="status-badge">{invoice.status}</span>
+                                    </td>
+                                    <td>
+                                        {getNextStatuses(invoice.status).length === 0 ? (
+                                            <span>No actions</span>
+                                        ) : (
+                                            getNextStatuses(invoice.status).map((nextStatus) => (
+                                            <button
+                                                className="action-button"
+                                                key={nextStatus}
+                                                type="button"
+                                                onClick={() => handleStatusChange(invoice.id, nextStatus)}
+                                                style={{ marginRight: "0.5rem" }}
+                                            >
+                                                Mark as {nextStatus}
+                                            </button>
+                                            ))
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
 
         </section>
     )

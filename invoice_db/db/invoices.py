@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from .customers import assert_customer_exists, get_customer_id_by_email
 from .validators import validate_total, validate_status, validate_sort
-from ..utils import to_iso, to_cents
+from ..utils import to_iso
 
 # Create
 def add_invoice_to_customer(cursor, customer_id: int, date_issued: str = None, total: int = 0, date_due: str = None, status: str = "draft") -> int:
@@ -11,7 +11,6 @@ def add_invoice_to_customer(cursor, customer_id: int, date_issued: str = None, t
     validate_total(total)
     date_issued = to_iso(date_issued)
     date_due = to_iso(date_due)
-    total = to_cents(total)
     validate_status(status)
 
     if status != "draft":
@@ -78,10 +77,10 @@ def count_invoices(
         params.append(status)
     if min_total is not None:
         clauses.append("total >= ?")
-        params.append(to_cents(min_total))
+        params.append(min_total)
     if max_total is not None:
         clauses.append("total <= ?")
-        params.append(to_cents(max_total))
+        params.append(max_total)
 
     if clauses:
         query += " WHERE " + " AND ".join(clauses)
@@ -136,10 +135,10 @@ def list_invoices(
         params.append(status)
     if min_total is not None:
         clauses.append("i.total >= ?")
-        params.append(to_cents(min_total))
+        params.append(min_total)
     if max_total is not None:
         clauses.append("i.total <= ?")
-        params.append(to_cents(max_total))
+        params.append(max_total)
 
     if clauses:
         sql += "WHERE " + " AND ".join(clauses)
@@ -205,10 +204,10 @@ def list_overdue_invoices(
         params.append(days_overdue)
     if min_total is not None:
         clauses.append("i.total >= ?")
-        params.append(to_cents(min_total))
+        params.append(min_total)
     if max_total is not None:
         clauses.append("i.total <= ?")
-        params.append(to_cents(max_total))
+        params.append(max_total)
 
     sql += "WHERE " + " AND ".join(clauses)
     sql += f"""
@@ -263,7 +262,7 @@ def update_invoice(
     if total:
         validate_total(total)
         updates.append("total = ?")
-        params.append(to_cents(total))
+        params.append(total)
     if  customer_id:
         assert_customer_exists(cursor, customer_id)
         updates.append("customer_id = ?")

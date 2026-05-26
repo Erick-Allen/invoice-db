@@ -2,28 +2,35 @@ import {BrowserRouter, Link, Route, Routes} from "react-router-dom";
 import { CustomersPage } from './pages/CustomersPage';
 import { DashboardPage } from './pages/dashboardPage';
 import { InvoicesPage } from './pages/InvoicesPage';
+import "./App.css";
 
 function App() {
 return (
   <BrowserRouter>
-    <main style={{ padding: "2rem", fontFamily: "Arial, sans-serif "}}>
-      <header style={{ marginBottom: "2rem"}}>
-        <h1>Invoice DB</h1>
-        <p>React frontend connected to Django API.</p>
+  <div className="app-shell">
+    <header className="app-header">
+      <div className="app-header-content">
+          <h1 className="app-title">Invoice DB</h1>
+          <p className="app-subtitle">
+            React frontend connected to Django API.
+          </p>
 
-        <nav style={{ display: "flex", gap: "1rem"}}>
-          <Link to="/">Dashboard</Link>
-          <Link to="/customers">Customers</Link>
-          <Link to="/invoices">Invoices</Link>
-        </nav>
-      </header>
+          <nav className="app-nav">
+            <Link to="/">Dashboard</Link>
+            <Link to="/customers">Customers</Link>
+            <Link to="/invoices">Invoices</Link>
+          </nav>
 
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="customers" element={<CustomersPage />} />
-        <Route path="invoices" element={<InvoicesPage />} />
-      </Routes>
-    </main>
+        <main className="app-main">
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="customers" element={<CustomersPage />} />
+            <Route path="invoices" element={<InvoicesPage />} />
+          </Routes>
+        </main>
+    </div>
+    </header>
+  </div>
   </BrowserRouter>
 
 )
