@@ -1,10 +1,13 @@
 import {useEffect, useState, type SubmitEventHandler } from "react";
-import { createCustomer, listCustomers, type Customer } from "../api/customers";
+import { createCustomer, updateCustomer, deleteCustomer, listCustomers, type Customer } from "../api/customers";
 
 export function CustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [editingCustomerId, setEditingCustomerId] = useState<number | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editEmail, setEditEmail] = useState("");
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,6 +22,65 @@ export function CustomersPage() {
             setError(err instanceof Error ? err.message : "Failed to load customers.");
         } finally {
             setIsLoading(false);
+        }
+    }
+
+    function startEditingCustomer(customer: Customer) {
+        setEditingCustomerId(customer.id);
+        setEditName(customer.name);
+        setEditEmail(customer.email);
+    }
+
+    function cancelEditingCustomer() {
+        setEditingCustomerId(null);
+        setEditName("");
+        setEditEmail("");
+    }
+
+    async function handleUpdateCustomer(customerId: number) {
+        const trimmedName = editName.trim();
+        const trimmedEmail = editEmail.trim();
+
+        if (!trimmedName) {
+            setError("Customer name is required.");
+            return;
+        }
+
+        if (!trimmedEmail) {
+            setError("Customer email is required.");
+            return;
+        }
+
+        try {
+            setError(null);
+
+            await updateCustomer(customerId, {
+                name: trimmedName,
+                email: trimmedEmail,
+            });
+
+            cancelEditingCustomer();
+            await loadCustomers();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to update customer.");
+        }
+    }
+
+    async function handleDeleteCustomer(customerId: number) {
+        const confirmed = window.confirm(
+            "Are you sure you want to delete this customer?"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setError(null)
+            await deleteCustomer(customerId);
+            await loadCustomers();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete customer.");
         }
     }
 
@@ -114,6 +176,7 @@ return (
                             <th>ID</th>
                             <th>Name</th>
                             <th>Email</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
 
@@ -121,8 +184,68 @@ return (
                         {customers.map((customer) => (
                             <tr key={customer.id}>
                                 <td>{customer.id}</td>
-                                <td>{customer.name}</td>
-                                <td>{customer.email}</td>
+                                    {editingCustomerId === customer.id ? (
+                                        <>
+                                            <td>
+                                                <input
+                                                    type="text"
+                                                    value={editName}
+                                                    onChange={(event) => setEditName(event.target.value)}
+                                                />                                                
+                                            </td>
+                                            <td>
+                                                <input
+                                                type="email"
+                                                value={editEmail}
+                                                onChange={(event) => setEditEmail(event.target.value)}
+                                                />
+                                            </td>
+                                            <td>
+                                                <div className="name-actions">
+                                                    <button
+                                                        className="small-action-button"
+                                                        type="button"
+                                                        onClick={() => handleUpdateCustomer(customer.id)}
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        className="small-danger-button"
+                                                        type="button"
+                                                        onClick={() => cancelEditingCustomer()}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    ) : (
+                                    <>
+                                        <td>{customer.name}</td>
+                                        <td>{customer.email}</td>
+                                    
+                                
+                                        <td>
+                                            <div className="name-actions">
+                                                <button 
+                                                    className="small-action-button"
+                                                    type="button"
+                                                    onClick={() => startEditingCustomer(customer)}
+                                                    >
+                                                    Edit
+                                                </button>
+
+                                                <button 
+                                                    className="small-danger-button"
+                                                    type="button"
+                                                    onClick={() => handleDeleteCustomer(customer.id)}
+                                                    >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </>
+                                )}
                             </tr>
                         ))}
                     </tbody>

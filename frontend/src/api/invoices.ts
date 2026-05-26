@@ -19,6 +19,13 @@ export type CreateInvoicePayload = {
     status?: InvoiceStatus;
 };
 
+export type UpdateInvoicePayload = {
+    customer_id?: number;
+    date_issued?: string | null;
+    date_due?: string | null;
+    total?: number;
+}
+
 export function listInvoices() {
     return apiRequest<Invoice[]>("/invoices/");
 }
@@ -30,9 +37,23 @@ export function createInvoice(payload: CreateInvoicePayload) {
     });
 }
 
+export function updateInvoice(id: number, payload: UpdateInvoicePayload) {
+    return apiRequest<Invoice>(`/ivnoices/${id}/`), {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+    }
+}
+
+
 export function updateInvoiceStatus(id: number, status: InvoiceStatus) {
     return apiRequest<Invoice>(`/invoices/${id}/status/`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
     });
+}
+
+export function deleteInvoice(id: number) {
+    return apiRequest<void>(`/invoices/${id}/`, {
+        method: "DELETE",
+    })
 }

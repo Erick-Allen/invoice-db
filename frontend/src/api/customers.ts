@@ -23,3 +23,16 @@ export function createCustomer(payload: CreateCustomerPayload) {
         body: JSON.stringify(payload),
     });
 }
+
+export function updateCustomer(id: number, payload: Partial<CreateCustomerPayload>) {
+    return apiRequest<Customer>(`/customers/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export function deleteCustomer(id: number) {
+    return apiRequest<void>(`/customers/${id}/`, {
+        method: "DELETE",
+    });
+}

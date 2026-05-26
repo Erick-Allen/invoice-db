@@ -177,3 +177,33 @@
   background: #f9fafb;
   color: #6b7280;
 }
+
+.name-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.small-action-button,
+.small-danger-button {
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.45rem;
+  border: 1px solid #374151;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+}
+
+.small-action-button:hover {
+  background: #1f2937;
+}
+
+.small-danger-button {
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+.small-danger-button:hover {
+  background: #7f1d1d;
+  color: white;
+}
