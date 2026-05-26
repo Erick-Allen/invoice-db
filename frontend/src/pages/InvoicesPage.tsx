@@ -1,7 +1,7 @@
 import { useEffect, useState, type SubmitEventHandler } from "react";
 import { dollarsToCents, centsToDollars } from "../utils/money";
 import { listCustomers, type Customer } from "../api/customers";
-import { createInvoice, listInvoices, updateInvoiceStatus, type Invoice, type InvoiceStatus } from "../api/invoices";
+import { createInvoice, listInvoices, updateInvoice, updateInvoiceStatus, deleteInvoice, type Invoice, type InvoiceStatus } from "../api/invoices";
 
 export function InvoicesPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -11,7 +11,12 @@ export function InvoicesPage() {
     const [dateIssued, setDateIssued] = useState("");
     const [dateDue, setDateDue] = useState("");
     const [totalDollars, setTotalDollars] = useState("");
-
+    const [editingInvoiceId, setEditingInvoiceId] = useState<number | null>(null);
+    const [editCustomerId, setEditCustomerId] = useState("");
+    const [editDateIssued, setEditDateIssued] = useState("");
+    const [editDateDue, setEditDateDue] = useState("");
+    const [editTotalDollars, setEditTotalDollars] = useState("");
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -75,6 +80,59 @@ export function InvoicesPage() {
         }
     }
 
+    function startEditingInvoice(invoice: Invoice) {
+        setEditingInvoiceId(invoice.id);
+        setEditCustomerId(String(invoice.customer_id));
+        setEditDateIssued(invoice.date_issued ?? "");
+        setEditDateDue(invoice.date_due ?? "");
+        setEditTotalDollars(centsToDollars(invoice.total));
+    }
+
+    function cancelEditingInvoice() {
+        setEditingInvoiceId(null);
+        setEditCustomerId("");
+        setEditDateIssued("");
+        setEditDateDue("");
+        setEditTotalDollars("");
+    }
+
+    async function handleUpdateInvoice(invoiceId: number) {
+        if (!editCustomerId) {
+            setError("Customer is required.")
+            return;
+        }
+
+        let totalCents: number;
+
+        try {
+            totalCents = dollarsToCents(editTotalDollars);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Enter a valid invoice total.");
+            return;
+        }
+
+        if (totalCents <= 0) {
+            setError("Invoice total must be greater than 0.");
+            return;
+        }
+
+        try {
+            setError(null);
+
+            await updateInvoice(invoiceId, {
+                customer_id: Number(editCustomerId),
+                date_issued: editDateIssued || null,
+                date_due: editDateDue || null,
+                total: totalCents,
+            });
+
+            cancelEditingInvoice();
+            await loadData();
+            } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to update invoice.");
+        }
+    }
+
 
     async function handleStatusChange(invoiceId: number, nextStatus: InvoiceStatus) {
         try {
@@ -92,19 +150,37 @@ export function InvoicesPage() {
     }
 
     function getNextStatuses(status: InvoiceStatus): InvoiceStatus[] {
-  switch (status) {
-    case "draft":
-      return ["sent"];
-    case "sent":
-      return ["paid", "void"];
-    case "paid":
-      return ["sent"];
-    case "void":
-      return [];
-    default:
-      return [];
-  }
-}
+        switch (status) {
+            case "draft":
+                return ["sent"];
+            case "sent":
+                return ["paid", "void"];
+            case "paid":
+                return ["sent"];
+            case "void":
+                return [];
+            default:
+                return [];
+        }
+    }
+
+    async function handleDeleteInvoice(invoiceId: number) {
+        const confirmed = window.confirm("Are you sure you want to delete this invoice?")
+            
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setError(null);
+            await deleteInvoice(invoiceId);
+            await loadData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete invoice.")
+        }
+    }
+
+    
 
     return (
         <section className="page">
@@ -189,6 +265,7 @@ export function InvoicesPage() {
                                 <th>Date Due</th>
                                 <th>Total</th>
                                 <th>Status</th>
+                                <th>Change Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -197,30 +274,113 @@ export function InvoicesPage() {
                             {invoices.map((invoice) => (
                                 <tr key={invoice.id}>
                                     <td>{invoice.id}</td>
-                                    <td>{"(" + invoice.customer_id + ")" + getCustomerName(invoice.customer_id)}</td>
-                                    <td>{invoice.date_issued ?? "—"}</td>
-                                    <td>{invoice.date_due ?? "—"}</td>
-                                    <td>${centsToDollars(invoice.total)}</td>
-                                    <td>
-                                        <span className="status-badge">{invoice.status}</span>
-                                    </td>
-                                    <td>
-                                        {getNextStatuses(invoice.status).length === 0 ? (
-                                            <span>No actions</span>
-                                        ) : (
-                                            getNextStatuses(invoice.status).map((nextStatus) => (
-                                            <button
-                                                className="action-button"
-                                                key={nextStatus}
-                                                type="button"
-                                                onClick={() => handleStatusChange(invoice.id, nextStatus)}
-                                                style={{ marginRight: "0.5rem" }}
-                                            >
-                                                Mark as {nextStatus}
-                                            </button>
-                                            ))
-                                        )}
-                                    </td>
+
+                                    {editingInvoiceId === invoice.id ? (
+                                        <>
+                                            <td>
+                                                <select
+                                                    value={editCustomerId}
+                                                    onChange={(event) => setEditCustomerId(event.target.value)}
+                                                >
+                                                    <option value="">Select a customer</option>
+                                                    {customers.map((customer) => (
+                                                        <option key={customer.id} value={customer.id}>
+                                                            {customer.name} - {customer.email}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input  
+                                                    type="date"
+                                                    value={editDateIssued}
+                                                    onChange={(event) => setEditDateIssued(event.target.value)}
+                                                />
+                                            </td>
+                                            <td>
+                                                <input  
+                                                    type="date"
+                                                    value={editDateDue}
+                                                    onChange={(event) => setEditDateDue(event.target.value)}
+                                                />
+                                            </td>
+                                            <td>
+                                                <input  
+                                                    type="text"
+                                                    value={editTotalDollars}
+                                                    onChange={(event) => setEditTotalDollars(event.target.value)}
+                                                />
+                                            </td>
+                                            
+                                            <td>
+                                                <span className="status-badge">{invoice.status}</span>
+                                            </td>
+
+                                            <td>
+                                                <div className="name-actions">
+                                                    <button
+                                                        className="small-action-button"
+                                                        type="button"
+                                                        onClick={() => handleUpdateInvoice(invoice.id)}
+                                                    >
+                                                        Save
+                                                    </button>
+
+                                                    <button
+                                                        className="small-danger-button"
+                                                        type="button"
+                                                        onClick={cancelEditingInvoice}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td>{"(" + invoice.customer_id + ")" + getCustomerName(invoice.customer_id)}</td>
+                                            <td>{invoice.date_issued ?? "—"}</td>
+                                            <td>{invoice.date_due ?? "—"}</td>
+                                            <td>${centsToDollars(invoice.total)}</td>
+                                            <td>
+                                                <span className="status-badge">{invoice.status}</span>
+                                            </td>
+                                            <td>
+                                                {getNextStatuses(invoice.status).length === 0 ? (
+                                                    <span>No actions</span>
+                                                ) : (
+                                                    getNextStatuses(invoice.status).map((nextStatus) => (
+                                                    <button
+                                                        className="action-button"
+                                                        key={nextStatus}
+                                                        type="button"
+                                                        onClick={() => handleStatusChange(invoice.id, nextStatus)}
+                                                    >
+                                                        {nextStatus}
+                                                    </button>
+                                                    ))
+                                                )}
+                                            </td>
+                                            <td>
+                                                <div className="name-actions">
+                                                    <button
+                                                        className="small-action-button"
+                                                        type="button"
+                                                        onClick={() => startEditingInvoice(invoice)}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        className="small-danger-button"
+                                                        type="button"
+                                                        onClick={() => handleDeleteInvoice(invoice.id)}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
