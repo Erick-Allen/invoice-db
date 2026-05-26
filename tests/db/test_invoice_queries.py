@@ -19,16 +19,16 @@ def test_count_invoices_filter_by_status(cursor, status, invoice_query_data):
     
 
 def test_count_invoices_filter_by_min_total(cursor, invoice_query_data):
-    invoice_count = invoices.count_invoices(cursor, min_total=250)
+    invoice_count = invoices.count_invoices(cursor, min_total=25000)
     assert invoice_count == 2
 
 def test_count_invoices_filter_by_max_total(cursor, invoice_query_data):
-    invoice_count = invoices.count_invoices(cursor, max_total=250)
+    invoice_count = invoices.count_invoices(cursor, max_total=25000)
     assert invoice_count == 3
 
 def test_count_invoices_filters_by_multiple_values(cursor, invoice_query_data):
     alice_id = invoice_query_data['customers']['alice']
-    invoice_count = invoices.count_invoices(cursor, customer_id=alice_id, status="paid", min_total=100.00)
+    invoice_count = invoices.count_invoices(cursor, customer_id=alice_id, status="paid", min_total=10000)
     assert invoice_count == 1
 
 # ----------- INVOICE Query Tests -----------
@@ -55,7 +55,7 @@ def test_list_invoices_filter_by_status(cursor, status, invoice_query_data):
     
 
 def test_list_invoices_filter_by_min_total(cursor, invoice_query_data):
-    results = invoices.list_invoices(cursor, min_total=250)
+    results = invoices.list_invoices(cursor, min_total=25000)
     found_ids = {row['id'] for row in results}
     assert len(results) == 2
     assert all(row["total"] >= 25000 for row in results) #values return in cents fmt
@@ -65,7 +65,7 @@ def test_list_invoices_filter_by_min_total(cursor, invoice_query_data):
     }
 
 def test_list_invoices_filter_by_max_total(cursor, invoice_query_data):
-    results = invoices.list_invoices(cursor, max_total=250)
+    results = invoices.list_invoices(cursor, max_total=25000)
     found_ids = {row['id'] for row in results}
     assert len(results) == 3
     assert all(row["total"] <= 25000 for row in results)
@@ -112,14 +112,14 @@ def test_overdue_invoices_filters_by_customer_id(cursor, invoice_overdue_data):
     assert found_id == {invoice_overdue_data['invoices']['john_overdue']}
 
 def test_overdue_invoices_filters_by_min_total(cursor, invoice_overdue_data):
-    result = invoices.list_overdue_invoices(cursor, min_total=400)
+    result = invoices.list_overdue_invoices(cursor, min_total=40000)
     found_id = {row['id'] for row in result}
     assert len(result) == 1
     assert all(row['total'] >= 40000 for row in result)
     assert found_id == {invoice_overdue_data['invoices']['alice_overdue']}
 
 def test_overdue_invoices_filters_by_max_total(cursor, invoice_overdue_data):
-    result = invoices.list_overdue_invoices(cursor, max_total=300)
+    result = invoices.list_overdue_invoices(cursor, max_total=30000)
     found_id = {row['id'] for row in result}
     assert len(result) == 1
     assert all(row['total'] <= 30000 for row in result)

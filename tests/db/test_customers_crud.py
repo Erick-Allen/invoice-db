@@ -47,10 +47,10 @@ def test_get_customer(cursor, customer_john, customer_alice):
 def test_get_customer_filter_by_min_total(cursor):
     customer_id_1 = customers.create_customer(cursor, CUSTOMER_JOHN_NAME, CUSTOMER_JOHN_EMAIL)
     customer_id_2 = customers.create_customer(cursor, CUSTOMER_ALICE_NAME, CUSTOMER_ALICE_EMAIL)
-    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_id_1, "1/1/2025", 200)
-    invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_id_1, "1/1/2025", 300)
+    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_id_1, "1/1/2025", 20000)
+    invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_id_1, "1/1/2025", 30000)
 
-    rows = customers.get_customers(cursor, min_total_dollars=500)
+    rows = customers.get_customers(cursor, min_total_cents=50000)
     assert len(rows) == 1
 
     returned_ids = {r["id"] for r in rows}

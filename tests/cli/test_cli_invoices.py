@@ -14,24 +14,25 @@ def test_create_and_get_invoice(customer_john, invoice_john, runner, temp_db):
     assert f"id={invoice_john}" in result.stdout
 
 def test_invoice_update(customer_john, invoice_john, runner, temp_db):
-    result = runner.invoke(app, ["invoices", "update", "--id", str(invoice_john), "--total", "9876", "--db", temp_db])
+    result = runner.invoke(app, ["invoices", "update", "--id", str(invoice_john), "--total", "987600", "--db", temp_db])
     assert result.exit_code == 0, result.stdout
     result = runner.invoke(app, ["invoices", "get", "--id", str(invoice_john), "--db", temp_db])
     assert f"id={invoice_john}" in result.stdout
+    print (result.stdout)
     assert "9876" in result.stdout
 
 def test_invoice_list_all(customer_john, invoice_john, customer_alice, invoice_alice, runner, temp_db):
     result = runner.invoke(app, ["invoices", "list", "--db", temp_db])
     assert result.exit_code == 0, result.stdout
-    assert "1234" in result.stdout
-    assert "9999" in result.stdout
+    assert "12.34" in result.stdout
+    assert "99.99" in result.stdout
 
 def test_invoice_list_one_customer(customer_john, invoice_john, runner, temp_db):
-    result = runner.invoke(app, ["invoices", "create", "--customer-id", str(customer_john), "--total", "777", "--db", temp_db])
+    result = runner.invoke(app, ["invoices", "create", "--customer-id", str(customer_john), "--total", "77700", "--db", temp_db])
     assert result.exit_code == 0, result.stdout
     result = runner.invoke(app, ["invoices", "list", "--customer-id", str(customer_john), "--db", temp_db])
     assert result.exit_code == 0, result.stdout
-    assert "1234" in result.stdout, result.stdout
+    assert "12.34" in result.stdout, result.stdout
     assert "777" in result.stdout, result.stdout
 
 def test_invoice_count_all(customer_john, invoice_john, customer_alice, invoice_alice, runner, temp_db):

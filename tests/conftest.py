@@ -35,7 +35,7 @@ def invoice_john(cursor, customer_john):
         cursor=cursor, 
         customer_id=customer_john,
         date_issued=date.today().isoformat(),
-        total=1234.00,
+        total=123400,
         status="draft",
         )
 
@@ -45,7 +45,7 @@ def invoice_alice(cursor, customer_alice):
         cursor=cursor, 
         customer_id=customer_alice,
         date_issued=date.today().isoformat(),
-        total=100.25,
+        total=10025,
         status="draft",
         )
 
@@ -57,7 +57,7 @@ def invoice_query_data(cursor, customer_john, customer_alice):
     invoice_john_draft = invoices.add_invoice_to_customer(
             cursor, 
             customer_id=customer_john, 
-            total=100.00, 
+            total=10000, 
             date_issued=today,
             date_due=future, 
             status="draft",
@@ -66,7 +66,7 @@ def invoice_query_data(cursor, customer_john, customer_alice):
     invoice_john_sent = invoices.add_invoice_to_customer(
             cursor, 
             customer_id=customer_john, 
-            total=250.00, 
+            total=25000, 
             date_issued=today,
             date_due=future,
             status="draft",
@@ -76,7 +76,7 @@ def invoice_query_data(cursor, customer_john, customer_alice):
     invoice_alice_paid = invoices.add_invoice_to_customer(
             cursor, 
             customer_id=customer_alice, 
-            total=500.00, 
+            total=50000, 
             date_issued=today,
             date_due=future,
             status="draft",
@@ -85,7 +85,7 @@ def invoice_query_data(cursor, customer_john, customer_alice):
     invoice_alice_void = invoices.add_invoice_to_customer(
             cursor,
             customer_id=customer_alice,
-            total=175.00, 
+            total=17500, 
             date_issued=today,
             date_due=future,
             status="draft",
@@ -128,7 +128,7 @@ def invoice_overdue_data(cursor, customer_john, customer_alice):
     john_overdue = invoices.add_invoice_to_customer(
         cursor,
         customer_id=customer_john,
-        total=300,
+        total=30000,
         date_issued=issued_date,
         date_due=past_due,
         status="draft",
@@ -137,7 +137,7 @@ def invoice_overdue_data(cursor, customer_john, customer_alice):
     john_due_today = invoices.add_invoice_to_customer(
         cursor,
         customer_id=customer_john,
-        total=200,
+        total=20000,
         date_issued=issued_date,
         date_due=due_today,
         status="draft",
@@ -146,7 +146,7 @@ def invoice_overdue_data(cursor, customer_john, customer_alice):
     alice_overdue = invoices.add_invoice_to_customer(
         cursor,
         customer_id=customer_alice,
-        total=500,
+        total=50000,
         date_issued=issued_date,
         date_due=past_due,
         status="draft",
@@ -155,7 +155,7 @@ def invoice_overdue_data(cursor, customer_john, customer_alice):
     alice_not_overdue = invoices.add_invoice_to_customer(
         cursor,
         customer_id=customer_alice,
-        total=400,
+        total=40000,
         date_issued=issued_date,
         date_due=future_due,
         status="draft",
