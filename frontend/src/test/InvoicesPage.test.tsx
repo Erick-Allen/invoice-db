@@ -11,7 +11,9 @@ vi.mock("../api/customers", () => ({
 vi.mock("../api/invoices", () => ({
     listInvoices: vi.fn(),
     createInvoice: vi.fn(),
+    updateInvoice: vi.fn(),
     updateInvoiceStatus: vi.fn(),
+    deleteInvoice: vi.fn(),
 }));
 
 const mockedListCustomers = vi.mocked(listCustomers);
@@ -58,7 +60,9 @@ describe("InvoicesPage", () => {
         expect(screen.getByText("$100.25")).toBeInTheDocument();
         expect(screen.getByText("draft")).toBeInTheDocument();
         
-        expect(screen.getByRole("button", { name : "Mark as sent"})).toBeInTheDocument();
+        expect(screen.getByRole("button", { name : "sent"})).toBeInTheDocument();
 
+        expect(screen.getByRole("button", {name: "Edit"})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: "Delete"})).toBeInTheDocument();
     })
 });

@@ -6,6 +6,8 @@ import { listCustomers } from "../api/customers";
 vi.mock("../api/customers", () => ({
     listCustomers: vi.fn(),
     createCustomer: vi.fn(),
+    updateCustomer: vi.fn(),
+    deleteCustomer: vi.fn(),
 }));
 
 const mockedListCustomers = vi.mocked(listCustomers);
@@ -27,10 +29,15 @@ describe("CustomersPage", () => {
         render(<CustomersPage />);
 
         expect(screen.getByRole("heading", {name: "Customers"})).toBeInTheDocument();
+
         expect(screen.getByLabelText("Name")).toBeInTheDocument();
         expect(screen.getByLabelText("Email")).toBeInTheDocument();
         expect(screen.getByRole("button", {name: "Create Customer"})).toBeInTheDocument();
+
         expect(await screen.findByText("John Doe")).toBeInTheDocument();
         expect(screen.getByText("john@example.com")).toBeInTheDocument();
+
+        expect(screen.getByRole("button", {name: "Edit"})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: "Delete"})).toBeInTheDocument();
     });
 })
