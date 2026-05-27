@@ -2,13 +2,11 @@ from datetime import date, timedelta
 from invoice_db.db import customers, invoices
 import pytest
 
-from invoice_db import utils
-
 CUSTOMER_JOHN_EMAIL = "john@test.com"
 
 # ---------- Invoice CRUD Tests ----------
 def test_create_invoice(cursor, customer_john):
-    invoice_id = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 300.25)
+    invoice_id = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
     row = cursor.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
 
     assert row is not None
@@ -23,7 +21,7 @@ def test_get_invoice_by_id(cursor, invoice_john):
     assert row['id'] == invoice_john
 
 def test_get_invoices_by_email(cursor, customer_john):
-    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 300.25)
+    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
     invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_john, "2/17/2025", 100)
     rows = invoices.get_invoices_by_email(cursor, CUSTOMER_JOHN_EMAIL)
 
@@ -40,7 +38,7 @@ def test_get_invoices_by_email(cursor, customer_john):
     assert invoice_2["id"] == invoice_id_2
 
 def test_get_invoices_by_customer_id(cursor, customer_john):
-    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 300.25)
+    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
     invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_john, "2/17/2025", 100)
     rows = invoices.get_invoices_by_customer_id(cursor, customer_john)
 
@@ -50,9 +48,9 @@ def test_get_invoices_by_customer_id(cursor, customer_john):
     assert customer_ids == {customer_john}
 
 def test_get_invoices_by_customer_and_range_inclusive(cursor, customer_john):
-    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 300.25)
+    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
     invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_john, "2/17/2025", 100)
-    invoice_id_3 = invoices.add_invoice_to_customer(cursor, customer_john, "6/5/2025", 1000.01)
+    invoice_id_3 = invoices.add_invoice_to_customer(cursor, customer_john, "6/5/2025", 100001)
 
     start_date = "2/17/2025"
     end_date = "6/5/2025"
@@ -78,7 +76,7 @@ def test_same_status_update_returns_success(cursor, new_status, customer_john):
     invoice_id = invoices.add_invoice_to_customer(
         cursor,
         customer_id=customer_john,
-        total=100.5,
+        total=10050,
         status="draft",
     )
 
@@ -131,7 +129,7 @@ def test_valid_transistion_paid_to_sent(cursor, invoice_john):
     assert invoice['status'] == "sent"
 
 def test_update_invoice_date_issued_only(cursor, customer_john):
-    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 300.25)
+    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
     invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_john, "2/17/2025", 100)
 
     new_date_issued = "2025-03-08"
@@ -145,10 +143,10 @@ def test_update_invoice_date_issued_only(cursor, customer_john):
     assert row_2["date_issued"] != new_date_issued
 
 def test_update_invoice_total_and_customer(cursor, customer_john, customer_alice):
-    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 300.25)
+    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
     invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_john, "2/17/2025", 100)
 
-    new_total = 1500.90
+    new_total = 150090
     updated = invoices.update_invoice(cursor, invoice_id_2, total=new_total, customer_id=customer_alice)
     assert updated
 
@@ -156,20 +154,20 @@ def test_update_invoice_total_and_customer(cursor, customer_john, customer_alice
     row_2 = invoices.get_invoice_by_id(cursor, invoice_id_2)
 
     assert row_1["customer_id"] == customer_john
-    assert row_1["total"] != utils.to_cents(new_total)
+    assert row_1["total"] != new_total
     assert row_2["customer_id"] == customer_alice
-    assert row_2["total"] == utils.to_cents(new_total)
+    assert row_2["total"] == new_total
     
 
 def test_update_invoice_no_fields_returns_false(cursor, customer_john):
-    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 300.25)
+    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
     invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_john, "2/17/2025", 100)
 
     updated = invoices.update_invoice(cursor, invoice_id_1)
     assert not updated
 
 def test_delete_invoice(cursor, customer_john):
-    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 300.25)
+    invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
     invoice_id_2 = invoices.add_invoice_to_customer(cursor, customer_john, "2/17/2025", 100)
 
     deleted = invoices.delete_invoice(cursor, invoice_id_1)

@@ -8,16 +8,16 @@
 - `v0.4.0` — Invoice CRUD support in the CLI
 - `v0.5.0` — Docker support and Rich terminal output
 - `v0.6.0` — Invoice lifecycle and querying improvements
+- `v0.7.0` — Django REST Framework API layer
 
 ## Current
 
-- `v0.7.0` — Django REST Framework API layer
+- `v0.8.0`  —  React UI
 
 ## Planned
 
-- `v0.8.0`  — UI/public-facing release
-- `v0.9.0`  — Products 
-- `v0.10.0` — Invoice line items
-- `v0.11.0` — Reporting
-- `v0.12.0` — Final polish and reliability improvements
-- `v1.0.0`  — Full stable release
+- `v0.9.0`  —  AI query assistant MVP
+- `v0.10.0` —  Products table
+- `v0.11.0` —  Invoice line items
+- `v0.12.0` —  Expanded reporting + stronger AI assistant
+- `v1.0.0`  —  Stable deployable release

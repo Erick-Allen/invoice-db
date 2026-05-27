@@ -3,7 +3,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.7.0] - 2026-##-##
+## [0.8.0] - 2026-05-27
+
+### Added
+- React + TypeScript frontend built with Vite
+- Dashboard, customer, and invoice UI pages
+- Customer create, edit, delete, and list workflows
+- Invoice create, edit, delete, list, and status update workflows
+- Frontend API client for customer and invoice endpoints
+- Frontend tests with Vitest and React Testing Library
+
+### Changed
+- Standardized invoice totals as integer cents across the API, service layer, and database layer
+- Updated CLI total handling so user-entered dollar amounts are converted to cents before reaching services
+- Updated backend tests to reflect cents-based invoice total handling
+
+## [0.7.0] - 2026-05-11
 
 ### Added
 - Shared service layer for customers and invoices

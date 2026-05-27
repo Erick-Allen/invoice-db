@@ -5,6 +5,7 @@ from invoice_db.db import connection
 from invoice_db.services import invoices as invoices_services
 from invoice_db.services import exceptions as service_exceptions
 from . import render_invoices, ui
+from ..utils import to_cents
 
 invoices_app = typer.Typer(help="Invoice commands.")
 
@@ -21,7 +22,7 @@ def create_invoice(
             invoice = invoices_services.create_invoice(
                 cursor,
                 customer_id=customer_id,
-                total=total,
+                total=to_cents(total),
                 date_issued=date_issued,
                 date_due=date_due,
             )
@@ -52,15 +53,15 @@ def list_invoices(
     sort_by: str = typer.Option("created_at", "--sort-by", help="Sort by: id | date_issued | total | status"),
     desc: bool = typer.Option(True, "--desc/--asc", help="Sort direction."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")):
-    
+
     with connection.db_session(db_path) as (connect, cursor):
         try:
             invoices = invoices_services.list_invoices(
                 cursor=cursor,
                 customer_id=customer_id,
                 status=status,
-                min_total=min_total,
-                max_total=max_total,
+                min_total=to_cents(min_total) if min_total is not None else None,
+                max_total=to_cents(max_total) if max_total is not None else None,
                 limit=limit,
                 offset=offset,
                 sort_by=sort_by,
@@ -117,8 +118,8 @@ def count_invoices(
                 cursor=cursor,
                 customer_id=customer_id,
                 status=status,
-                min_total=min_total,
-                max_total=max_total,
+                min_total=to_cents(min_total) if min_total is not None else None,
+                max_total=to_cents(max_total) if max_total is not None else None,
             )
             
         except service_exceptions.ValidationError as e:
@@ -158,9 +159,8 @@ def overdue_invoices(
                 cursor=cursor,
                 customer_id=customer_id,
                 days_overdue=days_overdue,
-                min_total=min_total,
-                max_total=max_total,
-                limit=limit,
+                min_total=to_cents(min_total) if min_total is not None else None,
+                max_total=to_cents(max_total) if max_total is not None else None,
                 offset=offset,
                 sort_by=sort_by,
                 desc=desc,
@@ -206,7 +206,7 @@ def update_invoice(
                 invoice_id=invoice_id,
                 new_date_issued=new_date_issued,
                 new_date_due=new_date_due,
-                new_total=new_total,
+                new_total=to_cents(new_total) if new_total is not None else None,
                 new_customer_id=new_customer_id
                 )
             

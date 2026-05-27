@@ -13,7 +13,7 @@ def test_create_invoice_returns_201(api_client, test_db, customer_john_id):
             "customer_id": customer_john_id,
             "date_issued": "2026-05-20",
             "date_due": "2026-06-20",
-            "total": 2000,
+            "total": 200000,
         },
         format="json",
     )
@@ -24,11 +24,11 @@ def test_create_invoice_returns_201(api_client, test_db, customer_john_id):
     assert data["customer_id"] == customer_john_id
     assert data["date_issued"] == "2026-05-20" 
     assert data["date_due"] == "2026-06-20"
-    assert data["total"] == 2000
+    assert data["total"] == 200000
     assert data["status"] == "draft"
 
 def test_get_invoice_returns_200(api_client, test_db, customer_john_id, post_invoice):
-    invoice_response = post_invoice(customer_id=customer_john_id, total=1000)
+    invoice_response = post_invoice(customer_id=customer_john_id, total=100000)
     invoice_id = invoice_response.json()['id']
 
     response = api_client.get(f"/api/invoices/{invoice_id}/")
@@ -37,16 +37,16 @@ def test_get_invoice_returns_200(api_client, test_db, customer_john_id, post_inv
     data = response.json()
     assert data['id'] == invoice_id
     assert data['customer_id'] == customer_john_id
-    assert data['total'] == 1000
+    assert data['total'] == 100000
 
 def test_patch_invoice_with_single_field_returns_200(api_client, test_db, customer_john_id, post_invoice,):
-    invoice_response = post_invoice(customer_id=customer_john_id, total=1000)
+    invoice_response = post_invoice(customer_id=customer_john_id, total=10000)
     invoice_id = invoice_response.json()['id']
 
     response = api_client.patch(
         f"/api/invoices/{invoice_id}/",
         {
-            "total": 1500,
+            "total": 150000,
         },
         format="json",
     )
@@ -56,7 +56,7 @@ def test_patch_invoice_with_single_field_returns_200(api_client, test_db, custom
     data = response.json()
     assert data['id'] == invoice_id
     assert data['customer_id'] == customer_john_id
-    assert data['total'] == 1500
+    assert data['total'] == 150000
 
 def test_patch_invoice_with_multiple_fields_returns_200(api_client, test_db, customer_john_id, post_invoice):
     invoice_response = post_invoice(customer_id=customer_john_id, total=1000)
@@ -65,7 +65,7 @@ def test_patch_invoice_with_multiple_fields_returns_200(api_client, test_db, cus
     response = api_client.patch(
         f"/api/invoices/{invoice_id}/",
         {
-            "total": 2500,
+            "total": 250000,
             "date_due": "2026-07-20"
         },
         format="json",
@@ -76,7 +76,7 @@ def test_patch_invoice_with_multiple_fields_returns_200(api_client, test_db, cus
     data = response.json()
     assert data['id'] == invoice_id
     assert data['customer_id'] == customer_john_id
-    assert data['total'] == 2500
+    assert data['total'] == 250000
     assert data['date_due'] == "2026-07-20"
 
 def test_patch_invoice_status_returns_200(api_client, test_db, customer_john_id, post_invoice):

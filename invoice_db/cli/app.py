@@ -2,7 +2,7 @@ import typer
 from .ui import console
     
 #CLI APP
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 app = typer.Typer(
     help=(

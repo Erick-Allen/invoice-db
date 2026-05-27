@@ -6,9 +6,12 @@ from .views import (
     InvoiceListCreateView,
     InvoiceDetailView,
     InvoiceStatusUpdateView,
+    api_root
 )
 
 urlpatterns = [
+    path("", api_root, name="api-root"),
+
     path("customers/", CustomerListCreateView.as_view(), name="customer-list-create"),
     path("customers/<int:customer_id>/", CustomerDetailView.as_view(), name="customer-detail"),
 

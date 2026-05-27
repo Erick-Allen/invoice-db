@@ -1,39 +1,45 @@
 # invoice-db
+A **relational database, CLI, API, and React UI application** built with **Python**, **SQLite**, and **TypeScript** for managing customers and invoices.
 
-A **relational database, CLI, and API application** built with **Python** and **SQLite** for managing customers and invoices.
-
-The project emphasizes practical backend design: normalized relational schema design, business-rule validation, command-line workflows, HTTP API endpoints, query filtering/sorting, and automated test coverage.
+The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, query filtering/sorting, and automated test coverage.
 
 ## Features
-
-As of **v0.7.0**, the project includes support for: 
+As of **v0.8.0**, the project includes support for:
 
 - Customer and invoice management
 - Full CRUD operations for customers and invoices
 - Invoice lifecycle/status management
 - Filtering, sorting, and improved invoice queries
 - Typer-based CLI with Rich terminal output
-- Django REST Framework API Layer
+- Django REST Framework API layer
+- React + TypeScript frontend UI
 - Shared service layer used by both CLI and API
+- API-backed frontend workflows 
 - Dockerized runtime with persistent storage
-- Automated tests with `pytest`
+- Automated backend tests with `pytest`
+- Automated frontend tests with Vitest and React Testing Library
 
 ## Architecture
 
 ```text
 CLI        → services → db
 API/DRF    → services → db
-future UI  → API → services → db
+React UI   → API → services → db
 ```
 
 For the full folder breakdown, see [`invoice_db/docs/PROJECT_STRUCTURE.md`](invoice_db/docs/PROJECT_STRUCTURE.md).
 
 ## Tech Stack
-- SQLite 3
 - Python 3
+- SQLite 3
 - Typer
 - Rich
 - Django REST Framework
+- React
+- TypeScript
+- Vite
+- Vitest
+- React Testing Library
 - Docker
 - pytest
 - uv
@@ -60,6 +66,17 @@ uv run invoicedb --help
 ### 5. Run the API server
 ```bash
 uv run python manage.py runserver
+```
+
+### 6. Install frontend dependencies
+```bash
+cd frontend
+npm install
+```
+
+### 7. Run React UI
+```bash
+npm run dev
 ```
 
 ## Installation (Docker)
@@ -127,7 +144,7 @@ docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 - `DELETE /api/invoices/{id}/`
 - `PATCH /api/invoices/{id}/status/`
 
-## Sample Data & Demo
+## Sample Data & Demo (CLI)
 ```bash
 uv run python scripts/seed.py
 uv run python scripts/demo.py
@@ -137,11 +154,31 @@ uv run python scripts/demo.py
 
 
 ## Testing
+
+### Backend tests
 ```bash
 uv run pytest --cov=invoice_db --cov-report=term-missing
 ```
 
+### Frontend tests
+```bash
+cd frontend
+npm run test:run
+```
+
 ## Version History
+
+### [v0.8.0]
+#### Added
+- React + TypeScript frontend built with Vite
+- Frontend pages for dashboard, customers, and invoices
+- Customer create, edit, delete, and list workflows
+- Invoice create, edit, delete, list, and status update workflows
+- Frontend API client for customer and invoice endpoints
+- Frontend tests with Vitest and React Testing Library
+
+#### Changed
+- Standardized invoice totals as integer cents across the API, service layer, and database
 
 ### [v0.7.0]
 #### Added
@@ -186,10 +223,10 @@ uv run pytest --cov=invoice_db --cov-report=term-missing
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.8.0] (Minor)
-- Add UI layer
-
 ### [v0.9.0] (Minor)
-- Add invoice line items
+- Add AI assistant
+
+### [v0.10.0] (Minor)
+- Add Products table
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).

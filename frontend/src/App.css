@@ -1,0 +1,209 @@
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-header {
+  background: #111827;
+  color: white;
+  padding: 1.5rem 2rem;
+}
+
+.app-header-content {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.app-subtitle {
+  margin: 0.5rem 0 1.25rem;
+  color: #d1d5db;
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.app-nav a {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #1f2937;
+  color: #f9fafb;
+}
+
+.app-nav a:hover {
+  background: #374151;
+}
+
+.app-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.page {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header h2 {
+  margin: 0 0 0.5rem;
+}
+
+.page-header p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.form-card {
+  border: 1px solid #e5e7eb;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+  background: #f9fafb;
+}
+
+.form-grid {
+  display: grid;
+  gap: 1rem;
+  max-width: 600px;
+}
+
+.form-field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+  outline: 2px solid #93c5fd;
+  border-color: #2563eb;
+}
+
+.primary-button {
+  width: fit-content;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+.primary-button:hover {
+  background: #1d4ed8;
+}
+
+.primary-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.action-button {
+  margin-right: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+}
+
+.action-button:hover {
+  background: #f3f4f6;
+}
+
+.error-message {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: #fee2e2;
+  color: #991b1b;
+  margin-bottom: 1rem;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.8rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.data-table th {
+  background: #f9fafb;
+  font-weight: 700;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: #e5e7eb;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.empty-state {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+.name-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.small-action-button,
+.small-danger-button {
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.45rem;
+  border: 1px solid #374151;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+}
+
+.small-action-button:hover {
+  background: #1f2937;
+}
+
+.small-danger-button {
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+.small-danger-button:hover {
+  background: #7f1d1d;
+  color: white;
+}
