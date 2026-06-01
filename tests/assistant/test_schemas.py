@@ -5,14 +5,15 @@ from invoice_db.assistant.schemas import (AssistantIntent, IntentParameters, unk
 
 def test_accepts_valid_count_by_status_intent():
     result = AssistantIntent(
-        intent="count_invoices_by_status",
+        intent="invoices_by_status",
         confidence=0.95,
-        parameters=IntentParameters(status="paid"),
+        parameters=IntentParameters(status="paid", result_type="count"),
     )
 
-    assert result.intent == "count_invoices_by_status"
+    assert result.intent == "invoices_by_status"
     assert result.confidence == 0.95
     assert result.parameters.status == "paid"
+    assert result.parameters.result_type == "count"
 
 def test_accepts_valid_list_overdue_intent_without_parameters():
     result = AssistantIntent(

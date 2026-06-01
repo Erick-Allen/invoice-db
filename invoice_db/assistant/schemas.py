@@ -1,4 +1,5 @@
 from typing import Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -110,6 +111,15 @@ class IntentPrediction(BaseModel):
 
     intent: IntentName
     confidence: float = Field(ge=0.0, le=1.0)
+
+class AssistantResponse(BaseModel):
+    """Response returned after dispatching an assistant intent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message: str
+    intent: IntentName
+    data: Any = None
 
 
 def unknown_intent(confidence: float = 0.0) -> AssistantIntent:
