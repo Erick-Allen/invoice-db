@@ -1,0 +1,408 @@
+[
+  {
+    "text": "How many invoices are paid?",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Give me the number of draft invoices",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "How many invoices have been sent?",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Count all void invoices",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "What is the total number of paid invoices?",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Tell me how many draft invoices exist",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "How many sent invoices are in the system?",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Give me a count of paid invoices",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "How many invoices are currently void?",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "What number of invoices are marked as sent?",
+    "intent": "invoices_by_status"
+  },
+
+  {
+    "text": "Show all paid invoices",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Pull up draft invoices",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "I want to see void invoices",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Display all sent invoices",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Show invoices that are marked paid",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "List every draft invoice",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Find invoices with sent status",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Show me invoices that are void",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Pull invoices that are currently paid",
+    "intent": "invoices_by_status"
+  },
+  {
+    "text": "Display invoices in draft status",
+    "intent": "invoices_by_status"
+  },
+
+  {
+    "text": "Which invoices are late?",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Show bills past the due date",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Find invoices that have not been paid by the due date",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Show invoices that are past due",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "List invoices with missed due dates",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Which invoices are overdue right now?",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Find unpaid invoices that are past their due date",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Show me invoices that should have been paid already",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Pull up invoices that are behind schedule",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Display invoices with expired due dates",
+    "intent": "list_overdue_invoices"
+  },
+   {
+    "text": "Show overdue invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Show me overdue invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "List overdue invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Find overdue invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Display overdue invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Show late invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "List late invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Find late invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Pull up late invoices",
+    "intent": "list_overdue_invoices"
+  },
+  {
+    "text": "Show invoices past due",
+    "intent": "list_overdue_invoices"
+  },
+
+  {
+    "text": "Show me John's invoices",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Find invoices connected to Alice",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Pull customer invoices for Michael Brown",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Show invoices for Sarah Johnson",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "List invoices belonging to David Lee",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Find all invoices for Maria Garcia",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Show customer invoices for Robert Wilson",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Display invoices tied to Emily Davis",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Pull up invoices for Chris Martin",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Show me everything billed to Amanda Clark",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Find invoices for John Smith",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Show all invoices for Alice Johnson",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Display invoices for Michael Brown",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Pull up Sarah Johnson's invoices",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "List everything billed to David Lee",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Show invoices tied to Maria Garcia",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Find customer invoices for Robert Wilson",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Display invoices connected to Emily Davis",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Show Chris Martin's invoices",
+    "intent": "list_invoices_by_customer"
+  },
+  {
+    "text": "Pull up customer records for Amanda Clark's invoices",
+    "intent": "list_invoices_by_customer"
+  },
+
+  {
+    "text": "Show invoices greater than $750",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Find invoices less than 250 dollars",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "List invoices from $200 to $900",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Show invoices above $1000",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Find invoices under $500",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Display invoices between $300 and $800",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Pull invoices over 150 dollars",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Show invoices below 75 dollars",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "List invoices ranging from $50 to $400",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Find high value invoices above $2000",
+    "intent": "list_invoices_by_total_range"
+  },
+   {
+    "text": "Show invoices over $1000",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Find invoices above $250",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "List invoices under $750",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Display invoices below 500 dollars",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Pull invoices greater than $1200",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Show invoices less than $100",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Find invoices between $50 and $300",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "List invoices from $400 to $1000",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Display invoices ranging between $150 and $600",
+    "intent": "list_invoices_by_total_range"
+  },
+  {
+    "text": "Show expensive invoices over $2000",
+    "intent": "list_invoices_by_total_range"
+  },
+  
+
+  {
+    "text": "Good morning",
+    "intent": "unknown"
+  },
+  {
+    "text": "Can you make a customer profile picture?",
+    "intent": "unknown"
+  },
+  {
+    "text": "Change the app theme",
+    "intent": "unknown"
+  },
+  {
+    "text": "Tell me a joke",
+    "intent": "unknown"
+  },
+  {
+    "text": "What is the weather today?",
+    "intent": "unknown"
+  },
+  {
+    "text": "Open the dashboard settings",
+    "intent": "unknown"
+  },
+  {
+    "text": "Write me an email",
+    "intent": "unknown"
+  },
+  {
+    "text": "Create a new logo for my business",
+    "intent": "unknown"
+  },
+  {
+    "text": "Explain how taxes work",
+    "intent": "unknown"
+  },
+  {
+    "text": "What can this app do?",
+    "intent": "unknown"
+  },
+   {
+    "text": "What time is it?",
+    "intent": "unknown"
+  },
+  {
+    "text": "Summarize this article",
+    "intent": "unknown"
+  },
+  {
+    "text": "Help me write a resume",
+    "intent": "unknown"
+  },
+  {
+    "text": "Generate a profile picture",
+    "intent": "unknown"
+  },
+  {
+    "text": "Explain machine learning to me",
+    "intent": "unknown"
+  },
+  {
+    "text": "Turn on dark mode",
+    "intent": "unknown"
+  },
+  {
+    "text": "Schedule a meeting tomorrow",
+    "intent": "unknown"
+  },
+  {
+    "text": "Send an email to my professor",
+    "intent": "unknown"
+  },
+  {
+    "text": "What is the capital of France?",
+    "intent": "unknown"
+  },
+  {
+    "text": "Create a new user account",
+    "intent": "unknown"
+  }
+]

@@ -27,3 +27,6 @@ PersonalLog.md
 
 #Unsure
 .env
+
+#Classifier evaluation
+invoice_db/assistant/evaluation_runs/*.json
