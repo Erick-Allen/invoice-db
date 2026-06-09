@@ -25,6 +25,8 @@ from .serializers import (
     InvoiceStatusUpdateSerializer
 )
 
+router = AssistantRouter(use_qwen=True)
+
 @api_view(["GET"])
 def api_root(request):
     return Response(
@@ -380,8 +382,6 @@ class InvoiceStatusUpdateView(APIView):
         serializer = InvoiceSerializer(invoice)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-router = AssistantRouter(use_qwen=False)
-
     
 class AssistantQueryView(APIView):
     def post(self, request):
@@ -393,8 +393,8 @@ class AssistantQueryView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        with get_connection(connection.DB_PATH) as conn:
-            cursor = conn.cursor()
+        with connection.db_session(connection.DB_PATH) as (connect, cursor):
+            cursor = connect.cursor()
 
             customers = list_customers(cursor)
             customer_names = [customer["name"] for customer in customers]

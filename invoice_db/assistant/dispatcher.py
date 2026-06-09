@@ -35,7 +35,10 @@ class AssistantDispatcher:
         if intent == "unknown":
             return AssistantResponse(
                 intent="unknown",
-                message="I couldn't match that request to a supported invoice action.",
+                message=(
+                    assistant_intent.message 
+                    or "I couldn't match that request to a supported invoice action."
+                ),
                 data=None,
             )
 

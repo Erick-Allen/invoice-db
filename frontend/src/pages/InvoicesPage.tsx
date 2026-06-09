@@ -98,41 +98,60 @@ export function InvoicesPage() {
     }
 
     async function handleUpdateInvoice(invoiceId: number) {
-        if (!editCustomerId) {
-            setError("Customer is required.")
-            return;
-        }
-
-        let totalCents: number;
-
-        try {
-            totalCents = dollarsToCents(editTotalDollars);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Enter a valid invoice total.");
-            return;
-        }
-
-        if (totalCents <= 0) {
-            setError("Invoice total must be greater than 0.");
-            return;
-        }
-
-        try {
-            setError(null);
-            
-            await updateInvoice(invoiceId, {
-                customer_id: Number(editCustomerId),
-                date_issued: editDateIssued || null,
-                date_due: editDateDue || null,
-                total: totalCents,
-            });
-
-            cancelEditingInvoice();
-            await loadData();
-            } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to update invoice.");
-        }
+    if (!editCustomerId) {
+        setError("Customer is required.");
+        return;
     }
+
+    let totalCents: number;
+
+    try {
+        totalCents = dollarsToCents(editTotalDollars);
+    } catch (err) {
+        setError(err instanceof Error ? err.message : "Enter a valid invoice total.");
+        return;
+    }
+
+    if (totalCents <= 0) {
+        setError("Invoice total must be greater than 0.");
+        return;
+    }
+
+    const existingInvoice = invoices.find((invoice) => invoice.id === invoiceId);
+
+    if (!existingInvoice) {
+        setError("Invoice not found.");
+        return;
+    }
+
+    const noChangesDetected =
+        existingInvoice.customer_id === Number(editCustomerId) &&
+        (existingInvoice.date_issued ?? "") === editDateIssued &&
+        (existingInvoice.date_due ?? "") === editDateDue &&
+        existingInvoice.total === totalCents;
+
+    if (noChangesDetected) {
+        setError(null);
+        cancelEditingInvoice();
+        return;
+    }
+
+    try {
+        setError(null);
+
+        await updateInvoice(invoiceId, {
+            customer_id: Number(editCustomerId),
+            date_issued: editDateIssued || null,
+            date_due: editDateDue || null,
+            total: totalCents,
+        });
+
+        cancelEditingInvoice();
+        await loadData();
+    } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to update invoice.");
+    }
+}
 
 
     async function handleStatusChange(invoiceId: number, nextStatus: InvoiceStatus) {
@@ -184,18 +203,22 @@ export function InvoicesPage() {
     
 
     return (
-        <section className="page">
+        <>
             <div className="page-header">
                 <h2>Invoices</h2>
                 <p>Create invoices and update invoice statuses.</p>
             </div>
 
-            <AssistantChatBox />
+            <section className="invoice-page-stack">
 
             {error && <p className="error-message">{error}</p>}
 
             <form onSubmit={handleSubmit} className="form-card">
-                <div className="form-grid">
+            <div>
+                <h3>Create Invoice</h3>
+            </div>
+
+            <div className="form-grid">
                     <div className="form-field">
                         <label htmlFor="customer">Customer</label>
                         <br />
@@ -253,6 +276,10 @@ export function InvoicesPage() {
                 </div>
             </form>
 
+            <AssistantChatBox />
+            <h3>Invoice List</h3>
+
+
             <div className="table-wrapper">
                 {isLoading ? (
                     <p>Loading Invoices...</p>
@@ -262,7 +289,7 @@ export function InvoicesPage() {
                     <table className="data-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>#</th>
                                 <th>Customer</th>
                                 <th>Date Issued</th>
                                 <th>Date Due</th>
@@ -274,14 +301,15 @@ export function InvoicesPage() {
                         </thead>
 
                         <tbody>
-                            {invoices.map((invoice) => (
+                            {invoices.map((invoice, index) => (
                                 <tr key={invoice.id}>
-                                    <td>{invoice.id}</td>
+                                    <td>{index + 1}</td>
 
                                     {editingInvoiceId === invoice.id ? (
                                         <>
                                             <td>
-                                                <select
+                                                <select   
+                                                    className="wide-select"
                                                     value={editCustomerId}
                                                     onChange={(event) => setEditCustomerId(event.target.value)}
                                                 >
@@ -345,7 +373,7 @@ export function InvoicesPage() {
                                         </>
                                     ) : (
                                         <>
-                                            <td>{"(" + invoice.customer_id + ")" + getCustomerName(invoice.customer_id)}</td>
+                                            <td>{getCustomerName(invoice.customer_id)}</td>
                                             <td>{invoice.date_issued ?? "—"}</td>
                                             <td>{invoice.date_due ?? "—"}</td>
                                             <td>${centsToDollars(invoice.total)}</td>
@@ -394,7 +422,7 @@ export function InvoicesPage() {
                     </table>
                 )}
             </div>
-
-        </section>
+            </section>
+        </>
     )
 }

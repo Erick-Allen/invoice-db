@@ -1,25 +1,24 @@
-import {BrowserRouter, Link, Route, Routes} from "react-router-dom";
-import { CustomersPage } from './pages/CustomersPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { InvoicesPage } from './pages/InvoicesPage';
+import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import { CustomersPage } from "./pages/CustomersPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { InvoicesPage } from "./pages/InvoicesPage";
 import "./App.css";
 
 function App() {
-return (
-  <BrowserRouter>
-  <div className="app-shell">
-    <header className="app-header">
-      <div className="app-header-content">
-          <h1 className="app-title">Invoice DB</h1>
-          <p className="app-subtitle">
-            React frontend connected to Django API.
-          </p>
+  return (
+    <BrowserRouter>
+      <div className="app-shell">
+        <header className="app-header">
+          <div className="app-header-content">
+            <h1 className="app-title">InvoiceDB</h1>
 
-          <nav className="app-nav">
-            <Link to="/">Dashboard</Link>
-            <Link to="/customers">Customers</Link>
-            <Link to="/invoices">Invoices</Link>
-          </nav>
+            <nav className="app-nav">
+              <NavLink to="/" end>Dashboard</NavLink>
+              <NavLink to="/customers">Customers</NavLink>
+              <NavLink to="/invoices">Invoices</NavLink>
+            </nav>
+          </div>
+        </header>
 
         <main className="app-main">
           <Routes>
@@ -28,12 +27,9 @@ return (
             <Route path="invoices" element={<InvoicesPage />} />
           </Routes>
         </main>
-    </div>
-    </header>
-  </div>
-  </BrowserRouter>
-
-)
-
+      </div>
+    </BrowserRouter>
+  );
 }
-export default App
+
+export default App;
