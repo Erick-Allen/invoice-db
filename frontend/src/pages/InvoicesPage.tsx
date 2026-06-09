@@ -2,6 +2,7 @@ import { useEffect, useState, type SubmitEventHandler } from "react";
 import { dollarsToCents, centsToDollars } from "../utils/money";
 import { listCustomers, type Customer } from "../api/customers";
 import { createInvoice, listInvoices, updateInvoice, updateInvoiceStatus, deleteInvoice, type Invoice, type InvoiceStatus } from "../api/invoices";
+import { AssistantChatBox } from "../components/AssistantChatBox";
 
 export function InvoicesPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -118,7 +119,7 @@ export function InvoicesPage() {
 
         try {
             setError(null);
-
+            
             await updateInvoice(invoiceId, {
                 customer_id: Number(editCustomerId),
                 date_issued: editDateIssued || null,
@@ -188,6 +189,8 @@ export function InvoicesPage() {
                 <h2>Invoices</h2>
                 <p>Create invoices and update invoice statuses.</p>
             </div>
+
+            <AssistantChatBox />
 
             {error && <p className="error-message">{error}</p>}
 
@@ -315,6 +318,10 @@ export function InvoicesPage() {
                                             <td>
                                                 <span className="status-badge">{invoice.status}</span>
                                             </td>
+                                            <td>
+                                                <span>Editing</span>
+                                            </td>
+
 
                                             <td>
                                                 <div className="name-actions">

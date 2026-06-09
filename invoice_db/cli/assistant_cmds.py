@@ -1,5 +1,3 @@
-# invoice_db/cli/assistant_cmds.py
-
 import json
 from typing import Annotated
 
@@ -28,6 +26,13 @@ def ask(
         bool,
         typer.Option("--show-data", help="Print raw response data as JSON."),
     ] = False,
+    use_qwen: Annotated[
+    bool,
+    typer.Option(
+        "--use-qwen",
+        help="Use optional local Qwen/Ollama fallback for low-confidence requests.",
+    ),
+] = False,
 ) -> None:
     """Ask the assistant a natural-language invoice question."""
 
@@ -35,7 +40,7 @@ def ask(
         with db_session() as (_, cursor):
             data_source = ServiceInvoiceAssistantDataSource(cursor)
             dispatcher = AssistantDispatcher(data_source)
-            router = AssistantRouter()
+            router = AssistantRouter(use_qwen=use_qwen)
 
             assistant = AssistantService(
                 router=router,
