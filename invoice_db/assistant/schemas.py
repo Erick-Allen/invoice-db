@@ -48,6 +48,7 @@ class AssistantIntent(BaseModel):
     intent: IntentName
     confidence: float = Field(ge=0.0, le=1.0)
     parameters: IntentParameters = Field(default_factory=IntentParameters)
+    message: str | None = None
 
     @model_validator(mode="after")
     def validate_parameters_for_intent(self) -> "AssistantIntent":
@@ -122,13 +123,14 @@ class AssistantResponse(BaseModel):
     data: Any = None
 
 
-def unknown_intent(confidence: float = 0.0) -> AssistantIntent:
+def unknown_intent(confidence: float = 0.0, message: str | None = None) -> AssistantIntent:
     """Return a safe fallback intent."""
 
     return AssistantIntent(
         intent="unknown",
         confidence=confidence,
         parameters=IntentParameters(),
+        message=message,
     )
 
 

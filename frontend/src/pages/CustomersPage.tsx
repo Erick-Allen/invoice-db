@@ -124,134 +124,145 @@ export function CustomersPage() {
         }
     };
 
-return (
-    <section className="page">
+    return (
+    <>
         <div className="page-header">
-            <h2>Customers</h2>
-            <p>Create customers and view existing customer records.</p>
+        <h2>Customers</h2>
+        <p>Create customers and view existing customer records.</p>
         </div>
+
+        <section className="invoice-page-stack">
         {error && <p className="error-message">{error}</p>}
 
         <form onSubmit={handleSubmit} className="form-card">
+            <div>
+            <h3>Create Customer</h3>
+            </div>
+
             <div className="form-grid">
-                <div className="form-field">
-                    <label htmlFor="name">Name</label>
-                    <br />
-                    <input
-                        id="name"
-                        type="text"
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                        placeholder="Jane Doe"
-                    />
-                </div>
+            <div className="form-field">
+                <label htmlFor="name">Name</label>
+                <br />
+                <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Jane Doe"
+                />
+            </div>
 
-                <div className="form-field">
-                    <label htmlFor="email">Email</label>
-                    <br />
-                    <input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder="jane@example.com"
-                    />
-                </div>
+            <div className="form-field">
+                <label htmlFor="email">Email</label>
+                <br />
+                <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="jane@example.com"
+                />
+            </div>
 
-                <button className="primary-button" type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Creating..." : "Create Customer"}
-                </button>
+            <button className="primary-button" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Customer"}
+            </button>
             </div>
         </form>
 
-        <div className="table-wrapper">
+        <div className="section-header">
+            <h3>Customer List</h3>
+        </div>
+
+        <div className="table-wrapper wide-table-wrapper">
             {isLoading ? (
-                <p>Loading customers...</p>
+            <p>Loading customers...</p>
             ) : customers.length === 0 ? (
-                <p>No customers found.</p>
+            <p>No customers found.</p>
             ) : (
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
+            <table className="data-table">
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
 
-                    <tbody>
-                        {customers.map((customer) => (
-                            <tr key={customer.id}>
-                                <td>{customer.id}</td>
-                                    {editingCustomerId === customer.id ? (
-                                        <>
-                                            <td>
-                                                <input
-                                                    type="text"
-                                                    value={editName}
-                                                    onChange={(event) => setEditName(event.target.value)}
-                                                />                                                
-                                            </td>
-                                            <td>
-                                                <input
-                                                type="email"
-                                                value={editEmail}
-                                                onChange={(event) => setEditEmail(event.target.value)}
-                                                />
-                                            </td>
-                                            <td>
-                                                <div className="name-actions">
-                                                    <button
-                                                        className="small-action-button"
-                                                        type="button"
-                                                        onClick={() => handleUpdateCustomer(customer.id)}
-                                                    >
-                                                        Save
-                                                    </button>
-                                                    <button
-                                                        className="small-danger-button"
-                                                        type="button"
-                                                        onClick={() => cancelEditingCustomer()}
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </>
-                                    ) : (
-                                    <>
-                                        <td>{customer.name}</td>
-                                        <td>{customer.email}</td>
-                                    
-                                
-                                        <td>
-                                            <div className="name-actions">
-                                                <button 
-                                                    className="small-action-button"
-                                                    type="button"
-                                                    onClick={() => startEditingCustomer(customer)}
-                                                >
-                                                    Edit
-                                                </button>
+                <tbody>
+                {customers.map((customer, index) => (
+                    <tr key={customer.id}>
+                    <td>{index + 1}</td>
 
-                                                <button 
-                                                    className="small-danger-button"
-                                                    type="button"
-                                                    onClick={() => handleDeleteCustomer(customer.id)}
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </>
-                                )}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                    {editingCustomerId === customer.id ? (
+                        <>
+                        <td>
+                            <input
+                            type="text"
+                            value={editName}
+                            onChange={(event) => setEditName(event.target.value)}
+                            />
+                        </td>
+                        <td>
+                            <input
+                            className="wide-select"
+                            type="email"
+                            value={editEmail}
+                            onChange={(event) => setEditEmail(event.target.value)}
+                            />
+                        </td>
+                        <td>
+                            <div className="name-actions">
+                            <button
+                                className="small-action-button"
+                                type="button"
+                                onClick={() => handleUpdateCustomer(customer.id)}
+                            >
+                                Save
+                            </button>
+                            <button
+                                className="small-danger-button"
+                                type="button"
+                                onClick={cancelEditingCustomer}
+                            >
+                                Cancel
+                            </button>
+                            </div>
+                        </td>
+                        </>
+                    ) : (
+                        <>
+                        <td>{customer.name}</td>
+                        <td>{customer.email}</td>
+                        <td>
+                            <div className="name-actions">
+                            <button
+                                className="small-action-button"
+                                type="button"
+                                onClick={() => startEditingCustomer(customer)}
+                            >
+                                Edit
+                            </button>
+
+                            <button
+                                className="small-danger-button"
+                                type="button"
+                                onClick={() => handleDeleteCustomer(customer.id)}
+                            >
+                                Delete
+                            </button>
+                            </div>
+                        </td>
+                        </>
+                    )}
+                    </tr>
+                ))}
+                </tbody>
+            </table>
             )}
         </div>
-    </section>
+        </section>
+    </>
     );
 }
