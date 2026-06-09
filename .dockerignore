@@ -2,31 +2,50 @@
 .venv/
 venv/
 
-# Byte-compiled / optimized / DLL files
-__pycache__/
+# Python cache files
+**pycache**/
 *.py[cod]
 
 # IDE / editor settings
-.vscode
+.vscode/
+.idea/
 
-# Packaging / test artifacts
+# Packaging / build artifacts
 *.egg-info/
-.pytest_cache/
 dist/
 build/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Git metadata
 .git/
 .gitignore
 
-# Local data
+# Local database / mounted data
 *.db
 *.sqlite
 *.sqlite3
+data/
 
 # Environment files
 .env
 .env.*
 
+# Frontend dependencies and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
 # Personal notes
 PersonalLog.md
+
+# Classifier evaluation runs
+invoice_db/assistant/evaluation_runs/*.json

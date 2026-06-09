@@ -2,31 +2,53 @@
 .venv/
 venv/
 
-# Distribution / packaging
+# Python packaging
 *.egg-info/
+dist/
+build/
+
+# Python cache files
+**pycache**/
+*.py[cod]
 
 # Unit test / coverage reports
 .pytest_cache/
 .coverage
+htmlcov/
+
+# Type checking / tooling caches
+.mypy_cache/
+.ruff_cache/
 
 # IDE / editor settings
-*.vscode/
+.vscode/
+.idea/
 
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
+# Environment variables
+.env
+.env.*
 
 # Database files
 *.db
+*.sqlite
+*.sqlite3
 db.sqlite3
 demo.sqlite
 invoicedb.sqlite
+data/
+
+# Frontend dependencies and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
 
 # Personal notes
 PersonalLog.md
 
-#Unsure
-.env
-
-#Classifier evaluation
+# Classifier evaluation runs
 invoice_db/assistant/evaluation_runs/*.json
