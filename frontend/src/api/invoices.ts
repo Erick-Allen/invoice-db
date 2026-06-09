@@ -38,10 +38,10 @@ export function createInvoice(payload: CreateInvoicePayload) {
 }
 
 export function updateInvoice(id: number, payload: UpdateInvoicePayload) {
-    return apiRequest<Invoice>(`/ivnoices/${id}/`), {
+    return apiRequest<Invoice>(`/invoices/${id}/`, {
         method: "PATCH",
         body: JSON.stringify(payload)
-    }
+    });
 }
 
 

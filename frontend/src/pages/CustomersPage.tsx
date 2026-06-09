@@ -231,7 +231,7 @@ return (
                                                     className="small-action-button"
                                                     type="button"
                                                     onClick={() => startEditingCustomer(customer)}
-                                                    >
+                                                >
                                                     Edit
                                                 </button>
 
@@ -239,7 +239,7 @@ return (
                                                     className="small-danger-button"
                                                     type="button"
                                                     onClick={() => handleDeleteCustomer(customer.id)}
-                                                    >
+                                                >
                                                     Delete
                                                 </button>
                                             </div>

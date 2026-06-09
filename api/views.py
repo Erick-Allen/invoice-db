@@ -10,6 +10,11 @@ from invoice_db.services import invoices as invoice_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from invoice_db.assistant.router import AssistantRouter
+from invoice_db.assistant.dispatcher import AssistantDispatcher
+from invoice_db.assistant.data_source import ServiceInvoiceAssistantDataSource
+from invoice_db.services.customers import list_customers
+from scripts.seed import get_connection
 
 from .serializers import (
     CustomerSerializer,
@@ -374,3 +379,43 @@ class InvoiceStatusUpdateView(APIView):
         
         serializer = InvoiceSerializer(invoice)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+router = AssistantRouter(use_qwen=False)
+
+    
+class AssistantQueryView(APIView):
+    def post(self, request):
+        message = request.data.get("message", "").strip()
+
+        if not message:
+            return Response(
+                {"error": "Message is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with get_connection(connection.DB_PATH) as conn:
+            cursor = conn.cursor()
+
+            customers = list_customers(cursor)
+            customer_names = [customer["name"] for customer in customers]
+
+            assistant_intent = router.route(
+                message=message,
+                customer_names=customer_names,
+            )
+
+            data_source = ServiceInvoiceAssistantDataSource(cursor)
+            dispatcher = AssistantDispatcher(data_source)
+            assistant_response = dispatcher.dispatch(assistant_intent)
+
+
+
+        return Response(
+            {
+                "message": message,
+                "assistant_intent": assistant_intent.model_dump(),
+                "assistant_response": assistant_response.model_dump(),
+
+            },
+            status=status.HTTP_200_OK,
+        )

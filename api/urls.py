@@ -6,6 +6,7 @@ from .views import (
     InvoiceListCreateView,
     InvoiceDetailView,
     InvoiceStatusUpdateView,
+    AssistantQueryView,
     api_root
 )
 
@@ -17,5 +18,7 @@ urlpatterns = [
 
     path("invoices/", InvoiceListCreateView.as_view(), name="invoice-list-create"),
     path("invoices/<int:invoice_id>/", InvoiceDetailView.as_view(), name="invoice-detail"),
-    path("invoices/<int:invoice_id>/status/", InvoiceStatusUpdateView.as_view(), name="invoice-status-update")
+    path("invoices/<int:invoice_id>/status/", InvoiceStatusUpdateView.as_view(), name="invoice-status-update"),
+
+    path ("assistant/query/", AssistantQueryView.as_view(), name="assistant-query"),
 ]
