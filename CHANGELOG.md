@@ -3,10 +3,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.9.0] - 2026-##-##
+## [0.9.0] - 2026-06-09
 
 ### Added
- - pydantic for guardrails for ai
+
+* Added a guarded natural-language invoice assistant.
+* Added intent classification for supported invoice queries.
+* Added Pydantic validation for assistant intent contracts.
+* Added an assistant dispatcher that routes validated intents through the service layer only.
+* Added optional local Qwen/Ollama fallback for ambiguous assistant requests.
+* Added the `POST /api/assistant/query/` endpoint.
+* Added React invoice assistant UI with suggested prompts.
+* Added assistant result rendering for invoice counts and invoice lists.
+* Added dashboard summary cards for customers, invoices, and invoice statuses.
+* Added recent customer and recent invoice dashboard panels.
+
+### Changed
+
+* Updated Docker runtime to start the Django API by default.
+* Polished React navigation, dashboard, customers, and invoices pages.
+* Improved customer and invoice tables by hiding raw database IDs from users.
+* Updated invoice display to show customer names instead of raw customer IDs.
+* Updated project Python requirement to Python 3.11+.
+* Pinned `scikit-learn` to match the trained classifier artifact.
  
 ### Changed 
 

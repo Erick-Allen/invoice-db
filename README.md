@@ -1,10 +1,10 @@
 # invoice-db
-A **relational database, CLI, API, and React UI application** built with **Python**, **SQLite**, and **TypeScript** for managing customers and invoices.
+A relational database, CLI, API, React UI, and AI assistant application built with Python, SQLite, and TypeScript for managing customers and invoices.
 
-The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, query filtering/sorting, and automated test coverage.
+The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.8.0**, the project includes support for:
+As of **v0.9.0**, the project includes support for:
 
 - Customer and invoice management
 - Full CRUD operations for customers and invoices
@@ -14,10 +14,9 @@ As of **v0.8.0**, the project includes support for:
 - Django REST Framework API layer
 - React + TypeScript frontend UI
 - Shared service layer used by both CLI and API
-- API-backed frontend workflows 
-- Dockerized runtime with persistent storage
-- Automated backend tests with `pytest`
-- Automated frontend tests with Vitest and React Testing Library
+- Guarded natural-language invoice assistant using intent classification
+- Dockerized backend runtime with persistent SQLite storage
+Backend and frontend test coverage with pytest, Vitest, and React Testing Library
 
 ## Architecture
 
@@ -25,6 +24,8 @@ As of **v0.8.0**, the project includes support for:
 CLI        → services → db
 API/DRF    → services → db
 React UI   → API → services → db
+Assistant  → router/classifier → validated intent → dispatcher → services → db
+Qwen fallback → validated intent/message only
 ```
 
 For the full folder breakdown, see [`invoice_db/docs/PROJECT_STRUCTURE.md`](invoice_db/docs/PROJECT_STRUCTURE.md).
@@ -42,7 +43,10 @@ For the full folder breakdown, see [`invoice_db/docs/PROJECT_STRUCTURE.md`](invo
 - React Testing Library
 - Docker
 - pytest
+- scikit-learn
+- Pydantic
 - uv
+- Optional: Ollama/Qwen for assistant fallback
 
 ## Installation (Local)
 
@@ -89,10 +93,10 @@ cd invoice-db
 docker build -t invoicedb .
 ```
 
-### Docker Runner
+### Run the Dockerized backend API
 
 ```bash
-./run <command>
+docker run --rm -p 8000:8000 -v ${PWD}/data:/data invoicedb
 ```
 
 ### Interactive Shell
@@ -100,6 +104,20 @@ docker build -t invoicedb .
 ```bash
 docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 ```
+
+### Docker and Qwen/Ollama fallback
+
+If the Dockerized backend needs to reach Ollama running on the host machine, localhost:11434 will not work from 
+
+Use:
+
+```bash
+http://host.docker.internal:11434/api/chat
+```
+
+The default local fallback model is:
+
+qwen3:0.6b
 
 ## CLI Usage
 
@@ -124,6 +142,10 @@ docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 - `invoicedb invoices set-status`
 - `invoicedb invoices delete`
 
+### Assistant command
+- `invoicedb assistant ask`
+- `invoicedb assistant ask --use-qwen`
+
 **Other**
 - `invoicedb --version`
 
@@ -143,6 +165,10 @@ docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 - `PATCH /api/invoices/{id}/`
 - `DELETE /api/invoices/{id}/`
 - `PATCH /api/invoices/{id}/status/`
+
+### Assistant
+
+- `POST /api/assistant/query/`
 
 ## Sample Data & Demo (CLI)
 ```bash
@@ -167,6 +193,14 @@ npm run test:run
 ```
 
 ## Version History
+
+### [v0.9.0]
+#### Added
+- Natural-language invoice assistant
+- Intent classifier for supported invoice queries
+
+#### Changed
+- Updated Docker runtime from CLI-first behavior to API server behavior
 
 ### [v0.8.0]
 #### Added
@@ -223,10 +257,10 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.9.0] (Minor)
-- Add AI assistant
-
 ### [v0.10.0] (Minor)
 - Add Products table
+
+### [v0.11.0] (Minor)
+- Invoice line items
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).
