@@ -31,6 +31,7 @@ from .db_cmds import db_app
 from .customers_cmds import customers_app
 from .invoices_cmds import invoices_app
 from .invoice_items_cmds import invoice_items_app
+from .payments_cmds import payments_app
 from .products_cmds import products_app
 from .assistant_cmds import assistant_app
 
@@ -38,5 +39,6 @@ app.add_typer(db_app, name="db")
 app.add_typer(customers_app, name="customers")
 app.add_typer(invoices_app, name="invoices")
 app.add_typer(invoice_items_app, name="invoice-items")
+app.add_typer(payments_app, name="payments")
 app.add_typer(products_app, name="products")
 app.add_typer(assistant_app, name="assistant")
