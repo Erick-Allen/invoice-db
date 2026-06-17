@@ -3,6 +3,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0] - 2026-06-16
+
+### Added
+
+* Added product catalog support across DB, services, CLI, API, and React frontend.
+* Added product create, list, get, update, deactivate, and delete workflows.
+* Added product API endpoints under `/api/products/`.
+* Added product CLI commands under `invoicedb products`.
+* Added product frontend page at `/products`.
+* Added product test coverage for CLI, API, and frontend behavior.
+* Added Docker entrypoint schema initialization for fresh containers.
+
+### Changed
+
+* Updated Docker startup so the SQLite schema is initialized automatically before the API starts.
+
 ## [0.9.0] - 2026-06-09
 
 ### Added

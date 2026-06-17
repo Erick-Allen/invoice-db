@@ -6,6 +6,7 @@ from typer.testing import CliRunner
 
 CUSTOMER_ID_REGEX = re.compile(r"id=(\d+)")
 INVOICE_ID_REGEX = re.compile(r"Created invoice \(id=(\d+)\)")
+PRODUCT_ID_REGEX = re.compile(r"id=(\d+)")
 
 #CLI fixtures
 @pytest.fixture
@@ -69,4 +70,42 @@ def invoice_alice(runner, temp_db, customer_alice):
     assert result.exit_code == 0, result.stdout
     match = INVOICE_ID_REGEX.search(result.stdout)
     assert match, f"Could not parse invoice id from output: {result.stdout}"
+    return int(match.group(1))
+
+@pytest.fixture
+def product_widget(runner, temp_db):
+    result = runner.invoke(app, [
+        "products",
+        "add",
+        "--name",
+        "Widget",
+        "--price",
+        "12.34",
+        "--description",
+        "A test widget",
+        "--db",
+        temp_db,
+    ])
+    assert result.exit_code == 0, result.stdout
+    match = PRODUCT_ID_REGEX.search(result.stdout)
+    assert match, f"Could not parse product id from output: {result.stdout}"
+    return int(match.group(1))
+
+@pytest.fixture
+def product_service(runner, temp_db):
+    result = runner.invoke(app, [
+        "products",
+        "add",
+        "--name",
+        "Service",
+        "--price",
+        "25",
+        "--description",
+        "A test service",
+        "--db",
+        temp_db,
+    ])
+    assert result.exit_code == 0, result.stdout
+    match = PRODUCT_ID_REGEX.search(result.stdout)
+    assert match, f"Could not parse product id from output: {result.stdout}"
     return int(match.group(1))

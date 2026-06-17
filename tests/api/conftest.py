@@ -58,3 +58,24 @@ def post_invoice(api_client, test_db):
         )
     
     return helper
+
+@pytest.fixture
+def post_product(api_client, test_db):
+    def helper(
+        name="Widget",
+        unit_price_cents=1234,
+        description="A test widget",
+        is_active=True,
+    ):
+        return api_client.post(
+            "/api/products/",
+            {
+                "name": name,
+                "description": description,
+                "unit_price_cents": unit_price_cents,
+                "is_active": is_active,
+            },
+            format="json",
+        )
+
+    return helper

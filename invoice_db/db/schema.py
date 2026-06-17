@@ -22,6 +22,17 @@ def create_triggers(cursor):
         SET updated_at = datetime('now', 'localtime')
         WHERE id = NEW.id;
     END;
+
+    CREATE TRIGGER IF NOT EXISTS trigger_products_updated
+    AFTER UPDATE ON
+        products
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE products
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
     """)
 
 # TABLE CREATION
@@ -80,6 +91,28 @@ def create_invoice_schema(cursor):
         idx_invoices_customer_date ON invoices(customer_id, date_issued);
     """)
 
+def create_product_schema(cursor):
+    cursor.executescript("""
+    -- Products table: reusable catalog items that can later be attached to invoice line items.
+    CREATE TABLE IF NOT EXISTS products (
+        id              INTEGER PRIMARY KEY,
+        name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
+        description     TEXT,
+        unit_price      INTEGER NOT NULL DEFAULT 0
+                                CHECK (unit_price >= 0 AND unit_price = CAST(unit_price AS INTEGER)),
+        is_active       INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    -- Support catalog lookup.
+    CREATE INDEX IF NOT EXISTS
+        idx_products_name ON products(name);
+    CREATE INDEX IF NOT EXISTS
+        idx_products_is_active ON products(is_active);
+    """)
+
 def create_customer_summary_view(cursor):
     cursor.executescript("""
     CREATE VIEW IF NOT EXISTS customer_invoice_summary AS
@@ -100,5 +133,6 @@ def create_customer_summary_view(cursor):
 def create_schema(cursor):
     create_customer_schema(cursor)
     create_invoice_schema(cursor)
+    create_product_schema(cursor)
     create_customer_summary_view(cursor)
     create_triggers(cursor)

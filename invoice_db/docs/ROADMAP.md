@@ -10,14 +10,14 @@
 - `v0.6.0` — Invoice lifecycle and querying improvements
 - `v0.7.0` — Django REST Framework API layer
 - `v0.8.0`  —  React UI
+- `v0.9.0`  —  AI query assistant MVP
 
 ## Current
 
-- `v0.9.0`  —  AI query assistant MVP
+- `v0.10.0` —  Product catalog
 
 ## Planned
 
-- `v0.10.0` —  Products table
 - `v0.11.0` —  Invoice line items
 - `v0.12.0` —  Expanded reporting + stronger AI assistant
 - `v1.0.0`  —  Stable deployable release

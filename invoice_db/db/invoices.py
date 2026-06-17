@@ -253,17 +253,17 @@ def update_invoice(
         if new_date_due < new_date_issued:
             raise ValueError("Due date must be later than or equal to date issued.")
 
-    if date_issued:
+    if date_issued is not None:
         updates.append("date_issued = ?")
         params.append(new_date_issued)
-    if date_due:
+    if date_due is not None:
         updates.append("date_due = ?")
         params.append(new_date_due)
-    if total:
+    if total is not None:
         validate_total(total)
         updates.append("total = ?")
         params.append(total)
-    if  customer_id:
+    if  customer_id is not None:
         assert_customer_exists(cursor, customer_id)
         updates.append("customer_id = ?")
         params.append(customer_id)

@@ -46,6 +46,7 @@ Thumbs.db
 
 # Personal notes
 PersonalLog.md
+DEV_NOTES.md
 
 # Classifier evaluation runs
 invoice_db/assistant/evaluation_runs/*.json

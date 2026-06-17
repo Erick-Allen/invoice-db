@@ -21,7 +21,9 @@ def drop_db_command(
         db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
 ):
     with connection.db_session(db_path) as (connect, cursor):
+        cursor.execute("DROP VIEW IF EXISTS customer_invoice_summary;")
         cursor.execute("DROP TABLE IF EXISTS invoices;")
+        cursor.execute("DROP TABLE IF EXISTS products;")
         cursor.execute("DROP TABLE IF EXISTS customers;")
         connect.commit()
     console.print(f"Dropped all tables from {db_path}", style="success")
