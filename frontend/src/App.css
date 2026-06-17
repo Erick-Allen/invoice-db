@@ -223,6 +223,45 @@
   flex-wrap: wrap;
 }
 
+.line-items-cell {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 360px;
+}
+
+.line-item-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.line-item-row,
+.line-item-add,
+.line-item-edit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.line-item-row {
+  justify-content: space-between;
+}
+
+.line-item-add input,
+.line-item-add select,
+.line-item-edit input,
+.line-item-edit select {
+  max-width: 140px;
+}
+
+.muted-text {
+  margin: 0;
+  color: #6b7280;
+}
+
 .section-header {
   display: flex;
   align-items: center;

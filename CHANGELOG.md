@@ -3,6 +3,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.0] - 2026-06-17
+
+### Added
+
+* Added invoice line item support across DB, services, CLI, API, and React frontend.
+* Added product-backed line items with quantity, unit price snapshots, and calculated line totals.
+* Added invoice item API endpoints under `/api/invoices/{id}/items/` and `/api/invoice-items/{id}/`.
+* Added invoice item CLI commands under `invoicedb invoice-items`.
+* Added optional nested invoice items with `include_items=true` on invoice list/detail API responses.
+* Added `invoicedb invoices list --include-items`.
+* Added frontend line-item add, edit, and delete workflows for draft invoices.
+* Added backend and frontend test coverage for invoice item behavior.
+* Locked line-item edits after invoices are sent, paid, or void.
+
+### Changed
+
+* Changed invoice totals to be calculated from line items instead of manual invoice total inputs.
+* Improved frontend invoice loading and status-change error messages.
+
 ## [0.10.0] - 2026-06-16
 
 ### Added

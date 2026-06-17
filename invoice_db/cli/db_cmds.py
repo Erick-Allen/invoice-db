@@ -22,6 +22,7 @@ def drop_db_command(
 ):
     with connection.db_session(db_path) as (connect, cursor):
         cursor.execute("DROP VIEW IF EXISTS customer_invoice_summary;")
+        cursor.execute("DROP TABLE IF EXISTS invoice_items;")
         cursor.execute("DROP TABLE IF EXISTS invoices;")
         cursor.execute("DROP TABLE IF EXISTS products;")
         cursor.execute("DROP TABLE IF EXISTS customers;")

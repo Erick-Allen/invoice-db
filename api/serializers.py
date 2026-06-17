@@ -47,13 +47,11 @@ class InvoiceCreateSerializer(StrictSerializer):
     customer_id = serializers.IntegerField()
     date_issued = serializers.DateField(required=False, allow_null=True)
     date_due = serializers.DateField(required=False, allow_null=True)
-    total = serializers.IntegerField()
 
 class InvoiceUpdateSerializer(StrictSerializer):
     customer_id = serializers.IntegerField(required=False)
     date_issued = serializers.DateField(required=False, allow_null=True)
     date_due = serializers.DateField(required=False, allow_null=True)
-    total = serializers.IntegerField(required=False)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -67,6 +65,34 @@ class InvoiceUpdateSerializer(StrictSerializer):
     
 class InvoiceStatusUpdateSerializer(StrictSerializer):
     status = serializers.ChoiceField(choices=VALID_INVOICE_STATUSES)
+
+class InvoiceItemSerializer(StrictSerializer):
+    id = serializers.IntegerField(read_only=True)
+    invoice_id = serializers.IntegerField()
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+    unit_price_cents = serializers.IntegerField(min_value=0)
+    line_total_cents = serializers.IntegerField(read_only=True)
+
+class InvoiceItemCreateSerializer(StrictSerializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1, required=False, default=1)
+    unit_price_cents = serializers.IntegerField(min_value=0, required=False, allow_null=True)
+
+class InvoiceItemUpdateSerializer(StrictSerializer):
+    product_id = serializers.IntegerField(required=False)
+    quantity = serializers.IntegerField(min_value=1, required=False)
+    unit_price_cents = serializers.IntegerField(min_value=0, required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        if not attrs:
+            raise serializers.ValidationError(
+                "At least one field must be provided."
+            )
+
+        return attrs
 
 class ProductSerializer(StrictSerializer):
     id = serializers.IntegerField(read_only=True)

@@ -10,6 +10,7 @@ invoice-db/
 |   |   |-- api/                 # Frontend API client modules
 |   |   |   |-- client.ts
 |   |   |   |-- customers.ts
+|   |   |   |-- invoiceItems.ts
 |   |   |   |-- invoices.ts
 |   |   |   `-- products.ts
 |   |   |
@@ -50,9 +51,11 @@ invoice-db/
 |   |   |-- app.py
 |   |   |-- customers_cmds.py
 |   |   |-- db_cmds.py
+|   |   |-- invoice_items_cmds.py
 |   |   |-- invoices_cmds.py
 |   |   |-- products_cmds.py
 |   |   |-- render_customers.py
+|   |   |-- render_invoice_items.py
 |   |   |-- render_invoices.py
 |   |   |-- render_products.py
 |   |   `-- ui.py
@@ -60,6 +63,7 @@ invoice-db/
 |   |-- db/                      # SQLite database layer
 |   |   |-- connection.py
 |   |   |-- customers.py
+|   |   |-- invoice_items.py
 |   |   |-- invoices.py
 |   |   |-- products.py
 |   |   |-- schema.py
@@ -73,6 +77,7 @@ invoice-db/
 |   |-- services/                # Shared business logic for CLI and API
 |   |   |-- customers.py
 |   |   |-- exceptions.py
+|   |   |-- invoice_items.py
 |   |   |-- invoices.py
 |   |   `-- products.py
 |   |
@@ -89,6 +94,7 @@ invoice-db/
 |   |-- api/
 |   |   |-- conftest.py
 |   |   |-- test_customers_api.py
+|   |   |-- test_invoice_items_api.py
 |   |   |-- test_invoices_api.py
 |   |   `-- test_products_api.py
 |   |
@@ -96,11 +102,20 @@ invoice-db/
 |   |   |-- conftest.py
 |   |   |-- test_cli_customers.py
 |   |   |-- test_cli_general.py
+|   |   |-- test_cli_invoice_items.py
 |   |   |-- test_cli_invoices.py
 |   |   `-- test_cli_products.py
 |   |
 |   |-- assistant/
-|   `-- db/
+|   |-- db/
+|   |   |-- test_invoice_items_repository.py
+|   |   |-- test_invoice_items_schema.py
+|   |   |-- test_product_validation.py
+|   |   `-- test_products_crud.py
+|   |
+|   `-- services/
+|       |-- test_invoice_items_service.py
+|       `-- test_invoices_service.py
 |
 |-- scripts/
 |   |-- demo.py

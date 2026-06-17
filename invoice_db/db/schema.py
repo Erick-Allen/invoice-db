@@ -33,6 +33,17 @@ def create_triggers(cursor):
         SET updated_at = datetime('now', 'localtime')
         WHERE id = NEW.id;
     END;
+
+    CREATE TRIGGER IF NOT EXISTS trigger_invoice_items_updated
+    AFTER UPDATE ON
+        invoice_items
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE invoice_items
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
     """)
 
 # TABLE CREATION
@@ -113,6 +124,31 @@ def create_product_schema(cursor):
         idx_products_is_active ON products(is_active);
     """)
 
+def create_invoice_item_schema(cursor):
+    cursor.executescript("""
+    -- Invoice items table: product-backed line items for invoices.
+    CREATE TABLE IF NOT EXISTS invoice_items (
+        id              INTEGER PRIMARY KEY,
+        invoice_id      INTEGER NOT NULL,
+        product_id      INTEGER NOT NULL,
+        quantity        INTEGER NOT NULL DEFAULT 1
+                                CHECK (quantity > 0 AND quantity = CAST(quantity AS INTEGER)),
+        unit_price      INTEGER NOT NULL
+                                CHECK (unit_price >= 0 AND unit_price = CAST(unit_price AS INTEGER)),
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_invoice_items_invoice_id ON invoice_items(invoice_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_invoice_items_product_id ON invoice_items(product_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_invoice_items_invoice_product ON invoice_items(invoice_id, product_id);
+    """)
+
 def create_customer_summary_view(cursor):
     cursor.executescript("""
     CREATE VIEW IF NOT EXISTS customer_invoice_summary AS
@@ -134,5 +170,6 @@ def create_schema(cursor):
     create_customer_schema(cursor)
     create_invoice_schema(cursor)
     create_product_schema(cursor)
+    create_invoice_item_schema(cursor)
     create_customer_summary_view(cursor)
     create_triggers(cursor)

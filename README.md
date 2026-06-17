@@ -4,11 +4,13 @@ A relational database, CLI, API, React UI, and AI assistant application built wi
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.10.0**, the project includes support for:
+As of **v0.11.0**, the project includes support for:
 
 - Customer and invoice management
 - Full CRUD operations for customers and invoices
 - Product catalog management
+- Invoice line items backed by product catalog entries
+- Derived invoice totals from line items
 - Invoice lifecycle/status management
 - Filtering, sorting, and improved invoice queries
 - Typer-based CLI with Rich terminal output
@@ -139,11 +141,19 @@ qwen3:0.6b
 ### Invoice commands
 - `invoicedb invoices create`
 - `invoicedb invoices list`
+- `invoicedb invoices list --include-items`
 - `invoicedb invoices get`
 - `invoicedb invoices count`
 - `invoicedb invoices update`
 - `invoicedb invoices set-status`
 - `invoicedb invoices delete`
+
+### Invoice item commands
+- `invoicedb invoice-items add`
+- `invoicedb invoice-items list`
+- `invoicedb invoice-items get`
+- `invoicedb invoice-items update`
+- `invoicedb invoice-items delete`
 
 ### Product commands
 - `invoicedb products add`
@@ -171,11 +181,20 @@ qwen3:0.6b
 
 ### Invoices
 - `GET /api/invoices/`
+- `GET /api/invoices/?include_items=true`
 - `POST /api/invoices/`
 - `GET /api/invoices/{id}/`
+- `GET /api/invoices/{id}/?include_items=true`
 - `PATCH /api/invoices/{id}/`
 - `DELETE /api/invoices/{id}/`
 - `PATCH /api/invoices/{id}/status/`
+- `GET /api/invoices/{id}/items/`
+- `POST /api/invoices/{id}/items/`
+
+### Invoice Items
+- `GET /api/invoice-items/{id}/`
+- `PATCH /api/invoice-items/{id}/`
+- `DELETE /api/invoice-items/{id}/`
 
 ### Products
 - `GET /api/products/`
@@ -213,6 +232,21 @@ npm run test:run
 ```
 
 ## Version History
+
+### [v0.11.0]
+#### Added
+- Invoice line item table, DB repository, service layer, CLI commands, API endpoints, and React invoice workflows
+- Product-backed invoice line items with price snapshots
+- Optional nested invoice item responses with `include_items=true`
+- `invoicedb invoice-items add/list/get/update/delete`
+- `invoicedb invoices list --include-items`
+
+#### Changed
+- Invoice totals are calculated from line items instead of manual invoice total inputs.
+- Draft invoices support line-item edits; sent, paid, and void invoices lock line-item edits.
+- Inactive products are rejected for new/replacement line items.
+- Sending a draft invoice is blocked when any line item references an inactive product.
+- Invoice frontend now shows clearer load and status-change errors.
 
 ### [v0.10.0]
 #### Added
@@ -287,7 +321,8 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.11.0] (Minor)
-- Invoice line items
+### [v0.12.0] (Minor)
+- Expanded reporting
+- Stronger assistant workflows
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).

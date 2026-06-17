@@ -1,12 +1,13 @@
 import sqlite3
 from invoice_db.db import customers as customers_db
+from invoice_db.db import invoice_items as invoice_items_db
 from invoice_db.db import invoices as invoices_db
+from invoice_db.db import products as products_db
 from invoice_db.db.validators import (
     normalize_sort_by,
     normalize_status,
     validate_pagination,
     validate_positive_id,
-    validate_positive_total,
     validate_total_range,
 )
 from invoice_db.utils import to_iso
@@ -50,12 +51,6 @@ def _as_validation_error(error: ValueError) -> exceptions.ValidationError:
 def _normalize_invoice_status(status: str | None) -> str | None:
     try:
         return normalize_status(status, VALID_INVOICE_STATUSES)
-    except ValueError as e:
-        raise _as_validation_error(e) from e
-    
-def _validate_total(total: float) -> None:
-    try:
-        validate_positive_total(total)
     except ValueError as e:
         raise _as_validation_error(e) from e
     
@@ -113,13 +108,11 @@ def _prepare_invoice_changes(
     invoice: sqlite3.Row,
     new_date_issued: str | None = None,
     new_date_due: str | None = None,
-    new_total: float | None = None,
     new_customer_id: int | None = None,
-) -> tuple[str | None, str | None, float | None, int | None]:
+) -> tuple[str | None, str | None, int | None]:
     if (
         new_date_issued is None
         and new_date_due is None
-        and new_total is None
         and new_customer_id is None
     ):
         raise exceptions.ValidationError("Please provide at least one value to update the invoice.")
@@ -127,9 +120,6 @@ def _prepare_invoice_changes(
     normalized_date_issued = None if new_date_issued is None else _normalize_invoice_date(new_date_issued, "Date issued")
     normalized_date_due = None if new_date_due is None else _normalize_invoice_date(new_date_due, "Date due")
    
-    if new_total is not None:
-        _validate_total(new_total)
-
     normalized_customer = None
     if new_customer_id is not None:
         _require_customer(cursor, new_customer_id)
@@ -145,27 +135,24 @@ def _prepare_invoice_changes(
     if (
         (normalized_date_issued is None or normalized_date_issued == invoice['date_issued'])
         and (normalized_date_due is None or normalized_date_due == invoice['date_due'])
-        and (new_total is None or new_total == invoice['total'])
         and (normalized_customer is None or normalized_customer == invoice['customer_id'])
     ):
         raise exceptions.ValidationError("No changes detected.")
     
-    return normalized_date_issued, normalized_date_due, new_total, normalized_customer
+    return normalized_date_issued, normalized_date_due, normalized_customer
 
 def _update_invoice(
     cursor,
     invoice: sqlite3.Row,
     new_date_issued: str | None = None,
     new_date_due: str | None = None,
-    new_total: float | None = None,
     new_customer_id: int | None = None,
 ) -> sqlite3.Row:
-    date_issued, date_due, total, customer_id = _prepare_invoice_changes(
+    date_issued, date_due, customer_id = _prepare_invoice_changes(
         cursor,
         invoice=invoice,
         new_date_issued=new_date_issued,
         new_date_due=new_date_due,
-        new_total=new_total,
         new_customer_id=new_customer_id,
     )
 
@@ -175,7 +162,6 @@ def _update_invoice(
             invoice_id=invoice['id'],
             date_issued=date_issued,
             date_due=date_due,
-            total=total,
             customer_id=customer_id,
         )
     except sqlite3.IntegrityError as e:
@@ -190,23 +176,35 @@ def _update_invoice(
     
     return updated_invoice
 
+def _inactive_product_names_for_invoice(cursor, invoice_id: int) -> list[str]:
+    repo = invoice_items_db.InvoiceItemRepository(cursor)
+    inactive_names = []
+
+    for item in repo.list_by_invoice_id(invoice_id):
+        product = products_db.get_product_by_id(cursor, item.product_id)
+        if product is not None and not product.is_active:
+            inactive_names.append(product.name)
+
+    return inactive_names
+
 #CRUD 
 def create_invoice(
     cursor, 
     customer_id: int, 
-    total: float, 
     date_issued: str | None, 
     date_due: str | None,
+    total: float | None = None,
 ) -> InvoiceRecord:
     _require_customer(cursor, customer_id)
-    _validate_total(total)
+    if total not in (None, 0):
+        raise exceptions.ValidationError("Invoice totals are calculated from line items.")
     date_issued, date_due = _prepare_invoice_dates(date_issued, date_due)
     
     try:
         invoice_id = invoices_db.add_invoice_to_customer(
             cursor,
             customer_id=customer_id,
-            total=total,
+            total=0,
             date_issued=date_issued,
             date_due=date_due,
         )
@@ -341,6 +339,9 @@ def update_invoice_by_id(
     new_total: float | None = None,
     new_customer_id: int | None = None,
     ) -> InvoiceRecord:
+    if new_total is not None:
+        raise exceptions.ValidationError("Invoice totals are calculated from line items.")
+
     invoice = _require_invoice(cursor, invoice_id)
 
     updated_invoice = _update_invoice(
@@ -348,7 +349,6 @@ def update_invoice_by_id(
         invoice=invoice,
         new_date_issued=new_date_issued,
         new_date_due=new_date_due,
-        new_total=new_total,
         new_customer_id=new_customer_id
     )
 
@@ -360,6 +360,14 @@ def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecor
 
     if normalized_status == invoice['status']:
         raise exceptions.ValidationError("No status change detected.")
+    
+    if invoice["status"] == "draft" and normalized_status == "sent":
+        inactive_product_names = _inactive_product_names_for_invoice(cursor, invoice_id)
+        if inactive_product_names:
+            names = ", ".join(inactive_product_names)
+            raise exceptions.ValidationError(
+                f"Cannot send invoice with inactive products: {names}."
+            )
     
     try:
         updated = invoices_db.set_invoice_status(
