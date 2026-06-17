@@ -1,3 +1,10 @@
+from invoice_db.db.payments import VALID_PAYMENT_METHODS
+
+
+def _sql_string_values(values: set[str]) -> str:
+    return ", ".join(f"'{value}'" for value in sorted(values))
+
+
 # TRIGGER
 def create_triggers(cursor):
     cursor.executescript("""
@@ -41,6 +48,17 @@ def create_triggers(cursor):
         NEW.updated_at = OLD.updated_at
     BEGIN
         UPDATE invoice_items
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trigger_payments_updated
+    AFTER UPDATE ON
+        payments
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE payments
         SET updated_at = datetime('now', 'localtime')
         WHERE id = NEW.id;
     END;
@@ -149,6 +167,31 @@ def create_invoice_item_schema(cursor):
         idx_invoice_items_invoice_product ON invoice_items(invoice_id, product_id);
     """)
 
+def create_payment_schema(cursor):
+    payment_methods = _sql_string_values(VALID_PAYMENT_METHODS)
+    cursor.executescript(f"""
+    -- Payments table: records money received against invoices.
+    CREATE TABLE IF NOT EXISTS payments (
+        id              INTEGER PRIMARY KEY,
+        invoice_id      INTEGER NOT NULL,
+        amount_cents    INTEGER NOT NULL
+                                CHECK (amount_cents > 0 AND amount_cents = CAST(amount_cents AS INTEGER)),
+        payment_date    TEXT    NOT NULL CHECK (length(trim(payment_date)) > 0),
+        method          TEXT    NOT NULL CHECK (method IN ({payment_methods})),
+        note            TEXT,
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_payments_invoice_id ON payments(invoice_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_payments_payment_date ON payments(payment_date);
+    CREATE INDEX IF NOT EXISTS
+        idx_payments_method ON payments(method);
+    """)
+
 def create_customer_summary_view(cursor):
     cursor.executescript("""
     CREATE VIEW IF NOT EXISTS customer_invoice_summary AS
@@ -171,5 +214,6 @@ def create_schema(cursor):
     create_invoice_schema(cursor)
     create_product_schema(cursor)
     create_invoice_item_schema(cursor)
+    create_payment_schema(cursor)
     create_customer_summary_view(cursor)
     create_triggers(cursor)
