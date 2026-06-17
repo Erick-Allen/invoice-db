@@ -1,13 +1,14 @@
 # invoice-db
-A relational database, CLI, API, React UI, and AI assistant application built with Python, SQLite, and TypeScript for managing customers and invoices.
+A relational database, CLI, API, React UI, and AI assistant application built with Python, SQLite, and TypeScript for managing customers, invoices, and products.
 
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.9.0**, the project includes support for:
+As of **v0.10.0**, the project includes support for:
 
 - Customer and invoice management
 - Full CRUD operations for customers and invoices
+- Product catalog management
 - Invoice lifecycle/status management
 - Filtering, sorting, and improved invoice queries
 - Typer-based CLI with Rich terminal output
@@ -16,7 +17,7 @@ As of **v0.9.0**, the project includes support for:
 - Shared service layer used by both CLI and API
 - Guarded natural-language invoice assistant using intent classification
 - Dockerized backend runtime with persistent SQLite storage
-Backend and frontend test coverage with pytest, Vitest, and React Testing Library
+- Backend and frontend test coverage with pytest, Vitest, and React Testing Library
 
 ## Architecture
 
@@ -99,6 +100,8 @@ docker build -t invoicedb .
 docker run --rm -p 8000:8000 -v ${PWD}/data:/data invoicedb
 ```
 
+The Docker entrypoint creates `/data` if needed and initializes the SQLite schema automatically before starting the API. Mount `/data` to persist the database between container runs.
+
 ### Interactive Shell
 
 ```bash
@@ -142,6 +145,14 @@ qwen3:0.6b
 - `invoicedb invoices set-status`
 - `invoicedb invoices delete`
 
+### Product commands
+- `invoicedb products add`
+- `invoicedb products list`
+- `invoicedb products get`
+- `invoicedb products update`
+- `invoicedb products deactivate`
+- `invoicedb products delete`
+
 ### Assistant command
 - `invoicedb assistant ask`
 - `invoicedb assistant ask --use-qwen`
@@ -165,6 +176,15 @@ qwen3:0.6b
 - `PATCH /api/invoices/{id}/`
 - `DELETE /api/invoices/{id}/`
 - `PATCH /api/invoices/{id}/status/`
+
+### Products
+- `GET /api/products/`
+- `GET /api/products/?active_only=true`
+- `POST /api/products/`
+- `GET /api/products/{id}/`
+- `PATCH /api/products/{id}/`
+- `DELETE /api/products/{id}/`
+- `PATCH /api/products/{id}/deactivate/`
 
 ### Assistant
 
@@ -193,6 +213,16 @@ npm run test:run
 ```
 
 ## Version History
+
+### [v0.10.0]
+#### Added
+- Product catalog table and DB helpers
+- Product service layer
+- Product CLI commands
+- Product API endpoints
+- React product catalog page
+- Product tests across CLI, API, and frontend
+- Docker entrypoint that initializes the SQLite schema automatically
 
 ### [v0.9.0]
 #### Added
@@ -257,9 +287,6 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.10.0] (Minor)
-- Add Products table
-
 ### [v0.11.0] (Minor)
 - Invoice line items
 

@@ -1,6 +1,14 @@
 import sqlite3
 from invoice_db.db import customers as customers_db
 from invoice_db.db import invoices as invoices_db
+from invoice_db.db.validators import (
+    normalize_sort_by,
+    normalize_status,
+    validate_pagination,
+    validate_positive_id,
+    validate_positive_total,
+    validate_total_range,
+)
 from invoice_db.utils import to_iso
 from typing import TypedDict
 from . import exceptions
@@ -36,58 +44,26 @@ class OverdueInvoiceRecord(TypedDict):
 def _to_invoice_record(row: sqlite3.Row) -> InvoiceRecord:
     return dict(row)
 
+def _as_validation_error(error: ValueError) -> exceptions.ValidationError:
+    return exceptions.ValidationError(str(error))
+
 def _normalize_invoice_status(status: str | None) -> str | None:
-    if status is None:
-        return None
-    
-    status = status.strip().lower()
-    
-    if status == "":
-        return None
-    
-    if status not in VALID_INVOICE_STATUSES:
-        raise exceptions.ValidationError("Invoice status must be one of: draft, sent, paid, void.")
-    
-    return status
-    
-def _validate_positive_id(value: int | None, label: str) -> None:
-    if value is None:
-        return
-    if value <= 0:
-        raise exceptions.ValidationError(f"{label} must be a positive integer.")
+    try:
+        return normalize_status(status, VALID_INVOICE_STATUSES)
+    except ValueError as e:
+        raise _as_validation_error(e) from e
     
 def _validate_total(total: float) -> None:
-    if total <= 0:
-        raise exceptions.ValidationError("Invoice total must be greater than 0.")
-    
-def _validate_total_range(min_total: float | None = None, max_total: float | None = None) -> None:
-    if min_total is not None and min_total < 0:
-        raise exceptions.ValidationError("Minimum total cannot be negative.")
-
-    if max_total is not None and max_total < 0:
-        raise exceptions.ValidationError("Maximum total cannot be negative.")
-    
-    if min_total is not None and max_total is not None and min_total > max_total:
-        raise exceptions.ValidationError("Minimum total cannot be greater than maximum total.")
-
-def _validate_pagination(limit: int, offset: int) -> None:
-    if limit <= 0:
-        raise exceptions.ValidationError("Limit must be greater than 0.")
-    
-    if offset < 0:
-        raise exceptions.ValidationError("Offset cannot be negative.")
+    try:
+        validate_positive_total(total)
+    except ValueError as e:
+        raise _as_validation_error(e) from e
     
 def _normalize_sort_by(sort_by: str, allowed_fields: set[str]) -> str:
-    sort_by = sort_by.strip().lower()
-
-    if sort_by == "":
-        raise exceptions.ValidationError("Sort field cannot be empty.")
-    
-    if sort_by not in allowed_fields:
-        allowed = ", ".join(sorted(allowed_fields))
-        raise exceptions.ValidationError(f"Sort field must be one of: {allowed}.")
-    
-    return sort_by
+    try:
+        return normalize_sort_by(sort_by, allowed_fields)
+    except ValueError as e:
+        raise _as_validation_error(e) from e
 
 def _normalize_invoice_date(date_value: str | None, label: str) -> str | None:
     try:
@@ -109,7 +85,10 @@ def _prepare_invoice_dates(
     return normalized_issued, normalized_due
     
 def _require_customer(cursor, customer_id: int) -> sqlite3.Row:
-    _validate_positive_id(customer_id, "Customer id")
+    try:
+        validate_positive_id(customer_id, "Customer id")
+    except ValueError as e:
+        raise _as_validation_error(e) from e
         
     customer = customers_db.get_customer_by_id(cursor, customer_id)
     if customer is None:
@@ -118,7 +97,10 @@ def _require_customer(cursor, customer_id: int) -> sqlite3.Row:
     return customer
 
 def _require_invoice(cursor, invoice_id: int) -> sqlite3.Row:
-    _validate_positive_id(invoice_id, "Invoice id")
+    try:
+        validate_positive_id(invoice_id, "Invoice id")
+    except ValueError as e:
+        raise _as_validation_error(e) from e
         
     invoice = invoices_db.get_invoice_by_id(cursor, invoice_id)
     if invoice is None:
@@ -251,9 +233,12 @@ def list_invoices(
         sort_by: str = "created_at",
         desc: bool = True,
 ) -> list[InvoiceRecord]:
-    _validate_positive_id(customer_id, "Customer id")    
-    _validate_total_range(min_total, max_total)
-    _validate_pagination(limit, offset)
+    try:
+        validate_positive_id(customer_id, "Customer id")
+        validate_total_range(min_total, max_total)
+        validate_pagination(limit, offset)
+    except ValueError as e:
+        raise _as_validation_error(e) from e
     sort_by = _normalize_sort_by(sort_by, VALID_INVOICE_SORT_FIELDS)    
     status = _normalize_invoice_status(status)
 
@@ -288,7 +273,10 @@ def count_invoices(
        customer = dict(customer_row)
     
     status = _normalize_invoice_status(status)
-    _validate_total_range(min_total, max_total)
+    try:
+        validate_total_range(min_total, max_total)
+    except ValueError as e:
+        raise _as_validation_error(e) from e
 
     count = invoices_db.count_invoices(
         cursor,
@@ -324,8 +312,11 @@ def overdue_invoices(
         if days_overdue <= 0:
             raise exceptions.ValidationError("Days overdue must be a positive number.")
 
-    _validate_total_range(min_total, max_total)
-    _validate_pagination(limit, offset)
+    try:
+        validate_total_range(min_total, max_total)
+        validate_pagination(limit, offset)
+    except ValueError as e:
+        raise _as_validation_error(e) from e
     sort_by = _normalize_sort_by(sort_by, VALID_OVERDUE_SORT_FIELDS)
 
     invoices = invoices_db.list_overdue_invoices(
@@ -389,7 +380,10 @@ def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecor
     return _to_invoice_record(updated_invoice)
 
 def delete_invoice(cursor, invoice_id: int) -> None:
-    _validate_positive_id(invoice_id, "Invoice id")
+    try:
+        validate_positive_id(invoice_id, "Invoice id")
+    except ValueError as e:
+        raise _as_validation_error(e) from e
     deleted_invoice = invoices_db.delete_invoice(cursor, invoice_id)
 
     if not deleted_invoice:

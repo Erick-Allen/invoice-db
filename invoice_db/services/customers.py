@@ -1,5 +1,6 @@
 import sqlite3
 from invoice_db.db import customers as customers_db
+from invoice_db.db.validators import normalize_email, normalize_name, validate_positive_id
 from typing import TypedDict
 from . import exceptions
 
@@ -11,12 +12,14 @@ class CustomerRecord(TypedDict):
 def _to_customer_record(row: sqlite3.Row) -> CustomerRecord:
     return dict(row)
 
-def _validate_positive_id(customer_id: int) -> None:
-    if customer_id <= 0:
-        raise exceptions.ValidationError("Customer id must be a positive integer.")
+def _as_validation_error(error: ValueError) -> exceptions.ValidationError:
+    return exceptions.ValidationError(str(error))
     
 def _require_customer_by_id(cursor, customer_id: int) -> sqlite3.Row:
-    _validate_positive_id(customer_id)
+    try:
+        validate_positive_id(customer_id, "Customer id")
+    except ValueError as e:
+        raise _as_validation_error(e) from e
 
     customer = customers_db.get_customer_by_id(cursor, customer_id)
     if customer is None:
@@ -76,16 +79,19 @@ def _update_customer(
     return updated_customer
 
 def _normalize_customer_name(customer_name: str) -> str:
-    customer_name = customer_name.strip()
-    if customer_name == "":
-        raise exceptions.ValidationError(f"Customer name cannot be empty.")
-    return customer_name
+    try:
+        return normalize_name(customer_name)
+    except ValueError as e:
+        raise _as_validation_error(e) from e
 
 def _normalize_customer_email(customer_email: str) -> str:
-    customer_email = customer_email.strip()
-    if customer_email == "":
-        raise exceptions.ValidationError(f"Customer email cannot be empty.")    
-    return customer_email
+    if customer_email.strip() == "":
+        raise exceptions.ValidationError("Customer email cannot be empty.")
+
+    try:
+        return normalize_email(customer_email)
+    except ValueError as e:
+        raise _as_validation_error(e) from e
 
 #CRUD
 def create_customer(cursor, customer_name: str, customer_email: str) -> CustomerRecord:
@@ -140,7 +146,10 @@ def update_customer_by_email(
     return _to_customer_record(updated_customer)
 
 def delete_customer_by_id(cursor, customer_id: int) -> None:
-    _validate_positive_id(customer_id)
+    try:
+        validate_positive_id(customer_id, "Customer id")
+    except ValueError as e:
+        raise _as_validation_error(e) from e
     deleted_customer = customers_db.delete_customer(cursor, customer_id=customer_id)
     
     if not deleted_customer:

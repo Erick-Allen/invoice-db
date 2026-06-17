@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from invoice_db.db import connection
 from invoice_db.services import customers as customer_services
 from invoice_db.services import invoices as invoice_services
+from invoice_db.services import products as product_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -22,7 +23,9 @@ from .serializers import (
     InvoiceCreateSerializer,
     InvoiceSerializer,
     InvoiceUpdateSerializer,
-    InvoiceStatusUpdateSerializer
+    InvoiceStatusUpdateSerializer,
+    ProductSerializer,
+    ProductUpdateSerializer,
 )
 
 router = AssistantRouter(use_qwen=True)
@@ -35,6 +38,7 @@ def api_root(request):
             "endpoints": {
                 "customers": "/api/customers/",
                 "invoices": "/api/invoices",
+                "products": "/api/products/",
             }
         }
     )
@@ -380,6 +384,177 @@ class InvoiceStatusUpdateView(APIView):
             )
         
         serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class ProductListCreateView(APIView):
+    def get(self, request):
+        active_only = request.query_params.get("active_only", "").lower() in {"1", "true", "yes"}
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                products = product_services.list_products(cursor, active_only=active_only)
+
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving products."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = ProductSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                product = product_services.create_product(
+                    cursor,
+                    name=serializer.validated_data["name"],
+                    description=serializer.validated_data.get("description"),
+                    unit_price_cents=serializer.validated_data["unit_price_cents"],
+                    is_active=serializer.validated_data.get("is_active", True),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the product."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the product."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductSerializer(product)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class ProductDetailView(APIView):
+    def get(self, request, product_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                product = product_services.get_product_by_id(cursor, product_id=product_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the product."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductSerializer(product)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, product_id):
+        serializer = ProductUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                product = product_services.update_product_by_id(
+                    cursor,
+                    product_id=product_id,
+                    name=serializer.validated_data.get("name"),
+                    description=serializer.validated_data.get("description"),
+                    unit_price_cents=serializer.validated_data.get("unit_price_cents"),
+                    is_active=serializer.validated_data.get("is_active"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the product."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the product."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductSerializer(product)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, product_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                product_services.delete_product(cursor, product_id=product_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the product."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class ProductDeactivateView(APIView):
+    def patch(self, request, product_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                product = product_services.deactivate_product(cursor, product_id=product_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deactivating the product."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deactivating the product."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductSerializer(product)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     

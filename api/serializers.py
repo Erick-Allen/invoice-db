@@ -67,3 +67,26 @@ class InvoiceUpdateSerializer(StrictSerializer):
     
 class InvoiceStatusUpdateSerializer(StrictSerializer):
     status = serializers.ChoiceField(choices=VALID_INVOICE_STATUSES)
+
+class ProductSerializer(StrictSerializer):
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    unit_price_cents = serializers.IntegerField(min_value=0)
+    is_active = serializers.BooleanField(required=False, default=True)
+
+class ProductUpdateSerializer(StrictSerializer):
+    name = serializers.CharField(max_length=255, required=False)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    unit_price_cents = serializers.IntegerField(min_value=0, required=False)
+    is_active = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        if not attrs:
+            raise serializers.ValidationError(
+                "At least one field must be provided."
+            )
+
+        return attrs
