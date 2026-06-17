@@ -68,7 +68,7 @@ def validate_positive_id(value: int | None, label: str) -> None:
         raise ValueError(f"{label} must be a positive integer.")
 
 def validate_positive_total(total: int | float) -> None:
-    if total <= 0:
+    if total < 0:
         raise ValueError("Invoice total must be greater than 0.")
 
 def validate_total_range(min_total: int | float | None = None, max_total: int | float | None = None) -> None:
@@ -132,3 +132,15 @@ def normalize_is_active(is_active: bool | int) -> int:
     if is_active in (0, 1):
         return is_active
     raise ValueError("Product active flag must be true or false.")
+
+# Invoice items
+def validate_quantity(quantity: int) -> int:
+    if quantity is None:
+        raise ValueError("Invoice item quantity is required.")
+    try:
+        quantity = int(quantity)
+    except (TypeError, ValueError):
+        raise ValueError("Invoice item quantity must be a valid integer.")
+    if quantity <= 0:
+        raise ValueError("Invoice item quantity must be greater than 0.")
+    return quantity

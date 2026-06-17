@@ -6,6 +6,8 @@ from .views import (
     InvoiceListCreateView,
     InvoiceDetailView,
     InvoiceStatusUpdateView,
+    InvoiceItemListCreateView,
+    InvoiceItemDetailView,
     ProductListCreateView,
     ProductDetailView,
     ProductDeactivateView,
@@ -22,6 +24,8 @@ urlpatterns = [
     path("invoices/", InvoiceListCreateView.as_view(), name="invoice-list-create"),
     path("invoices/<int:invoice_id>/", InvoiceDetailView.as_view(), name="invoice-detail"),
     path("invoices/<int:invoice_id>/status/", InvoiceStatusUpdateView.as_view(), name="invoice-status-update"),
+    path("invoices/<int:invoice_id>/items/", InvoiceItemListCreateView.as_view(), name="invoice-item-list-create"),
+    path("invoice-items/<int:invoice_item_id>/", InvoiceItemDetailView.as_view(), name="invoice-item-detail"),
 
     path("products/", ProductListCreateView.as_view(), name="product-list-create"),
     path("products/<int:product_id>/", ProductDetailView.as_view(), name="product-detail"),

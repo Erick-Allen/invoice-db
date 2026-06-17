@@ -28,6 +28,52 @@ def print_invoice_table(invoice: dict) -> None:
     table.add_row(str(invoice['id']), str(utils.fmt_dollars(invoice['total'])), issued, due, invoice['status'])
     ui.console.print(table)
 
+def print_invoice_line_items(items: list[dict]) -> None:
+    if not items:
+        ui.console.print("No invoice line items found", style="warning")
+        return
+
+    table = Table(title="[title]Line Items[/title]")
+    table.add_column("ID", justify="right")
+    table.add_column("Product", justify="right")
+    table.add_column("Qty", justify="right")
+    table.add_column("Unit Price", justify="right")
+    table.add_column("Line Total", justify="right")
+
+    for item in items:
+        table.add_row(
+            str(item["id"]),
+            str(item["product_id"]),
+            str(item["quantity"]),
+            utils.fmt_dollars(item["unit_price_cents"]),
+            utils.fmt_dollars(item["line_total_cents"]),
+        )
+
+    ui.console.print(table)
+
+def print_invoice_items_by_invoice(invoice_id: int, items: list[dict]) -> None:
+    if not items:
+        ui.console.print(f"No line items for invoice (id={invoice_id})", style="warning")
+        return
+
+    table = Table(title=f"[title]Line Items for Invoice {invoice_id}[/title]")
+    table.add_column("ID", justify="right")
+    table.add_column("Product", justify="right")
+    table.add_column("Qty", justify="right")
+    table.add_column("Unit Price", justify="right")
+    table.add_column("Line Total", justify="right")
+
+    for item in items:
+        table.add_row(
+            str(item["id"]),
+            str(item["product_id"]),
+            str(item["quantity"]),
+            utils.fmt_dollars(item["unit_price_cents"]),
+            utils.fmt_dollars(item["line_total_cents"]),
+        )
+
+    ui.console.print(table)
+
 def print_invoices_table(invoices: list) -> None:
     table = Table(title=f"[title]Invoices[/title]")
     table.add_column("ID", justify="right")

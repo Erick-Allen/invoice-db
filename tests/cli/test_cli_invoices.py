@@ -14,26 +14,24 @@ def test_create_and_get_invoice(customer_john, invoice_john, runner, temp_db):
     assert f"id={invoice_john}" in result.stdout
 
 def test_invoice_update(customer_john, invoice_john, runner, temp_db):
-    result = runner.invoke(app, ["invoices", "update", "--id", str(invoice_john), "--total", "987600", "--db", temp_db])
+    result = runner.invoke(app, ["invoices", "update", "--id", str(invoice_john), "--date-due", "2026-07-20", "--db", temp_db])
     assert result.exit_code == 0, result.stdout
     result = runner.invoke(app, ["invoices", "get", "--id", str(invoice_john), "--db", temp_db])
     assert f"id={invoice_john}" in result.stdout
-    print (result.stdout)
-    assert "9876" in result.stdout
+    assert "2026-07-20" in result.stdout
 
 def test_invoice_list_all(customer_john, invoice_john, customer_alice, invoice_alice, runner, temp_db):
     result = runner.invoke(app, ["invoices", "list", "--db", temp_db])
     assert result.exit_code == 0, result.stdout
-    assert "1234" in result.stdout
-    assert "9999" in result.stdout
+    assert str(invoice_john) in result.stdout
+    assert str(invoice_alice) in result.stdout
 
 def test_invoice_list_one_customer(customer_john, invoice_john, runner, temp_db):
-    result = runner.invoke(app, ["invoices", "create", "--customer-id", str(customer_john), "--total", "777", "--db", temp_db])
+    result = runner.invoke(app, ["invoices", "create", "--customer-id", str(customer_john), "--db", temp_db])
     assert result.exit_code == 0, result.stdout
     result = runner.invoke(app, ["invoices", "list", "--customer-id", str(customer_john), "--db", temp_db])
     assert result.exit_code == 0, result.stdout
-    assert "1234" in result.stdout, result.stdout
-    assert "777" in result.stdout, result.stdout
+    assert str(invoice_john) in result.stdout, result.stdout
 
 def test_invoice_count_all(customer_john, invoice_john, customer_alice, invoice_alice, runner, temp_db):
     result = runner.invoke(app, ["invoices", "count", "--db", temp_db])
@@ -53,7 +51,7 @@ def test_invoice_delete(customer_john, invoice_john, runner, temp_db):
 
 # Negative Test
 def test_create_invoice_invalid_customer_fails(customer_john, runner, temp_db):
-    result = runner.invoke(app, ["invoices", "create", "--customer-id", "9999", "--total", "1234", "--db", temp_db])
+    result = runner.invoke(app, ["invoices", "create", "--customer-id", "9999", "--db", temp_db])
     assert result.exit_code == 1, result.stdout
     assert "Customer not found" in result.stdout
 
@@ -68,7 +66,7 @@ def test_update_invoice_no_fields_fails(customer_john, invoice_john, runner, tem
     assert "Please enter one" in result.stdout
 
 def test_update_invalid_invoice_id_fails(customer_john, invoice_john, runner, temp_db):
-    result = runner.invoke(app, ["invoices", "update", "--id", "9999", "--total", "1234", "--db", temp_db])
+    result = runner.invoke(app, ["invoices", "update", "--id", "9999", "--date-due", "2026-07-20", "--db", temp_db])
     assert result.exit_code == 1, result.stdout
     assert "Invoice not found" in result.stdout
 

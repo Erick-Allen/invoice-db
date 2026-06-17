@@ -51,7 +51,6 @@ def invoice_john(runner, temp_db, customer_john):
     result = runner.invoke(app, [
         "invoices", "create", 
         "--customer-id", str(customer_john), 
-        "--total", "1234", 
         "--db", temp_db
     ])
     assert result.exit_code == 0, result.stdout
@@ -64,7 +63,6 @@ def invoice_alice(runner, temp_db, customer_alice):
     result = runner.invoke(app, [
         "invoices", "create", 
         "--customer-id", str(customer_alice), 
-        "--total", "9999", 
         "--db", temp_db
     ])
     assert result.exit_code == 0, result.stdout

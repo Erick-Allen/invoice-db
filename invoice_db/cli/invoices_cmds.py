@@ -3,6 +3,7 @@ from typing import Optional
 
 from invoice_db.db import connection
 from invoice_db.services import invoices as invoices_services
+from invoice_db.services import invoice_items as invoice_item_services
 from invoice_db.services import exceptions as service_exceptions
 from . import render_invoices, ui
 from ..utils import to_cents
@@ -12,7 +13,6 @@ invoices_app = typer.Typer(help="Invoice commands.")
 @invoices_app.command("create", help="Create an invoice for a customer.")
 def create_invoice(
     customer_id: int = typer.Option(..., "-c", "--customer-id", help="The customer to assign this invoice to."),
-    total: float = typer.Option(..., "-t", "--total", help="Invoice total amount."),
     date_issued: Optional[str] = typer.Option(None, "--date-issued", help="Date invoice was issued."),
     date_due: Optional[str] = typer.Option(None, "--date-due", help="Date invoice is due."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
@@ -22,7 +22,6 @@ def create_invoice(
             invoice = invoices_services.create_invoice(
                 cursor,
                 customer_id=customer_id,
-                total=to_cents(total),
                 date_issued=date_issued,
                 date_due=date_due,
             )
@@ -48,6 +47,7 @@ def list_invoices(
     status: Optional[str] = typer.Option(None, "--status", help="Filter by: draft | sent | paid | void"),
     min_total: Optional[float] = typer.Option(None, "--min-total", help="Minimum invoice total."),
     max_total: Optional[float] = typer.Option(None, "--max-total", help="Maximum invoice total."),
+    include_items: bool = typer.Option(False, "--include-items", help="Include line items for each invoice."),
     limit: int = typer.Option(100, "-l", "--limit", min=1, help="Max invoices to return."),
     offset: int = typer.Option(0, "-o", "--offset", min=0, help="Invoices to skip."),
     sort_by: str = typer.Option("created_at", "--sort-by", help="Sort by: id | date_issued | total | status"),
@@ -67,6 +67,10 @@ def list_invoices(
                 sort_by=sort_by,
                 desc=desc,
             )
+            invoice_items_by_id = {
+                invoice["id"]: invoice_item_services.list_invoice_items(cursor, invoice["id"])
+                for invoice in invoices
+            } if include_items else {}
 
         except service_exceptions.ValidationError as e:
             ui.console.print(str(e), style="warning")
@@ -76,6 +80,9 @@ def list_invoices(
 
     if invoices:
         render_invoices.print_invoices_table(invoices)
+        if include_items:
+            for invoice in invoices:
+                render_invoices.print_invoice_items_by_invoice(invoice["id"], invoice_items_by_id[invoice["id"]])
     else:
         render_invoices.no_invoices_found()
         
@@ -88,6 +95,7 @@ def get_invoice(
     with connection.db_session(db_path) as (connect, cursor):
         try:
             invoice = invoices_services.get_invoice_by_id(cursor, invoice_id)
+            invoice_items = invoice_item_services.list_invoice_items(cursor, invoice_id)
 
         except service_exceptions.ValidationError as e:
             ui.console.print(str(e), style="warning")
@@ -100,6 +108,7 @@ def get_invoice(
 
     if invoice:
         render_invoices.print_invoice_table(invoice)
+        render_invoices.print_invoice_line_items(invoice_items)
     else:
         render_invoices.invoice_not_found(invoice_id)
             
@@ -181,19 +190,17 @@ def overdue_invoices(
         render_invoices.no_invoices_found()    
 
         
-@invoices_app.command("update", help="Update an invoice's: date_issued, date_due, total, or customer.")
+@invoices_app.command("update", help="Update an invoice's date_issued, date_due, or customer.")
 def update_invoice(
     invoice_id: int = typer.Option(..., "-i", "--id", help="Invoice id to select."),
     new_date_issued: Optional[str] = typer.Option(None, "--date-issued", help="Date to update date issued."),
     new_date_due: Optional[str] = typer.Option(None, "--date-due", help="Date to update due date."),
-    new_total: Optional[float] = typer.Option(None, "--total", help="New total for the invoice."),
     new_customer_id: Optional[int] = typer.Option(None, "--customer", help="customer to append the invoice to."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
 ):
     if (
         new_date_issued is None 
         and new_date_due is None 
-        and new_total is None 
         and new_customer_id is None
     ):
         ui.console.print("Please enter one value to update the invoice with (refer to --help)", style="warning")
@@ -206,7 +213,6 @@ def update_invoice(
                 invoice_id=invoice_id,
                 new_date_issued=new_date_issued,
                 new_date_due=new_date_due,
-                new_total=to_cents(new_total) if new_total is not None else None,
                 new_customer_id=new_customer_id
                 )
             
@@ -222,7 +228,7 @@ def update_invoice(
         except sqlite3.Error as e:
             ui.db_error(e)
 
-    fields = render_invoices.build_changed_fields_label(new_customer_id, new_date_issued, new_date_due, new_total)
+    fields = render_invoices.build_changed_fields_label(new_customer_id, new_date_issued, new_date_due)
     render_invoices.print_invoice_update(updated_invoice['id'], fields)
     render_invoices.print_invoice_table(updated_invoice)
 

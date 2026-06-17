@@ -42,7 +42,6 @@ def customer_john_id(api_client):
 def post_invoice(api_client, test_db):
     def helper (
         customer_id, 
-        total,
         date_issued="2026-05-20",
         date_due="2026-06-20",
     ):
@@ -52,7 +51,6 @@ def post_invoice(api_client, test_db):
                 "customer_id": customer_id,
                 "date_issued": date_issued,
                 "date_due": date_due,
-                "total": total,
             },
             format="json",
         )

@@ -13,7 +13,6 @@ def test_create_invoice_returns_201(api_client, test_db, customer_john_id):
             "customer_id": customer_john_id,
             "date_issued": "2026-05-20",
             "date_due": "2026-06-20",
-            "total": 200000,
         },
         format="json",
     )
@@ -24,11 +23,11 @@ def test_create_invoice_returns_201(api_client, test_db, customer_john_id):
     assert data["customer_id"] == customer_john_id
     assert data["date_issued"] == "2026-05-20" 
     assert data["date_due"] == "2026-06-20"
-    assert data["total"] == 200000
+    assert data["total"] == 0
     assert data["status"] == "draft"
 
 def test_get_invoice_returns_200(api_client, test_db, customer_john_id, post_invoice):
-    invoice_response = post_invoice(customer_id=customer_john_id, total=100000)
+    invoice_response = post_invoice(customer_id=customer_john_id)
     invoice_id = invoice_response.json()['id']
 
     response = api_client.get(f"/api/invoices/{invoice_id}/")
@@ -37,16 +36,78 @@ def test_get_invoice_returns_200(api_client, test_db, customer_john_id, post_inv
     data = response.json()
     assert data['id'] == invoice_id
     assert data['customer_id'] == customer_john_id
-    assert data['total'] == 100000
+    assert data['total'] == 0
+
+def test_get_invoice_include_items_returns_line_items(api_client, test_db, customer_john_id, post_invoice, post_product):
+    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_id = invoice_response.json()['id']
+    product_id = post_product(unit_price_cents=1234).json()["id"]
+
+    item_response = api_client.post(
+        f"/api/invoices/{invoice_id}/items/",
+        {
+            "product_id": product_id,
+            "quantity": 2,
+        },
+        format="json",
+    )
+    assert item_response.status_code == 201
+
+    response = api_client.get(f"/api/invoices/{invoice_id}/")
+    assert response.status_code == 200
+    assert "items" not in response.json()
+
+    response = api_client.get(f"/api/invoices/{invoice_id}/?include_items=true")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["id"] == invoice_id
+    assert data["items"] == [
+        {
+            "id": item_response.json()["id"],
+            "invoice_id": invoice_id,
+            "product_id": product_id,
+            "quantity": 2,
+            "unit_price_cents": 1234,
+            "line_total_cents": 2468,
+        }
+    ]
+
+def test_list_invoices_include_items_returns_line_items(api_client, test_db, customer_john_id, post_invoice, post_product):
+    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_id = invoice_response.json()['id']
+    product_id = post_product(unit_price_cents=1234).json()["id"]
+
+    item_response = api_client.post(
+        f"/api/invoices/{invoice_id}/items/",
+        {
+            "product_id": product_id,
+            "quantity": 2,
+        },
+        format="json",
+    )
+    assert item_response.status_code == 201
+
+    response = api_client.get("/api/invoices/")
+    assert response.status_code == 200
+    assert "items" not in response.json()[0]
+
+    response = api_client.get("/api/invoices/?include_items=true")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data[0]["id"] == invoice_id
+    assert data[0]["items"][0]["id"] == item_response.json()["id"]
+    assert data[0]["items"][0]["line_total_cents"] == 2468
 
 def test_patch_invoice_with_single_field_returns_200(api_client, test_db, customer_john_id, post_invoice,):
-    invoice_response = post_invoice(customer_id=customer_john_id, total=10000)
+    invoice_response = post_invoice(customer_id=customer_john_id)
     invoice_id = invoice_response.json()['id']
 
     response = api_client.patch(
         f"/api/invoices/{invoice_id}/",
         {
-            "total": 150000,
+            "date_due": "2026-07-20",
         },
         format="json",
     )
@@ -56,16 +117,16 @@ def test_patch_invoice_with_single_field_returns_200(api_client, test_db, custom
     data = response.json()
     assert data['id'] == invoice_id
     assert data['customer_id'] == customer_john_id
-    assert data['total'] == 150000
+    assert data['date_due'] == "2026-07-20"
 
 def test_patch_invoice_with_multiple_fields_returns_200(api_client, test_db, customer_john_id, post_invoice):
-    invoice_response = post_invoice(customer_id=customer_john_id, total=1000)
+    invoice_response = post_invoice(customer_id=customer_john_id)
     invoice_id = invoice_response.json()['id']
 
     response = api_client.patch(
         f"/api/invoices/{invoice_id}/",
         {
-            "total": 250000,
+            "date_issued": "2026-05-21",
             "date_due": "2026-07-20"
         },
         format="json",
@@ -76,11 +137,11 @@ def test_patch_invoice_with_multiple_fields_returns_200(api_client, test_db, cus
     data = response.json()
     assert data['id'] == invoice_id
     assert data['customer_id'] == customer_john_id
-    assert data['total'] == 250000
+    assert data['date_issued'] == "2026-05-21"
     assert data['date_due'] == "2026-07-20"
 
 def test_patch_invoice_status_returns_200(api_client, test_db, customer_john_id, post_invoice):
-    invoice_response = post_invoice(customer_id=customer_john_id, total=1000)
+    invoice_response = post_invoice(customer_id=customer_john_id)
     invoice_id = invoice_response.json()['id']
 
     response = api_client.patch(
@@ -97,8 +158,39 @@ def test_patch_invoice_status_returns_200(api_client, test_db, customer_john_id,
     assert data["id"] == invoice_id
     assert data["status"] == "sent"
 
+def test_patch_invoice_status_rejects_inactive_line_item_product(api_client, test_db, customer_john_id, post_invoice, post_product):
+    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_id = invoice_response.json()['id']
+    product_response = post_product(name="Inactive Widget")
+    product_id = product_response.json()["id"]
+
+    item_response = api_client.post(
+        f"/api/invoices/{invoice_id}/items/",
+        {
+            "product_id": product_id,
+            "quantity": 1,
+        },
+        format="json",
+    )
+    assert item_response.status_code == 201
+
+    deactivate_response = api_client.patch(f"/api/products/{product_id}/deactivate/")
+    assert deactivate_response.status_code == 200
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice_id}/status/",
+        {
+            "status": "sent"
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "inactive products" in response.json()["detail"]
+    assert "Inactive Widget" in response.json()["detail"]
+
 def test_delete_invoice_returns_204(api_client, test_db, customer_john_id, post_invoice):
-    invoice_response = post_invoice(customer_id=customer_john_id, total=1000)
+    invoice_response = post_invoice(customer_id=customer_john_id)
     invoice_id = invoice_response.json()['id']
 
     response = api_client.delete(f"/api/invoices/{invoice_id}/")
@@ -113,21 +205,20 @@ def test_create_invoice_with_missing_customer_returns_404(api_client, test_db):
             "customer_id": INVALID_ID,
             "date_issued": "2026-05-20",
             "date_due": "2026-06-20",
-            "total": 2000,
         },
         format="json",
     )
 
     assert response.status_code == 404
 
-def test_create_invoice_with_invalid_total_returns_400(api_client, test_db, customer_john_id):
+def test_create_invoice_with_manual_total_returns_400(api_client, test_db, customer_john_id):
     response = api_client.post(
         "/api/invoices/",
         {
             "customer_id": customer_john_id,
             "date_issued": "2026-05-20",
             "date_due": "2026-06-20",
-            "total": -1,
+            "total": 1000,
         },
         fomrat="json",
     )
@@ -141,7 +232,6 @@ def test_create_invoice_with_due_date_before_issued_date_returns_400(api_client,
             "customer_id": customer_john_id,
             "date_issued": "2026-06-20",
             "date_due": "2026-05-20",
-            "total": 2000,
         },
         fomrat="json",
     )
@@ -156,7 +246,6 @@ def test_get_missing_invoice_returns_404(api_client, test_db, customer_john_id, 
 def test_patch_invoice_with_empty_body_returns_400(api_client, test_db, customer_john_id, post_invoice):
     invoice_response = post_invoice(
         customer_id=customer_john_id,
-        total=1000,
     )
     invoice_id = invoice_response.json()['id']
 
@@ -171,7 +260,6 @@ def test_patch_invoice_with_empty_body_returns_400(api_client, test_db, customer
 def test_patch_invoice_status_with_invalid_status_returns_400(api_client, test_db, customer_john_id, post_invoice):
     invoice_response = post_invoice(
         customer_id=customer_john_id,
-        total=1000,
     )
     invoice_id = invoice_response.json()['id']
 

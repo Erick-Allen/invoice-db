@@ -7,8 +7,9 @@ from rest_framework.views import APIView
 from invoice_db.db import connection
 from invoice_db.services import customers as customer_services
 from invoice_db.services import invoices as invoice_services
+from invoice_db.services import invoice_items as invoice_item_services
 from invoice_db.services import products as product_services
-from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError
+from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError, ConflictError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from invoice_db.assistant.router import AssistantRouter
@@ -24,11 +25,23 @@ from .serializers import (
     InvoiceSerializer,
     InvoiceUpdateSerializer,
     InvoiceStatusUpdateSerializer,
+    InvoiceItemSerializer,
+    InvoiceItemCreateSerializer,
+    InvoiceItemUpdateSerializer,
     ProductSerializer,
     ProductUpdateSerializer,
 )
 
 router = AssistantRouter(use_qwen=True)
+
+def _include_items(request) -> bool:
+    return request.query_params.get("include_items", "").lower() in {"1", "true", "yes"}
+
+def _with_invoice_items(cursor, invoice: dict) -> dict:
+    invoice_data = dict(InvoiceSerializer(invoice).data)
+    invoice_items = invoice_item_services.list_invoice_items(cursor, invoice_id=invoice_data["id"])
+    invoice_data["items"] = InvoiceItemSerializer(invoice_items, many=True).data
+    return invoice_data
 
 @api_view(["GET"])
 def api_root(request):
@@ -192,15 +205,22 @@ class CustomerDetailView(APIView):
     
 class InvoiceListCreateView(APIView):
     def get(self, request):
+        include_items = _include_items(request)
+
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
                 invoices = invoice_services.list_invoices(cursor=cursor)
+                if include_items:
+                    invoices = [_with_invoice_items(cursor, invoice) for invoice in invoices]
 
         except sqlite3.Error:
             return Response(
                 {"detail": "A database error occurred while retrieving invoices."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+        if include_items:
+            return Response(invoices, status=status.HTTP_200_OK)
         
         serializer = InvoiceSerializer(invoices, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -221,7 +241,6 @@ class InvoiceListCreateView(APIView):
                     customer_id=serializer.validated_data['customer_id'],
                     date_issued=date_issued.isoformat() if date_issued else None,
                     date_due=date_due.isoformat() if date_due else None,
-                    total=serializer.validated_data['total'],
                 )
 
         except ValidationError as e:
@@ -251,12 +270,16 @@ class InvoiceListCreateView(APIView):
     
 class InvoiceDetailView(APIView):
     def get(self, request, invoice_id):
+        include_items = _include_items(request)
+
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
                 invoice = invoice_services.get_invoice_by_id(
                     cursor=cursor,
                     invoice_id=invoice_id
                 )
+                if include_items:
+                    invoice = _with_invoice_items(cursor, invoice)
 
         except NotFoundError as e:
             return Response(
@@ -266,9 +289,12 @@ class InvoiceDetailView(APIView):
         
         except sqlite3.Error:
             return Response(
-                {"detail": "A database error occurred while creating the invoice."},
+                {"detail": "A database error occurred while retrieving the invoice."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+        if include_items:
+            return Response(invoice, status=status.HTTP_200_OK)
         
         serializer = InvoiceSerializer(invoice)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -289,7 +315,6 @@ class InvoiceDetailView(APIView):
                     invoice_id=invoice_id,
                     new_date_issued=date_issued.isoformat() if date_issued else None,
                     new_date_due=date_due.isoformat() if date_due else None,
-                    new_total=serializer.validated_data.get("total"),
                     new_customer_id=serializer.validated_data.get("customer_id"),
                 )
         
@@ -385,6 +410,177 @@ class InvoiceStatusUpdateView(APIView):
         
         serializer = InvoiceSerializer(invoice)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class InvoiceItemListCreateView(APIView):
+    def get(self, request, invoice_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice_items = invoice_item_services.list_invoice_items(cursor, invoice_id=invoice_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving invoice items."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = InvoiceItemSerializer(invoice_items, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, invoice_id):
+        serializer = InvoiceItemCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice_item = invoice_item_services.create_invoice_item(
+                    cursor,
+                    invoice_id=invoice_id,
+                    product_id=serializer.validated_data["product_id"],
+                    quantity=serializer.validated_data.get("quantity", 1),
+                    unit_price_cents=serializer.validated_data.get("unit_price_cents"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the invoice item."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the invoice item."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = InvoiceItemSerializer(invoice_item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class InvoiceItemDetailView(APIView):
+    def get(self, request, invoice_item_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice_item = invoice_item_services.get_invoice_item_by_id(
+                    cursor,
+                    invoice_item_id=invoice_item_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the invoice item."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = InvoiceItemSerializer(invoice_item)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, invoice_item_id):
+        serializer = InvoiceItemUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice_item = invoice_item_services.update_invoice_item_by_id(
+                    cursor,
+                    invoice_item_id=invoice_item_id,
+                    product_id=serializer.validated_data.get("product_id"),
+                    quantity=serializer.validated_data.get("quantity"),
+                    unit_price_cents=serializer.validated_data.get("unit_price_cents"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the invoice item."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the invoice item."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = InvoiceItemSerializer(invoice_item)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, invoice_item_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice_item_services.delete_invoice_item(cursor, invoice_item_id=invoice_item_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the invoice item."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ProductListCreateView(APIView):
     def get(self, request):

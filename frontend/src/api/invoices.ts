@@ -1,4 +1,5 @@
 import { apiRequest } from "./client";
+import type { InvoiceItem } from "./invoiceItems";
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
 
@@ -8,26 +9,25 @@ export type Invoice = {
     date_issued: string | null;
     date_due: string | null;
     total: number;
-    status: InvoiceStatus
+    status: InvoiceStatus;
+    items?: InvoiceItem[];
 };
 
 export type CreateInvoicePayload = {
     customer_id: number;
     date_issued?: string | null;
     date_due?: string | null;
-    total: number;
-    status?: InvoiceStatus;
 };
 
 export type UpdateInvoicePayload = {
     customer_id?: number;
     date_issued?: string | null;
     date_due?: string | null;
-    total?: number;
 }
 
-export function listInvoices() {
-    return apiRequest<Invoice[]>("/invoices/");
+export function listInvoices(includeItems = false) {
+    const query = includeItems ? "?include_items=true" : "";
+    return apiRequest<Invoice[]>(`/invoices/${query}`);
 }
 
 export function createInvoice(payload: CreateInvoicePayload) {
