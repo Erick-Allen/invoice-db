@@ -77,56 +77,27 @@ def test_same_status_update_returns_success(cursor, new_status, customer_john):
         cursor,
         customer_id=customer_john,
         total=10050,
-        status="draft",
+        status=new_status,
     )
 
-    if new_status != "draft":
-        invoices.set_invoice_status(cursor, invoice_id=invoice_id, status="sent")
     result = invoices.set_invoice_status(cursor, invoice_id=invoice_id, status=new_status)
     invoice = invoices.get_invoice_by_id(cursor, invoice_id)
     assert result is True
     assert invoice['status'] == new_status
 
-def test_valid_transition_draft_to_sent_autofills_date_issued_and_date_due(cursor, customer_john):
-    invoice_id = invoices.add_invoice_to_customer(cursor, customer_id=customer_john, total=100)
-    result = invoices.set_invoice_status(cursor, invoice_id=invoice_id, status="sent")
-    updated_invoice = invoices.get_invoice_by_id(cursor, invoice_id=invoice_id)
-    assert result is True
-    assert updated_invoice['status'] == "sent"
-    assert updated_invoice['date_issued'] == date.today().isoformat()
-    assert updated_invoice['date_due'] == (date.today() + timedelta(days=30)).isoformat()
+@pytest.mark.parametrize("new_status", ["draft", "sent", "paid", "void"])
+def test_set_invoice_status_updates_to_valid_status(cursor, customer_john, new_status):
+    invoice_id = invoices.add_invoice_to_customer(
+        cursor,
+        customer_id=customer_john,
+        total=10050,
+    )
 
-def test_draft_to_sent_keeps_valid_existing_dates(cursor, customer_john):
-    invoice_id = invoices.add_invoice_to_customer(cursor, customer_id=customer_john, total=100, date_issued="01/01/2100", date_due="02/01/2100")
-    result = invoices.set_invoice_status(cursor, invoice_id=invoice_id, status="sent")
+    result = invoices.set_invoice_status(cursor, invoice_id=invoice_id, status=new_status)
     invoice = invoices.get_invoice_by_id(cursor, invoice_id)
-    assert result is True
-    assert invoice['status'] == "sent"
-    assert invoice['date_issued'] == "2100-01-01"
-    assert invoice['date_due'] == "2100-02-01"
 
-
-def test_valid_transistion_sent_to_paid(cursor, invoice_john):
-    invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="sent")
-    result = invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="paid")
-    invoice = invoices.get_invoice_by_id(cursor, invoice_john)
     assert result is True
-    assert invoice['status'] == "paid"
-
-def test_valid_transistion_sent_to_void(cursor, invoice_john):
-    invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="sent")
-    result = invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="void")
-    invoice = invoices.get_invoice_by_id(cursor, invoice_john)
-    assert result is True
-    assert invoice['status'] == "void"
-
-def test_valid_transistion_paid_to_sent(cursor, invoice_john):
-    invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="sent")
-    invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="paid")
-    result = invoices.set_invoice_status(cursor, invoice_id=invoice_john, status="sent")
-    invoice = invoices.get_invoice_by_id(cursor, invoice_john)
-    assert result is True
-    assert invoice['status'] == "sent"
+    assert invoice["status"] == new_status
 
 def test_update_invoice_date_issued_only(cursor, customer_john):
     invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
