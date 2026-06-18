@@ -12,11 +12,14 @@
 - `v0.8.0` - React UI
 - `v0.9.0` - AI query assistant MVP
 - `v0.10.0` - Product catalog
+- `v0.11.0` - Invoice line items
 
 ## Current
-- `v0.11.0` - Invoice line items
+- `v0.12.0` - Payments
 
 ## Planned
 
-- `v0.12.0` - Expanded reporting and stronger assistant workflows
+- `v0.13.0` - Invoice preview/detail page and printable invoice view
+- `v0.14.0` - Expanded reporting dashboard
+- `v0.15.0` - Stronger assistant workflows
 - `v1.0.0` - Stable deployable release

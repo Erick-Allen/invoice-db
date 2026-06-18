@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from invoice_db.db.payments import VALID_PAYMENT_METHODS
 from invoice_db.services.invoices import VALID_INVOICE_STATUSES
 from invoice_db import utils
 
@@ -93,6 +94,27 @@ class InvoiceItemUpdateSerializer(StrictSerializer):
             )
 
         return attrs
+
+class PaymentSerializer(StrictSerializer):
+    id = serializers.IntegerField(read_only=True)
+    invoice_id = serializers.IntegerField()
+    amount_cents = serializers.IntegerField(min_value=1)
+    payment_date = serializers.DateField()
+    method = serializers.ChoiceField(choices=sorted(VALID_PAYMENT_METHODS))
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+class PaymentCreateSerializer(StrictSerializer):
+    amount_cents = serializers.IntegerField(min_value=1)
+    payment_date = serializers.DateField()
+    method = serializers.ChoiceField(choices=sorted(VALID_PAYMENT_METHODS))
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+class PaymentSummarySerializer(serializers.Serializer):
+    invoice_id = serializers.IntegerField()
+    invoice_total_cents = serializers.IntegerField()
+    amount_paid_cents = serializers.IntegerField()
+    balance_due_cents = serializers.IntegerField()
+    is_paid = serializers.BooleanField()
 
 class ProductSerializer(StrictSerializer):
     id = serializers.IntegerField(read_only=True)

@@ -1,4 +1,6 @@
 import sqlite3
+from datetime import date, timedelta
+
 from invoice_db.db import customers as customers_db
 from invoice_db.db import invoice_items as invoice_items_db
 from invoice_db.db import invoices as invoices_db
@@ -17,6 +19,12 @@ from . import exceptions
 VALID_INVOICE_STATUSES = {"draft", "sent", "paid", "void"}
 VALID_INVOICE_SORT_FIELDS = {"id", "created_at", "date_issued", "date_due", "total", "status"}
 VALID_OVERDUE_SORT_FIELDS = {"id", "date_issued", "date_due", "total", "days_overdue"}
+MANUAL_STATUS_TRANSITIONS = {
+    "draft": {"sent"},
+    "sent": {"void"},
+    "paid": set(),
+    "void": set(),
+}
 
 class InvoiceRecord(TypedDict):
     id: int
@@ -360,6 +368,9 @@ def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecor
 
     if normalized_status == invoice['status']:
         raise exceptions.ValidationError("No status change detected.")
+
+    if normalized_status not in MANUAL_STATUS_TRANSITIONS.get(invoice["status"], set()):
+        raise exceptions.ValidationError(f"Invalid transition {invoice['status']} -> {normalized_status}")
     
     if invoice["status"] == "draft" and normalized_status == "sent":
         inactive_product_names = _inactive_product_names_for_invoice(cursor, invoice_id)
@@ -368,6 +379,20 @@ def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecor
             raise exceptions.ValidationError(
                 f"Cannot send invoice with inactive products: {names}."
             )
+        date_issued = invoice["date_issued"] or date.today().isoformat()
+        date_due = invoice["date_due"] or (
+            date.fromisoformat(date_issued) + timedelta(days=30)
+        ).isoformat()
+        if date_due < date_issued:
+            raise exceptions.ValidationError(
+                "Date issued and date due must be future dates, and due date must be on or after date issued."
+            )
+        invoices_db.update_invoice(
+            cursor,
+            invoice_id=invoice_id,
+            date_issued=date_issued,
+            date_due=date_due,
+        )
     
     try:
         updated = invoices_db.set_invoice_status(

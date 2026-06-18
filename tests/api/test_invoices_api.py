@@ -158,6 +158,30 @@ def test_patch_invoice_status_returns_200(api_client, test_db, customer_john_id,
     assert data["id"] == invoice_id
     assert data["status"] == "sent"
 
+def test_patch_invoice_status_rejects_manual_sent_to_paid(api_client, test_db, customer_john_id, post_invoice):
+    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_id = invoice_response.json()['id']
+
+    sent_response = api_client.patch(
+        f"/api/invoices/{invoice_id}/status/",
+        {
+            "status": "sent"
+        },
+        format="json",
+    )
+    assert sent_response.status_code == 200
+
+    paid_response = api_client.patch(
+        f"/api/invoices/{invoice_id}/status/",
+        {
+            "status": "paid"
+        },
+        format="json",
+    )
+
+    assert paid_response.status_code == 400
+    assert "Invalid transition sent -> paid" in paid_response.json()["detail"]
+
 def test_patch_invoice_status_rejects_inactive_line_item_product(api_client, test_db, customer_john_id, post_invoice, post_product):
     invoice_response = post_invoice(customer_id=customer_john_id)
     invoice_id = invoice_response.json()['id']
