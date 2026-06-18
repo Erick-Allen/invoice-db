@@ -49,6 +49,39 @@ def test_invoice_delete(customer_john, invoice_john, runner, temp_db):
     result = runner.invoke(app, ["invoices", "get", "--id", str(invoice_john), "--db", temp_db])
     assert "Invoice not found" in result.stdout
 
+def test_invoice_set_status_rejects_manual_sent_to_paid(customer_john, invoice_john, runner, temp_db):
+    sent_result = runner.invoke(
+        app,
+        [
+            "invoices",
+            "set-status",
+            "--id",
+            str(invoice_john),
+            "--status",
+            "sent",
+            "--db",
+            temp_db,
+        ],
+    )
+    assert sent_result.exit_code == 0, sent_result.stdout
+
+    paid_result = runner.invoke(
+        app,
+        [
+            "invoices",
+            "set-status",
+            "--id",
+            str(invoice_john),
+            "--status",
+            "paid",
+            "--db",
+            temp_db,
+        ],
+    )
+
+    assert paid_result.exit_code == 1, paid_result.stdout
+    assert "Invalid transition sent -> paid" in paid_result.stdout
+
 # Negative Test
 def test_create_invoice_invalid_customer_fails(customer_john, runner, temp_db):
     result = runner.invoke(app, ["invoices", "create", "--customer-id", "9999", "--db", temp_db])

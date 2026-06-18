@@ -1,5 +1,3 @@
-from datetime import date, timedelta
-
 from .customers import assert_customer_exists, get_customer_id_by_email
 from .validators import validate_total, validate_status, validate_sort
 from ..utils import to_iso
@@ -13,8 +11,6 @@ def add_invoice_to_customer(cursor, customer_id: int, date_issued: str = None, t
     date_due = to_iso(date_due)
     validate_status(status)
 
-    if status != "draft":
-        raise ValueError("New invoices must start in draft status.")
     if (date_issued is not None and date_due is not None):
         if (date_issued > date_due):
             raise ValueError("Due date must be later than the date issued.")
@@ -277,8 +273,9 @@ def update_invoice(
     return cursor.rowcount > 0
 
 def set_invoice_status(cursor, invoice_id: int, status: str) -> bool:
+    validate_status(status)
     cursor.execute(
-        "SELECT status, date_issued, date_due FROM invoices WHERE id = ?",
+        "SELECT status FROM invoices WHERE id = ?",
         (invoice_id,),
     )
     row = cursor.fetchone()
@@ -286,46 +283,19 @@ def set_invoice_status(cursor, invoice_id: int, status: str) -> bool:
     if row is None:
         raise ValueError("Invoice not found")
     
-    current_status = row['status']
-    date_issued = row['date_issued']
-    date_due = (row['date_due'])
-    today = date.today().isoformat()
-
-    if status == current_status:
+    if status == row["status"]:
         return True
-
-    status_transitions = {
-        "draft": {"sent"},
-        "sent": {"paid", "void"},
-        "paid": {"sent"},
-        "void": set(),
-    }
-
-    if status not in status_transitions.get(current_status, set()):
-        raise ValueError(f"Invalid transition {current_status} -> {status}")
-    
-    if current_status == "draft" and status == "sent":
-        if date_issued is None:
-            date_issued = date.today().isoformat()
-        if date_due is None:
-            date_due = (date.fromisoformat(date_issued) + timedelta(days=30)).isoformat()
-        if date_due < date_issued:
-            raise ValueError(
-                "Date issued and date due must be future dates, and due date must be on or after date issued."
-            )
 
     cursor.execute(
         """
         UPDATE
             invoices 
         SET 
-            status = ?,
-            date_issued = COALESCE(?, date_issued),
-            date_due = COALESCE(?, date_due)
+            status = ?
         WHERE 
             id = ? 
         """,
-        (status, date_issued, date_due, invoice_id)
+        (status, invoice_id)
         )
     return cursor.rowcount > 0
 

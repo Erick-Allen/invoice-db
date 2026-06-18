@@ -201,4 +201,23 @@ describe("InvoicesPage", () => {
             note: null,
         });
     });
+
+    it("only offers void as a manual status change for sent invoices", async () => {
+        mockedListInvoices.mockResolvedValue([
+            {
+                id: 1,
+                customer_id: 1,
+                date_issued: "2026-05-20",
+                date_due: "2026-06-20",
+                total: 2468,
+                status: "sent",
+                items: [],
+            },
+        ]);
+
+        render(<InvoicesPage />);
+
+        expect(await screen.findByRole("button", { name: "void" })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "paid" })).not.toBeInTheDocument();
+    });
 });

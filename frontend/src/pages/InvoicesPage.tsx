@@ -416,9 +416,8 @@ export function InvoicesPage() {
             case "draft":
                 return ["sent"];
             case "sent":
-                return ["paid", "void"];
+                return ["void"];
             case "paid":
-                return ["sent"];
             case "void":
                 return [];
             default:

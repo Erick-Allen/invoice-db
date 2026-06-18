@@ -98,10 +98,6 @@ def create_invoice_schema(cursor):
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
         updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
     CHECK (
-        status = 'draft'
-        OR (date_issued IS NOT NULL AND date_due IS NOT NULL)
-    )    
-    CHECK (
         date_issued IS NULL
         OR date_due IS NULL
         OR date_issued <= date_due                     
