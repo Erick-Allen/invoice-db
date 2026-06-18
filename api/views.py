@@ -8,6 +8,7 @@ from invoice_db.db import connection
 from invoice_db.services import customers as customer_services
 from invoice_db.services import invoices as invoice_services
 from invoice_db.services import invoice_items as invoice_item_services
+from invoice_db.services import payments as payment_services
 from invoice_db.services import products as product_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError, ConflictError
 from rest_framework.decorators import api_view
@@ -28,6 +29,9 @@ from .serializers import (
     InvoiceItemSerializer,
     InvoiceItemCreateSerializer,
     InvoiceItemUpdateSerializer,
+    PaymentSerializer,
+    PaymentCreateSerializer,
+    PaymentSummarySerializer,
     ProductSerializer,
     ProductUpdateSerializer,
 )
@@ -577,6 +581,162 @@ class InvoiceItemDetailView(APIView):
         except sqlite3.Error:
             return Response(
                 {"detail": "A database error occurred while deleting the invoice item."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class PaymentListCreateView(APIView):
+    def get(self, request, invoice_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                payments = payment_services.list_payments(cursor, invoice_id=invoice_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving payments."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = PaymentSerializer(payments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, invoice_id):
+        serializer = PaymentCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        payment_date = serializer.validated_data["payment_date"]
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                payment = payment_services.create_payment(
+                    cursor,
+                    invoice_id=invoice_id,
+                    amount_cents=serializer.validated_data["amount_cents"],
+                    payment_date=payment_date.isoformat(),
+                    method=serializer.validated_data["method"],
+                    note=serializer.validated_data.get("note"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the payment."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the payment."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = PaymentSerializer(payment)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class PaymentSummaryView(APIView):
+    def get(self, request, invoice_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                summary = payment_services.get_payment_summary(cursor, invoice_id=invoice_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving payment summary."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = PaymentSummarySerializer(summary)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class PaymentDetailView(APIView):
+    def get(self, request, payment_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                payment = payment_services.get_payment_by_id(cursor, payment_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the payment."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = PaymentSerializer(payment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, payment_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                payment_services.delete_payment(cursor, payment_id=payment_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deleting the payment."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the payment."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
