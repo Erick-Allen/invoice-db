@@ -16,6 +16,16 @@ import {
     updateInvoiceItem,
     type InvoiceItem,
 } from "../api/invoiceItems";
+import {
+    createPayment,
+    deletePayment,
+    getPaymentSummary,
+    listPayments,
+    PAYMENT_METHODS,
+    type Payment,
+    type PaymentMethod,
+    type PaymentSummary,
+} from "../api/payments";
 import { listProducts, type Product } from "../api/products";
 import { AssistantChatBox } from "../components/AssistantChatBox";
 
@@ -25,10 +35,19 @@ type LineItemForm = {
     unitPriceDollars: string;
 };
 
+type PaymentForm = {
+    amountDollars: string;
+    paymentDate: string;
+    method: PaymentMethod;
+    note: string;
+};
+
 export function InvoicesPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [paymentSummaries, setPaymentSummaries] = useState<Record<number, PaymentSummary>>({});
+    const [paymentsByInvoice, setPaymentsByInvoice] = useState<Record<number, Payment[]>>({});
 
     const [customerId, setCustomerId] = useState("");
     const [dateIssued, setDateIssued] = useState("");
@@ -40,6 +59,7 @@ export function InvoicesPage() {
     const [editDateDue, setEditDateDue] = useState("");
 
     const [lineItemForms, setLineItemForms] = useState<Record<number, LineItemForm>>({});
+    const [paymentForms, setPaymentForms] = useState<Record<number, PaymentForm>>({});
     const [editingItemId, setEditingItemId] = useState<number | null>(null);
     const [editItemProductId, setEditItemProductId] = useState("");
     const [editItemQuantity, setEditItemQuantity] = useState("");
@@ -61,13 +81,27 @@ export function InvoicesPage() {
                 listProducts(true),
                 listInvoices(true),
             ]);
+            const paymentSummaryEntries = await Promise.all(
+                invoiceData.map(async (invoice) => [
+                    invoice.id,
+                    await getPaymentSummary(invoice.id),
+                ] as const)
+            );
+            const paymentEntries = await Promise.all(
+                invoiceData.map(async (invoice) => [
+                    invoice.id,
+                    await listPayments(invoice.id),
+                ] as const)
+            );
 
             setCustomers(customerData);
             setProducts(productData);
             setInvoices(invoiceData);
+            setPaymentSummaries(Object.fromEntries(paymentSummaryEntries));
+            setPaymentsByInvoice(Object.fromEntries(paymentEntries));
         } catch (err) {
             const message = err instanceof Error ? err.message : "Unknown error.";
-            setLoadError(`Failed to load invoices and line items. ${message}`);
+            setLoadError(`Failed to load invoices, line items, and payments. ${message}`);
         } finally {
             setIsLoading(false);
         }
@@ -198,6 +232,21 @@ export function InvoicesPage() {
         }));
     }
 
+    function updatePaymentForm(invoiceId: number, changes: Partial<PaymentForm>) {
+        setPaymentForms((current) => ({
+            ...current,
+            [invoiceId]: {
+                ...(current[invoiceId] ?? {
+                    amountDollars: "",
+                    paymentDate: new Date().toISOString().slice(0, 10),
+                    method: "cash",
+                    note: "",
+                }),
+                ...changes,
+            },
+        }));
+    }
+
     async function handleAddInvoiceItem(invoiceId: number) {
         const form = lineItemForms[invoiceId] ?? { productId: "", quantity: "1", unitPriceDollars: "" };
 
@@ -300,6 +349,58 @@ export function InvoicesPage() {
         }
     }
 
+    async function handleAddPayment(invoiceId: number) {
+        const form = paymentForms[invoiceId] ?? {
+            amountDollars: "",
+            paymentDate: new Date().toISOString().slice(0, 10),
+            method: "cash",
+            note: "",
+        };
+
+        let amountCents: number;
+        try {
+            amountCents = dollarsToCents(form.amountDollars);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Enter a valid payment amount.");
+            return;
+        }
+
+        if (!form.paymentDate) {
+            setError("Payment date is required.");
+            return;
+        }
+
+        try {
+            setError(null);
+            await createPayment(invoiceId, {
+                amount_cents: amountCents,
+                payment_date: form.paymentDate,
+                method: form.method,
+                note: form.note.trim() || null,
+            });
+            updatePaymentForm(invoiceId, { amountDollars: "", note: "" });
+            await loadData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to add payment.");
+        }
+    }
+
+    async function handleDeletePayment(paymentId: number) {
+        const confirmed = window.confirm("Are you sure you want to delete this payment?");
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setError(null);
+            await deletePayment(paymentId);
+            await loadData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete payment.");
+        }
+    }
+
     function getCustomerName(id: number) {
         const customer = customers.find((customer) => customer.id === id);
         return customer ? customer.name : `Customer #${id}`;
@@ -327,6 +428,20 @@ export function InvoicesPage() {
 
     function getInvoiceItems(invoice: Invoice) {
         return invoice.items ?? [];
+    }
+
+    function getPaymentSummaryForInvoice(invoice: Invoice) {
+        return paymentSummaries[invoice.id] ?? {
+            invoice_id: invoice.id,
+            invoice_total_cents: invoice.total,
+            amount_paid_cents: 0,
+            balance_due_cents: invoice.total,
+            is_paid: invoice.status === "paid",
+        };
+    }
+
+    function getPaymentsForInvoice(invoice: Invoice) {
+        return paymentsByInvoice[invoice.id] ?? [];
     }
 
     return (
@@ -413,6 +528,7 @@ export function InvoicesPage() {
                                     <th>Total</th>
                                     <th>Status</th>
                                     <th>Line Items</th>
+                                    <th>Payments</th>
                                     <th>Change Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -427,6 +543,15 @@ export function InvoicesPage() {
                                         unitPriceDollars: "",
                                     };
                                     const isDraft = invoice.status === "draft";
+                                    const paymentSummary = getPaymentSummaryForInvoice(invoice);
+                                    const payments = getPaymentsForInvoice(invoice);
+                                    const paymentForm = paymentForms[invoice.id] ?? {
+                                        amountDollars: "",
+                                        paymentDate: new Date().toISOString().slice(0, 10),
+                                        method: "cash",
+                                        note: "",
+                                    };
+                                    const canAddPayment = invoice.status === "sent" && paymentSummary.balance_due_cents > 0;
 
                                     return (
                                         <tr key={invoice.id}>
@@ -467,6 +592,9 @@ export function InvoicesPage() {
                                                         <span className="status-badge">{invoice.status}</span>
                                                     </td>
                                                     <td>{items.length} item{items.length === 1 ? "" : "s"}</td>
+                                                    <td>
+                                                        Paid ${centsToDollars(paymentSummary.amount_paid_cents)}
+                                                    </td>
                                                     <td>
                                                         <span>Editing</span>
                                                     </td>
@@ -611,6 +739,81 @@ export function InvoicesPage() {
                                                                         className="small-action-button"
                                                                         type="button"
                                                                         onClick={() => handleAddInvoiceItem(invoice.id)}
+                                                                    >
+                                                                        Add
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="payments-cell">
+                                                            <div className="payment-summary-grid">
+                                                                <span>Total ${centsToDollars(paymentSummary.invoice_total_cents)}</span>
+                                                                <span>Paid ${centsToDollars(paymentSummary.amount_paid_cents)}</span>
+                                                                <span>Due ${centsToDollars(paymentSummary.balance_due_cents)}</span>
+                                                            </div>
+
+                                                            {payments.length === 0 ? (
+                                                                <p className="muted-text">No payments</p>
+                                                            ) : (
+                                                                <ul className="payment-list">
+                                                                    {payments.map((payment) => (
+                                                                        <li key={payment.id} className="payment-row">
+                                                                            <span>
+                                                                                ${centsToDollars(payment.amount_cents)} {payment.method} on {payment.payment_date}
+                                                                            </span>
+                                                                            {invoice.status !== "void" && (
+                                                                                <button
+                                                                                    className="small-danger-button"
+                                                                                    type="button"
+                                                                                    onClick={() => handleDeletePayment(payment.id)}
+                                                                                >
+                                                                                    Delete
+                                                                                </button>
+                                                                            )}
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+
+                                                            {canAddPayment && (
+                                                                <div className="payment-add">
+                                                                    <input
+                                                                        aria-label={`Payment amount for invoice ${invoice.id}`}
+                                                                        type="text"
+                                                                        value={paymentForm.amountDollars}
+                                                                        onChange={(event) => updatePaymentForm(invoice.id, { amountDollars: event.target.value })}
+                                                                        placeholder="Amount"
+                                                                    />
+                                                                    <input
+                                                                        aria-label={`Payment date for invoice ${invoice.id}`}
+                                                                        type="date"
+                                                                        value={paymentForm.paymentDate}
+                                                                        onChange={(event) => updatePaymentForm(invoice.id, { paymentDate: event.target.value })}
+                                                                    />
+                                                                    <select
+                                                                        aria-label={`Payment method for invoice ${invoice.id}`}
+                                                                        value={paymentForm.method}
+                                                                        onChange={(event) => updatePaymentForm(invoice.id, { method: event.target.value as PaymentMethod })}
+                                                                    >
+                                                                        {PAYMENT_METHODS.map((method) => (
+                                                                            <option key={method} value={method}>
+                                                                                {method}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <input
+                                                                        aria-label={`Payment note for invoice ${invoice.id}`}
+                                                                        type="text"
+                                                                        value={paymentForm.note}
+                                                                        onChange={(event) => updatePaymentForm(invoice.id, { note: event.target.value })}
+                                                                        placeholder="Note"
+                                                                    />
+                                                                    <button
+                                                                        className="small-action-button"
+                                                                        type="button"
+                                                                        onClick={() => handleAddPayment(invoice.id)}
                                                                     >
                                                                         Add
                                                                     </button>

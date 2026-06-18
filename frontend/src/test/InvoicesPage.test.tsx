@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listCustomers } from "../api/customers";
 import { InvoicesPage } from "../pages/InvoicesPage";
 import { listInvoices, updateInvoiceStatus } from "../api/invoices";
+import { createPayment, getPaymentSummary, listPayments } from "../api/payments";
 import { listProducts } from "../api/products";
 
 vi.mock("../api/customers", () => ({
@@ -27,10 +28,21 @@ vi.mock("../api/invoiceItems", () => ({
     deleteInvoiceItem: vi.fn(),
 }));
 
+vi.mock("../api/payments", () => ({
+    PAYMENT_METHODS: ["cash", "card", "check", "bank_transfer", "other"],
+    listPayments: vi.fn(),
+    getPaymentSummary: vi.fn(),
+    createPayment: vi.fn(),
+    deletePayment: vi.fn(),
+}));
+
 const mockedListCustomers = vi.mocked(listCustomers);
 const mockedListInvoices = vi.mocked(listInvoices);
 const mockedListProducts = vi.mocked(listProducts);
 const mockedUpdateInvoiceStatus = vi.mocked(updateInvoiceStatus);
+const mockedListPayments = vi.mocked(listPayments);
+const mockedGetPaymentSummary = vi.mocked(getPaymentSummary);
+const mockedCreatePayment = vi.mocked(createPayment);
 
 describe("InvoicesPage", () => {
     beforeEach(() => {
@@ -74,6 +86,25 @@ describe("InvoicesPage", () => {
                 is_active: true,
             },
         ]);
+
+        mockedGetPaymentSummary.mockResolvedValue({
+            invoice_id: 1,
+            invoice_total_cents: 2468,
+            amount_paid_cents: 500,
+            balance_due_cents: 1968,
+            is_paid: false,
+        });
+
+        mockedListPayments.mockResolvedValue([
+            {
+                id: 1,
+                invoice_id: 1,
+                amount_cents: 500,
+                payment_date: "2026-06-17",
+                method: "cash",
+                note: "Initial payment",
+            },
+        ]);
     });
 
     it("renders the invoice form and invoice table", async () => {
@@ -91,7 +122,11 @@ describe("InvoicesPage", () => {
         expect(johnDoeMatches.length).toBeGreaterThan(0);
         expect(screen.getAllByText("$24.68").length).toBeGreaterThan(0);
         expect(screen.getByText("Widget x 2")).toBeInTheDocument();
+        expect(screen.getAllByText(/Paid \$5.00/).length).toBeGreaterThan(0);
+        expect(screen.getByText(/Due \$19.68/)).toBeInTheDocument();
+        expect(screen.getByText(/\$5.00 cash on 2026-06-17/)).toBeInTheDocument();
         expect(screen.getByText("draft")).toBeInTheDocument();
+        expect(screen.queryByLabelText("Payment amount for invoice 1")).not.toBeInTheDocument();
         
         expect(screen.getByRole("button", { name : "sent"})).toBeInTheDocument();
 
@@ -105,7 +140,7 @@ describe("InvoicesPage", () => {
         render(<InvoicesPage />);
 
         expect(
-            await screen.findByText(/Failed to load invoices and line items/)
+            await screen.findByText(/Failed to load invoices, line items, and payments/)
         ).toBeInTheDocument();
         expect(
             screen.getByText(/A database error occurred while retrieving invoices/)
@@ -129,5 +164,41 @@ describe("InvoicesPage", () => {
         expect(
             screen.getByText(/Cannot send invoice with inactive products: Widget/)
         ).toBeInTheDocument();
+    });
+
+    it("allows adding a payment for a sent invoice with balance due", async () => {
+        mockedListInvoices.mockResolvedValue([
+            {
+                id: 1,
+                customer_id: 1,
+                date_issued: "2026-05-20",
+                date_due: "2026-06-20",
+                total: 2468,
+                status: "sent",
+                items: [],
+            },
+        ]);
+        mockedCreatePayment.mockResolvedValue({
+            id: 2,
+            invoice_id: 1,
+            amount_cents: 1000,
+            payment_date: "2026-06-17",
+            method: "card",
+            note: null,
+        });
+
+        render(<InvoicesPage />);
+
+        const amountInput = await screen.findByLabelText("Payment amount for invoice 1");
+        fireEvent.change(amountInput, { target: { value: "10.00" } });
+        fireEvent.change(screen.getByLabelText("Payment method for invoice 1"), { target: { value: "card" } });
+        fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+        expect(mockedCreatePayment).toHaveBeenCalledWith(1, {
+            amount_cents: 1000,
+            payment_date: expect.any(String),
+            method: "card",
+            note: null,
+        });
     });
 });
