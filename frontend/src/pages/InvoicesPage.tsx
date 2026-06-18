@@ -385,6 +385,39 @@ export function InvoicesPage() {
         }
     }
 
+    async function handlePayBalance(invoiceId: number, balanceDueCents: number) {
+        const form = paymentForms[invoiceId] ?? {
+            amountDollars: "",
+            paymentDate: new Date().toISOString().slice(0, 10),
+            method: "cash",
+            note: "",
+        };
+
+        if (balanceDueCents <= 0) {
+            setError("Invoice has no balance due.");
+            return;
+        }
+
+        if (!form.paymentDate) {
+            setError("Payment date is required.");
+            return;
+        }
+
+        try {
+            setError(null);
+            await createPayment(invoiceId, {
+                amount_cents: balanceDueCents,
+                payment_date: form.paymentDate,
+                method: form.method,
+                note: form.note.trim() || null,
+            });
+            updatePaymentForm(invoiceId, { amountDollars: "", note: "" });
+            await loadData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to pay balance.");
+        }
+    }
+
     async function handleDeletePayment(paymentId: number) {
         const confirmed = window.confirm("Are you sure you want to delete this payment?");
 
@@ -815,6 +848,13 @@ export function InvoicesPage() {
                                                                         onClick={() => handleAddPayment(invoice.id)}
                                                                     >
                                                                         Add
+                                                                    </button>
+                                                                    <button
+                                                                        className="small-action-button"
+                                                                        type="button"
+                                                                        onClick={() => handlePayBalance(invoice.id, paymentSummary.balance_due_cents)}
+                                                                    >
+                                                                        Pay Balance
                                                                     </button>
                                                                 </div>
                                                             )}

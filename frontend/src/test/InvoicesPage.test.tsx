@@ -202,6 +202,42 @@ describe("InvoicesPage", () => {
         });
     });
 
+    it("allows paying the remaining balance for a sent invoice", async () => {
+        mockedListInvoices.mockResolvedValue([
+            {
+                id: 1,
+                customer_id: 1,
+                date_issued: "2026-05-20",
+                date_due: "2026-06-20",
+                total: 2468,
+                status: "sent",
+                items: [],
+            },
+        ]);
+        mockedCreatePayment.mockResolvedValue({
+            id: 2,
+            invoice_id: 1,
+            amount_cents: 1968,
+            payment_date: "2026-06-17",
+            method: "check",
+            note: "Final payment",
+        });
+
+        render(<InvoicesPage />);
+
+        await screen.findByLabelText("Payment amount for invoice 1");
+        fireEvent.change(screen.getByLabelText("Payment method for invoice 1"), { target: { value: "check" } });
+        fireEvent.change(screen.getByLabelText("Payment note for invoice 1"), { target: { value: "Final payment" } });
+        fireEvent.click(screen.getByRole("button", { name: "Pay Balance" }));
+
+        expect(mockedCreatePayment).toHaveBeenCalledWith(1, {
+            amount_cents: 1968,
+            payment_date: expect.any(String),
+            method: "check",
+            note: "Final payment",
+        });
+    });
+
     it("only offers void as a manual status change for sent invoices", async () => {
         mockedListInvoices.mockResolvedValue([
             {
