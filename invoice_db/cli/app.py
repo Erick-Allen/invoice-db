@@ -3,7 +3,7 @@ from .ui import console
 
     
 #CLI APP
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 app = typer.Typer(
     help=(

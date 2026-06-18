@@ -4,22 +4,15 @@ A relational database, CLI, API, React UI, and AI assistant application built wi
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.11.0**, the project includes support for:
+As of **v0.12.0**, the project includes support for:
 
-- Customer and invoice management
-- Full CRUD operations for customers and invoices
-- Product catalog management
-- Invoice line items backed by product catalog entries
-- Derived invoice totals from line items
-- Invoice lifecycle/status management
-- Filtering, sorting, and improved invoice queries
-- Typer-based CLI with Rich terminal output
-- Django REST Framework API layer
-- React + TypeScript frontend UI
-- Shared service layer used by both CLI and API
-- Guarded natural-language invoice assistant using intent classification
+- Customer, invoice, product, line-item, and payment workflows
+- Derived invoice totals, payment summaries, and invoice status rules
+- Typer CLI, Django REST API, and React + TypeScript frontend
+- Shared service layer used by CLI and API
+- Guarded natural-language invoice assistant
 - Dockerized backend runtime with persistent SQLite storage
-- Backend and frontend test coverage with pytest, Vitest, and React Testing Library
+- Backend and frontend test coverage
 
 ## Architecture
 
@@ -155,6 +148,13 @@ qwen3:0.6b
 - `invoicedb invoice-items update`
 - `invoicedb invoice-items delete`
 
+### Payment commands
+- `invoicedb payments add`
+- `invoicedb payments list`
+- `invoicedb payments get`
+- `invoicedb payments summary`
+- `invoicedb payments delete`
+
 ### Product commands
 - `invoicedb products add`
 - `invoicedb products list`
@@ -196,6 +196,13 @@ qwen3:0.6b
 - `PATCH /api/invoice-items/{id}/`
 - `DELETE /api/invoice-items/{id}/`
 
+### Payments
+- `GET /api/invoices/{id}/payments/`
+- `POST /api/invoices/{id}/payments/`
+- `GET /api/invoices/{id}/payments/summary/`
+- `GET /api/payments/{id}/`
+- `DELETE /api/payments/{id}/`
+
 ### Products
 - `GET /api/products/`
 - `GET /api/products/?active_only=true`
@@ -233,19 +240,26 @@ npm run test:run
 
 ## Version History
 
+### [v0.12.0]
+#### Added
+- Payments across DB, services, CLI, API, and React frontend
+- Partial/full payment tracking with payment summaries
+- Sent-only payment creation, overpayment protection, and paid-to-sent reopening on payment deletion
+- `invoicedb payments add/list/get/summary/delete`
+- Payment API endpoints and frontend Pay Balance action
+
+#### Changed
+- Manual status changes no longer mark invoices paid; payments control sent/paid transitions.
+
 ### [v0.11.0]
 #### Added
-- Invoice line item table, DB repository, service layer, CLI commands, API endpoints, and React invoice workflows
-- Product-backed invoice line items with price snapshots
-- Optional nested invoice item responses with `include_items=true`
-- `invoicedb invoice-items add/list/get/update/delete`
-- `invoicedb invoices list --include-items`
+- Invoice line items across DB, services, CLI, API, and React frontend
+- Product-backed line items with price snapshots and locked sent/paid/void edits
+- `include_items=true`, `invoicedb invoice-items`, and `invoicedb invoices list --include-items`
+- Inactive-product checks before adding/replacing line items or sending invoices
 
 #### Changed
 - Invoice totals are calculated from line items instead of manual invoice total inputs.
-- Draft invoices support line-item edits; sent, paid, and void invoices lock line-item edits.
-- Inactive products are rejected for new/replacement line items.
-- Sending a draft invoice is blocked when any line item references an inactive product.
 - Invoice frontend now shows clearer load and status-change errors.
 
 ### [v0.10.0]
@@ -321,8 +335,11 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.12.0] (Minor)
-- Expanded reporting
-- Stronger assistant workflows
+### [v0.13.0] (Minor)
+- Invoice preview/detail 
+- Printable invoice view or simple HTML export
+
+### [v0.14.0] (Minor)
+- Expanded reporting dashboard with revenue, unpaid totals, overdue amounts, top customers, and most-used products/services
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).
