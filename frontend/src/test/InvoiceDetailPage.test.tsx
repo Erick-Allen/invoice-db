@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCustomer } from "../api/customers";
@@ -94,7 +94,7 @@ describe("InvoiceDetailPage", () => {
             </MemoryRouter>
         );
 
-        expect(await screen.findByRole("heading", { name: "Invoice #7" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Invoice #7", level: 2 })).toBeInTheDocument();
         expect(mockedGetInvoice).toHaveBeenCalledWith(7, true);
         expect(mockedGetCustomer).toHaveBeenCalledWith(1);
         expect(mockedListPayments).toHaveBeenCalledWith(7);
@@ -105,8 +105,8 @@ describe("InvoiceDetailPage", () => {
         expect(within(summary).getByText("$25.00")).toBeInTheDocument();
         expect(within(summary).getByText("$50.00")).toBeInTheDocument();
 
-        expect(screen.getByText("John Doe")).toBeInTheDocument();
-        expect(screen.getByText("Consulting")).toBeInTheDocument();
+        expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Consulting").length).toBeGreaterThan(0);
         expect(screen.getByText("Deposit")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Back to invoices" })).toHaveAttribute("href", "/invoices");
     });
@@ -120,7 +120,42 @@ describe("InvoiceDetailPage", () => {
             </MemoryRouter>
         );
 
-        expect(await screen.findByRole("heading", { name: "Invoice #7" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Invoice #7", level: 2 })).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Back to customer" })).toHaveAttribute("href", "/customers/1");
+    });
+
+    it("renders a customer-facing print invoice layout", async () => {
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        const printableInvoice = await screen.findByLabelText("Printable customer invoice");
+
+        expect(within(printableInvoice).getByRole("heading", { name: "Invoice #7" })).toBeInTheDocument();
+        expect(within(printableInvoice).getByText("Bill To")).toBeInTheDocument();
+        expect(within(printableInvoice).getByText("John Doe")).toBeInTheDocument();
+        expect(within(printableInvoice).getByText("Balance Due")).toBeInTheDocument();
+        expect(within(printableInvoice).queryByText("Payments")).not.toBeInTheDocument();
+    });
+
+    it("prints the invoice detail", async () => {
+        const printSpy = vi.spyOn(window, "print").mockImplementation(() => undefined);
+
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        fireEvent.click(await screen.findByRole("button", { name: "Print" }));
+
+        expect(printSpy).toHaveBeenCalledOnce();
+        printSpy.mockRestore();
     });
 });
