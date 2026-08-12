@@ -17,6 +17,10 @@ export function listCustomers() {
     return apiRequest<Customer[]>("/customers/");
 }
 
+export function getCustomer(id: number) {
+    return apiRequest<Customer>(`/customers/${id}/`);
+}
+
 export function createCustomer(payload: CreateCustomerPayload) {
     return apiRequest<Customer>("/customers/", {
         method: "POST",
