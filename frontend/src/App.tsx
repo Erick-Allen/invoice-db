@@ -1,6 +1,8 @@
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import { CustomerDetailPage } from "./pages/CustomerDetailPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { InvoiceDetailPage } from "./pages/InvoiceDetailPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { ProductsPage } from "./pages/ProductsPage";
 import "./App.css";
@@ -26,7 +28,9 @@ function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="customers" element={<CustomersPage />} />
+            <Route path="customers/:customerId" element={<CustomerDetailPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
+            <Route path="invoices/:invoiceId" element={<InvoiceDetailPage />} />
             <Route path="products" element={<ProductsPage />} />
           </Routes>
         </main>

@@ -1,4 +1,5 @@
-import { useEffect, useState, type SubmitEventHandler } from "react";
+import { useEffect, useState, type KeyboardEvent, type MouseEvent, type SubmitEventHandler } from "react";
+import { useNavigate } from "react-router-dom";
 import { centsToDollars, dollarsToCents } from "../utils/money";
 import { listCustomers, type Customer } from "../api/customers";
 import {
@@ -43,6 +44,7 @@ type PaymentForm = {
 };
 
 export function InvoicesPage() {
+    const navigate = useNavigate();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -444,6 +446,33 @@ export function InvoicesPage() {
         return product ? product.name : `Product #${id}`;
     }
 
+    function isInteractiveTarget(target: EventTarget | null) {
+        return target instanceof HTMLElement && Boolean(target.closest("button, input, select, textarea, a"));
+    }
+
+    function openInvoiceDetail(invoiceId: number) {
+        navigate(`/invoices/${invoiceId}`);
+    }
+
+    function handleInvoiceRowClick(event: MouseEvent<HTMLTableRowElement>, invoiceId: number) {
+        if (isInteractiveTarget(event.target)) {
+            return;
+        }
+
+        openInvoiceDetail(invoiceId);
+    }
+
+    function handleInvoiceRowKeyDown(event: KeyboardEvent<HTMLTableRowElement>, invoiceId: number) {
+        if (isInteractiveTarget(event.target)) {
+            return;
+        }
+
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openInvoiceDetail(invoiceId);
+        }
+    }
+
     function getNextStatuses(status: InvoiceStatus): InvoiceStatus[] {
         switch (status) {
             case "draft":
@@ -586,7 +615,14 @@ export function InvoicesPage() {
                                     const canAddPayment = invoice.status === "sent" && paymentSummary.balance_due_cents > 0;
 
                                     return (
-                                        <tr key={invoice.id}>
+                                        <tr
+                                            key={invoice.id}
+                                            className={editingInvoiceId === invoice.id ? undefined : "clickable-row"}
+                                            tabIndex={editingInvoiceId === invoice.id ? undefined : 0}
+                                            aria-label={editingInvoiceId === invoice.id ? undefined : `View invoice ${invoice.id}`}
+                                            onClick={editingInvoiceId === invoice.id ? undefined : (event) => handleInvoiceRowClick(event, invoice.id)}
+                                            onKeyDown={editingInvoiceId === invoice.id ? undefined : (event) => handleInvoiceRowKeyDown(event, invoice.id)}
+                                        >
                                             <td>{index + 1}</td>
 
                                             {editingInvoiceId === invoice.id ? (

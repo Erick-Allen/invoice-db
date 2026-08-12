@@ -25,9 +25,30 @@ export type UpdateInvoicePayload = {
     date_due?: string | null;
 }
 
-export function listInvoices(includeItems = false) {
-    const query = includeItems ? "?include_items=true" : "";
+type ListInvoiceOptions = {
+    includeItems?: boolean;
+    customerId?: number;
+};
+
+export function listInvoices(options: boolean | ListInvoiceOptions = false) {
+    const normalizedOptions = typeof options === "boolean" ? { includeItems: options } : options;
+    const params = new URLSearchParams();
+
+    if (normalizedOptions.includeItems) {
+        params.set("include_items", "true");
+    }
+
+    if (normalizedOptions.customerId !== undefined) {
+        params.set("customer_id", String(normalizedOptions.customerId));
+    }
+
+    const query = params.toString() ? `?${params.toString()}` : "";
     return apiRequest<Invoice[]>(`/invoices/${query}`);
+}
+
+export function getInvoice(id: number, includeItems = false) {
+    const query = includeItems ? "?include_items=true" : "";
+    return apiRequest<Invoice>(`/invoices/${id}/${query}`);
 }
 
 export function createInvoice(payload: CreateInvoicePayload) {

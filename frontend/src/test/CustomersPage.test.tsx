@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi} from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CustomersPage } from "../pages/CustomersPage";
 import { listCustomers } from "../api/customers";
 
@@ -11,6 +12,11 @@ vi.mock("../api/customers", () => ({
 }));
 
 const mockedListCustomers = vi.mocked(listCustomers);
+
+function LocationDisplay() {
+    const location = useLocation();
+    return <span data-testid="location-path">{location.pathname}</span>;
+}
 
 describe("CustomersPage", () => {
     beforeEach(() => {
@@ -26,18 +32,35 @@ describe("CustomersPage", () => {
     });
 
     it("renders the customer form and customer table", async () => {
-        render(<CustomersPage />);
+        render(
+            <MemoryRouter>
+                <CustomersPage />
+            </MemoryRouter>
+        );
 
-        expect(screen.getByRole("heading", {name: "Customers"})).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Customers" })).toBeInTheDocument();
 
         expect(screen.getByLabelText("Name")).toBeInTheDocument();
         expect(screen.getByLabelText("Email")).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: "Create Customer"})).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Create Customer" })).toBeInTheDocument();
 
         expect(await screen.findByText("John Doe")).toBeInTheDocument();
         expect(screen.getByText("john@example.com")).toBeInTheDocument();
 
-        expect(screen.getByRole("button", {name: "Edit"})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: "Delete"})).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
     });
-})
+
+    it("navigates to customer detail when a customer row is clicked", async () => {
+        render(
+            <MemoryRouter initialEntries={["/customers"]}>
+                <CustomersPage />
+                <LocationDisplay />
+            </MemoryRouter>
+        );
+
+        fireEvent.click(await screen.findByRole("row", { name: /View John Doe/i }));
+
+        expect(screen.getByTestId("location-path")).toHaveTextContent("/customers/1");
+    });
+});

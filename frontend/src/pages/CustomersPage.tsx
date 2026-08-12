@@ -1,7 +1,9 @@
-import {useEffect, useState, type SubmitEventHandler } from "react";
+import { useEffect, useState, type KeyboardEvent, type SubmitEventHandler } from "react";
+import { useNavigate } from "react-router-dom";
 import { createCustomer, updateCustomer, deleteCustomer, listCustomers, type Customer } from "../api/customers";
 
 export function CustomersPage() {
+    const navigate = useNavigate();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -35,6 +37,17 @@ export function CustomersPage() {
         setEditingCustomerId(null);
         setEditName("");
         setEditEmail("");
+    }
+
+    function openCustomerDetail(customerId: number) {
+        navigate(`/customers/${customerId}`);
+    }
+
+    function handleCustomerRowKeyDown(event: KeyboardEvent<HTMLTableRowElement>, customerId: number) {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openCustomerDetail(customerId);
+        }
     }
 
     async function handleUpdateCustomer(customerId: number) {
@@ -191,11 +204,21 @@ export function CustomersPage() {
                 </thead>
 
                 <tbody>
-                {customers.map((customer, index) => (
-                    <tr key={customer.id}>
+                {customers.map((customer, index) => {
+                    const isEditing = editingCustomerId === customer.id;
+
+                    return (
+                    <tr
+                        key={customer.id}
+                        className={isEditing ? undefined : "clickable-row"}
+                        tabIndex={isEditing ? undefined : 0}
+                        aria-label={isEditing ? undefined : `View ${customer.name}`}
+                        onClick={isEditing ? undefined : () => openCustomerDetail(customer.id)}
+                        onKeyDown={isEditing ? undefined : (event) => handleCustomerRowKeyDown(event, customer.id)}
+                    >
                     <td>{index + 1}</td>
 
-                    {editingCustomerId === customer.id ? (
+                    {isEditing ? (
                         <>
                         <td>
                             <input
@@ -217,14 +240,20 @@ export function CustomersPage() {
                             <button
                                 className="small-action-button"
                                 type="button"
-                                onClick={() => handleUpdateCustomer(customer.id)}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleUpdateCustomer(customer.id);
+                                }}
                             >
                                 Save
                             </button>
                             <button
                                 className="small-danger-button"
                                 type="button"
-                                onClick={cancelEditingCustomer}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    cancelEditingCustomer();
+                                }}
                             >
                                 Cancel
                             </button>
@@ -240,7 +269,10 @@ export function CustomersPage() {
                             <button
                                 className="small-action-button"
                                 type="button"
-                                onClick={() => startEditingCustomer(customer)}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    startEditingCustomer(customer);
+                                }}
                             >
                                 Edit
                             </button>
@@ -248,7 +280,10 @@ export function CustomersPage() {
                             <button
                                 className="small-danger-button"
                                 type="button"
-                                onClick={() => handleDeleteCustomer(customer.id)}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleDeleteCustomer(customer.id);
+                                }}
                             >
                                 Delete
                             </button>
@@ -257,7 +292,7 @@ export function CustomersPage() {
                         </>
                     )}
                     </tr>
-                ))}
+                )})}
                 </tbody>
             </table>
             )}

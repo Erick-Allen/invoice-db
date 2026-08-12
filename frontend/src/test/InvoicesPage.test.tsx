@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listCustomers } from "../api/customers";
 import { InvoicesPage } from "../pages/InvoicesPage";
@@ -43,6 +44,20 @@ const mockedUpdateInvoiceStatus = vi.mocked(updateInvoiceStatus);
 const mockedListPayments = vi.mocked(listPayments);
 const mockedGetPaymentSummary = vi.mocked(getPaymentSummary);
 const mockedCreatePayment = vi.mocked(createPayment);
+
+function LocationDisplay() {
+    const location = useLocation();
+    return <span data-testid="location-path">{location.pathname}</span>;
+}
+
+function renderInvoicesPage() {
+    return render(
+        <MemoryRouter initialEntries={["/invoices"]}>
+            <InvoicesPage />
+            <LocationDisplay />
+        </MemoryRouter>
+    );
+}
 
 describe("InvoicesPage", () => {
     beforeEach(() => {
@@ -108,7 +123,7 @@ describe("InvoicesPage", () => {
     });
 
     it("renders the invoice form and invoice table", async () => {
-        render(<InvoicesPage />);
+        renderInvoicesPage();
 
         expect(screen.getByRole("heading", { name: "Invoices"})).toBeInTheDocument();
 
@@ -134,10 +149,18 @@ describe("InvoicesPage", () => {
         expect(screen.getAllByRole("button", {name: "Delete"}).length).toBeGreaterThan(0);
     })
 
+    it("opens invoice detail when an invoice row is clicked", async () => {
+        renderInvoicesPage();
+
+        fireEvent.click(await screen.findByRole("row", { name: /View invoice 1/i }));
+
+        expect(screen.getByTestId("location-path")).toHaveTextContent("/invoices/1");
+    });
+
     it("shows a retryable error when invoices fail to load", async () => {
         mockedListInvoices.mockRejectedValue(new Error("A database error occurred while retrieving invoices."));
 
-        render(<InvoicesPage />);
+        renderInvoicesPage();
 
         expect(
             await screen.findByText(/Failed to load invoices, line items, and payments/)
@@ -154,7 +177,7 @@ describe("InvoicesPage", () => {
             new Error("Cannot send invoice with inactive products: Widget.")
         );
 
-        render(<InvoicesPage />);
+        renderInvoicesPage();
 
         fireEvent.click(await screen.findByRole("button", { name: "sent" }));
 
@@ -187,7 +210,7 @@ describe("InvoicesPage", () => {
             note: null,
         });
 
-        render(<InvoicesPage />);
+        renderInvoicesPage();
 
         const amountInput = await screen.findByLabelText("Payment amount for invoice 1");
         fireEvent.change(amountInput, { target: { value: "10.00" } });
@@ -223,7 +246,7 @@ describe("InvoicesPage", () => {
             note: "Final payment",
         });
 
-        render(<InvoicesPage />);
+        renderInvoicesPage();
 
         await screen.findByLabelText("Payment amount for invoice 1");
         fireEvent.change(screen.getByLabelText("Payment method for invoice 1"), { target: { value: "check" } });
@@ -251,7 +274,7 @@ describe("InvoicesPage", () => {
             },
         ]);
 
-        render(<InvoicesPage />);
+        renderInvoicesPage();
 
         expect(await screen.findByRole("button", { name: "void" })).toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "paid" })).not.toBeInTheDocument();
