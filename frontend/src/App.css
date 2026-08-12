@@ -693,3 +693,172 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+.print-only {
+  display: none;
+}
+
+.invoice-print-document {
+  color: #111827;
+}
+
+.detail-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media print {
+  @page {
+    margin: 0.6in;
+  }
+
+  * {
+    box-shadow: none !important;
+  }
+
+  body {
+    background: white;
+    color: #111827;
+    font-size: 11pt;
+  }
+
+  .app-header,
+  .page-header,
+  .print-hidden,
+  .screen-only {
+    display: none !important;
+  }
+
+  .app-main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .invoice-print-document {
+    display: block;
+  }
+
+  .invoice-print-header {
+    align-items: flex-start;
+    border-bottom: 2px solid #111827;
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .invoice-print-brand {
+    color: #374151;
+    font-size: 10pt;
+    font-weight: 700;
+    margin: 0 0 0.2rem;
+    text-transform: uppercase;
+  }
+
+  .invoice-print-header h1 {
+    font-size: 24pt;
+    line-height: 1;
+    margin: 0;
+  }
+
+  .invoice-print-header dl,
+  .invoice-print-totals dl {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+  }
+
+  .invoice-print-header dl {
+    min-width: 1.65in;
+  }
+
+  .invoice-print-header dl div,
+  .invoice-print-totals dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .invoice-print-header dt,
+  .invoice-print-totals dt,
+  .invoice-print-bill-to span {
+    color: #374151;
+    font-size: 9pt;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .invoice-print-header dd,
+  .invoice-print-totals dd {
+    margin: 0;
+  }
+
+  .invoice-print-bill-to {
+    border: 1px solid #d1d5db;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+  }
+
+  .invoice-print-bill-to strong {
+    display: block;
+    font-size: 13pt;
+    margin-top: 0.25rem;
+  }
+
+  .invoice-print-bill-to p {
+    margin: 0.2rem 0 0;
+  }
+
+  .invoice-print-section {
+    margin-bottom: 1rem;
+  }
+
+  .invoice-print-section h2 {
+    font-size: 13pt;
+    margin: 0 0 0.5rem;
+  }
+
+  .invoice-print-table {
+    border-collapse: collapse;
+    font-size: 10pt;
+    width: 100%;
+  }
+
+  .invoice-print-table th,
+  .invoice-print-table td {
+    border: 1px solid #d1d5db;
+    padding: 0.45rem;
+    text-align: left;
+  }
+
+  .invoice-print-table th {
+    background: #f3f4f6 !important;
+  }
+
+  .invoice-print-totals {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .invoice-print-totals dl {
+    min-width: 2.4in;
+  }
+
+  .invoice-print-balance {
+    border-top: 2px solid #111827;
+    font-size: 13pt;
+    font-weight: 800;
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+  }
+
+}

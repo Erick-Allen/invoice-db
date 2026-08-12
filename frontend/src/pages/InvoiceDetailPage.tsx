@@ -28,6 +28,10 @@ export function InvoiceDetailPage() {
     const backTarget = locationState?.fromCustomerId ? `/customers/${locationState.fromCustomerId}` : "/invoices";
     const backLabel = locationState?.fromCustomerId ? "Back to customer" : "Back to invoices";
 
+    function handlePrintInvoice() {
+        window.print();
+    }
+
     useEffect(() => {
         async function loadInvoiceDetail() {
             const parsedInvoiceId = Number(invoiceId);
@@ -72,9 +76,14 @@ export function InvoiceDetailPage() {
     return (
         <>
             <div className="page-header">
-                <Link className="back-link" to={backTarget}>
-                    {backLabel}
-                </Link>
+                <div className="detail-header-actions print-hidden">
+                    <Link className="back-link" to={backTarget}>
+                        {backLabel}
+                    </Link>
+                    <button className="action-button" type="button" onClick={handlePrintInvoice}>
+                        Print
+                    </button>
+                </div>
                 <h2>{invoice ? `Invoice #${invoice.id}` : "Invoice Detail"}</h2>
                 <p>Review invoice customer, line items, and payment history.</p>
             </div>
@@ -84,7 +93,78 @@ export function InvoiceDetailPage() {
             ) : error ? (
                 <p className="error-message">{error}</p>
             ) : invoice ? (
-                <section className="detail-stack">
+                <>
+                    <section className="invoice-print-document print-only" aria-label="Printable customer invoice">
+                        <header className="invoice-print-header">
+                            <div>
+                                <p className="invoice-print-brand">InvoiceDB</p>
+                                <h1>Invoice #{invoice.id}</h1>
+                            </div>
+                            <dl>
+                                <div>
+                                    <dt>Issued</dt>
+                                    <dd>{invoice.date_issued ?? "-"}</dd>
+                                </div>
+                                <div>
+                                    <dt>Due</dt>
+                                    <dd>{invoice.date_due ?? "-"}</dd>
+                                </div>
+                            </dl>
+                        </header>
+
+                        <section className="invoice-print-bill-to">
+                            <span>Bill To</span>
+                            <strong>{customer ? customer.name : `Customer #${invoice.customer_id}`}</strong>
+                            {customer?.email && <p>{customer.email}</p>}
+                        </section>
+
+                        <section className="invoice-print-section">
+                            <h2>Line Items</h2>
+                            {!invoice.items || invoice.items.length === 0 ? (
+                                <p>No line items found for this invoice.</p>
+                            ) : (
+                                <table className="invoice-print-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Quantity</th>
+                                            <th>Unit Price</th>
+                                            <th>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {invoice.items.map((item) => (
+                                            <tr key={item.id}>
+                                                <td>{productLabel(productsById[item.product_id], item.product_id)}</td>
+                                                <td>{item.quantity}</td>
+                                                <td>${centsToDollars(item.unit_price_cents)}</td>
+                                                <td>${centsToDollars(item.line_total_cents)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </section>
+
+                        <section className="invoice-print-totals" aria-label="Printable invoice totals">
+                            <dl>
+                                <div>
+                                    <dt>Total</dt>
+                                    <dd>${centsToDollars(invoice.total)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Amount Paid</dt>
+                                    <dd>${centsToDollars(paymentSummary?.amount_paid_cents ?? 0)}</dd>
+                                </div>
+                                <div className="invoice-print-balance">
+                                    <dt>Balance Due</dt>
+                                    <dd>${centsToDollars(paymentSummary?.balance_due_cents ?? invoice.total)}</dd>
+                                </div>
+                            </dl>
+                        </section>
+                    </section>
+
+                    <section className="detail-stack screen-only">
                     <section className="detail-panel">
                         <div>
                             <span className="detail-label">Invoice</span>
@@ -194,7 +274,8 @@ export function InvoiceDetailPage() {
                             </div>
                         )}
                     </section>
-                </section>
+                    </section>
+                </>
             ) : (
                 <p className="empty-state">Invoice not found.</p>
             )}
