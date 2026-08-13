@@ -15,6 +15,8 @@ export function ProductsPage() {
     const [description, setDescription] = useState("");
     const [unitPriceDollars, setUnitPriceDollars] = useState("");
     const [activeOnly, setActiveOnly] = useState(false);
+    const [isCreateOverlayOpen, setIsCreateOverlayOpen] = useState(false);
+    const [openActionProductId, setOpenActionProductId] = useState<number | null>(null);
 
     const [editingProductId, setEditingProductId] = useState<number | null>(null);
     const [editName, setEditName] = useState("");
@@ -42,7 +44,36 @@ export function ProductsPage() {
         loadProducts();
     }, []);
 
+    function toggleProductActions(productId: number) {
+        setOpenActionProductId((currentId) => currentId === productId ? null : productId);
+    }
+
+    function closeProductActions() {
+        setOpenActionProductId(null);
+    }
+
+    function resetCreateForm() {
+        setName("");
+        setDescription("");
+        setUnitPriceDollars("");
+    }
+
+    function openCreateOverlay() {
+        setError(null);
+        setIsCreateOverlayOpen(true);
+    }
+
+    function closeCreateOverlay() {
+        if (isSubmitting) {
+            return;
+        }
+
+        resetCreateForm();
+        setIsCreateOverlayOpen(false);
+    }
+
     function startEditingProduct(product: Product) {
+        closeProductActions();
         setEditingProductId(product.id);
         setEditName(product.name);
         setEditDescription(product.description ?? "");
@@ -86,9 +117,8 @@ export function ProductsPage() {
                 is_active: true,
             });
 
-            setName("");
-            setDescription("");
-            setUnitPriceDollars("");
+            resetCreateForm();
+            setIsCreateOverlayOpen(false);
 
             await loadProducts();
         } catch (err) {
@@ -131,6 +161,7 @@ export function ProductsPage() {
     }
 
     async function handleDeactivateProduct(productId: number) {
+        closeProductActions();
         try {
             setError(null);
             await deactivateProduct(productId);
@@ -141,6 +172,7 @@ export function ProductsPage() {
     }
 
     async function handleDeleteProduct(productId: number) {
+        closeProductActions();
         const confirmed = window.confirm("Are you sure you want to delete this product?");
         if (!confirmed) {
             return;
@@ -171,53 +203,81 @@ export function ProductsPage() {
             <section className="invoice-page-stack">
                 {error && <p className="error-message">{error}</p>}
 
-                <form onSubmit={handleSubmit} className="form-card">
-                    <div>
-                        <h3>Create Product</h3>
-                    </div>
-
-                    <div className="form-grid">
-                        <div className="form-field">
-                            <label htmlFor="product-name">Name</label>
-                            <input
-                                id="product-name"
-                                type="text"
-                                value={name}
-                                onChange={(event) => setName(event.target.value)}
-                                placeholder="Consulting"
-                            />
-                        </div>
-
-                        <div className="form-field">
-                            <label htmlFor="product-description">Description</label>
-                            <input
-                                id="product-description"
-                                type="text"
-                                value={description}
-                                onChange={(event) => setDescription(event.target.value)}
-                                placeholder="Hourly service"
-                            />
-                        </div>
-
-                        <div className="form-field">
-                            <label htmlFor="product-price">Unit Price</label>
-                            <input
-                                id="product-price"
-                                type="text"
-                                value={unitPriceDollars}
-                                onChange={(event) => setUnitPriceDollars(event.target.value)}
-                                placeholder="125.00"
-                            />
-                        </div>
-
-                        <button className="primary-button" type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Creating..." : "Create Product"}
-                        </button>
-                    </div>
-                </form>
-
                 <div className="section-header">
                     <h3>Product List</h3>
+                    <div className="section-actions">
+                        <button className="primary-button" type="button" onClick={openCreateOverlay}>
+                            Create Product
+                        </button>
+                    </div>
+                </div>
+
+                {isCreateOverlayOpen && (
+                    <div className="modal-overlay" role="presentation" onMouseDown={closeCreateOverlay}>
+                        <form
+                            onSubmit={handleSubmit}
+                            className="form-card modal-panel"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="create-product-title"
+                            onMouseDown={(event) => event.stopPropagation()}
+                        >
+                            <div className="modal-header">
+                                <h3 id="create-product-title">Create Product</h3>
+                                <button className="icon-button" type="button" aria-label="Close create product" onClick={closeCreateOverlay}>
+                                    x
+                                </button>
+                            </div>
+
+                            <div className="form-grid modal-form-grid">
+                                <div className="form-field">
+                                    <label htmlFor="product-name">Name</label>
+                                    <input
+                                        id="product-name"
+                                        type="text"
+                                        value={name}
+                                        onChange={(event) => setName(event.target.value)}
+                                        placeholder="Consulting"
+                                    />
+                                </div>
+
+                                <div className="form-field">
+                                    <label htmlFor="product-description">Description</label>
+                                    <input
+                                        id="product-description"
+                                        type="text"
+                                        value={description}
+                                        onChange={(event) => setDescription(event.target.value)}
+                                        placeholder="Hourly service"
+                                    />
+                                </div>
+
+                                <div className="form-field">
+                                    <label htmlFor="product-price">Unit Price</label>
+                                    <input
+                                        id="product-price"
+                                        type="text"
+                                        value={unitPriceDollars}
+                                        onChange={(event) => setUnitPriceDollars(event.target.value)}
+                                        placeholder="125.00"
+                                    />
+                                </div>
+
+                                <div className="modal-actions">
+                                    <button className="secondary-button" type="button" onClick={closeCreateOverlay} disabled={isSubmitting}>
+                                        Cancel
+                                    </button>
+                                    <button className="primary-button" type="submit" disabled={isSubmitting}>
+                                        {isSubmitting ? "Creating..." : "Create Product"}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                <div className="section-header">
+                    <h3>Catalog</h3>
                     <label className="inline-toggle">
                         <input
                             type="checkbox"
@@ -248,7 +308,7 @@ export function ProductsPage() {
 
                             <tbody>
                                 {products.map((product, index) => (
-                                    <tr key={product.id}>
+                                    <tr key={product.id} className="product-row">
                                         <td>{index + 1}</td>
 
                                         {editingProductId === product.id ? (
@@ -305,39 +365,59 @@ export function ProductsPage() {
                                             </>
                                         ) : (
                                             <>
-                                                <td>{product.name}</td>
-                                                <td>{product.description ?? "—"}</td>
-                                                <td>${centsToDollars(product.unit_price_cents)}</td>
+                                                <td>
+                                                    <div className="product-name-cell">
+                                                        <strong>{product.name}</strong>
+                                                        <span>Product #{product.id}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="muted-table-cell">{product.description ?? "-"}</td>
+                                                <td className="money-table-cell">${centsToDollars(product.unit_price_cents)}</td>
                                                 <td>
                                                     <span className="status-badge">
                                                         {product.is_active ? "active" : "inactive"}
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <div className="name-actions">
+                                                    <div className="row-action-menu">
                                                         <button
-                                                            className="small-action-button"
+                                                            className="row-action-trigger"
                                                             type="button"
-                                                            onClick={() => startEditingProduct(product)}
+                                                            aria-haspopup="menu"
+                                                            aria-expanded={openActionProductId === product.id}
+                                                            onClick={() => toggleProductActions(product.id)}
                                                         >
-                                                            Edit
+                                                            Actions
+                                                            <span aria-hidden="true">v</span>
                                                         </button>
-                                                        {product.is_active && (
-                                                            <button
-                                                                className="small-action-button"
-                                                                type="button"
-                                                                onClick={() => handleDeactivateProduct(product.id)}
-                                                            >
-                                                                Deactivate
-                                                            </button>
+                                                        {openActionProductId === product.id && (
+                                                            <div className="row-action-dropdown" role="menu">
+                                                                <button
+                                                                    type="button"
+                                                                    role="menuitem"
+                                                                    onClick={() => startEditingProduct(product)}
+                                                                >
+                                                                    Edit
+                                                                </button>
+                                                                {product.is_active && (
+                                                                    <button
+                                                                        type="button"
+                                                                        role="menuitem"
+                                                                        onClick={() => handleDeactivateProduct(product.id)}
+                                                                    >
+                                                                        Deactivate
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    className="danger-menu-item"
+                                                                    type="button"
+                                                                    role="menuitem"
+                                                                    onClick={() => handleDeleteProduct(product.id)}
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </div>
                                                         )}
-                                                        <button
-                                                            className="small-danger-button"
-                                                            type="button"
-                                                            onClick={() => handleDeleteProduct(product.id)}
-                                                        >
-                                                            Delete
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </>

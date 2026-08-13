@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     createProduct,
@@ -68,28 +68,42 @@ describe("ProductsPage", () => {
     it("renders the product form and product table", async () => {
         render(<ProductsPage />);
 
-        expect(screen.getByRole("heading", { name: "Products" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Products", level: 2 })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Create Product" })).toBeInTheDocument();
+        expect(screen.queryByRole("dialog", { name: "Create Product" })).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: "Create Product" }));
+
+        expect(screen.getByRole("dialog", { name: "Create Product" })).toBeInTheDocument();
         expect(screen.getByLabelText("Name")).toBeInTheDocument();
         expect(screen.getByLabelText("Description")).toBeInTheDocument();
         expect(screen.getByLabelText("Unit Price")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Create Product" })).toBeInTheDocument();
 
         expect(await screen.findByText("Consulting")).toBeInTheDocument();
         expect(screen.getByText("Hourly service")).toBeInTheDocument();
         expect(screen.getByText("$125.00")).toBeInTheDocument();
         expect(screen.getByText("active")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Deactivate" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Actions/i })).toBeInTheDocument();
+        expect(screen.queryByRole("menuitem", { name: "Edit" })).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: /Actions/i }));
+
+        expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+        expect(screen.getByRole("menuitem", { name: "Deactivate" })).toBeInTheDocument();
+        expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
     });
 
     it("creates a product with cents converted from dollars", async () => {
         render(<ProductsPage />);
 
+        fireEvent.click(screen.getByRole("button", { name: "Create Product" }));
+
         fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Hosting" } });
         fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Monthly plan" } });
         fireEvent.change(screen.getByLabelText("Unit Price"), { target: { value: "50.25" } });
-        fireEvent.click(screen.getByRole("button", { name: "Create Product" }));
+
+        const dialog = screen.getByRole("dialog", { name: "Create Product" });
+        fireEvent.click(within(dialog).getByRole("button", { name: "Create Product" }));
 
         await waitFor(() => {
             expect(mockedCreateProduct).toHaveBeenCalledWith({
@@ -104,7 +118,8 @@ describe("ProductsPage", () => {
     it("updates a product", async () => {
         render(<ProductsPage />);
 
-        fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+        fireEvent.click(await screen.findByRole("button", { name: /Actions/i }));
+        fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
         fireEvent.change(screen.getByDisplayValue("Consulting"), { target: { value: "Updated Consulting" } });
         fireEvent.change(screen.getByDisplayValue("125.00"), { target: { value: "150.00" } });
         fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -123,7 +138,8 @@ describe("ProductsPage", () => {
     it("deactivates a product", async () => {
         render(<ProductsPage />);
 
-        fireEvent.click(await screen.findByRole("button", { name: "Deactivate" }));
+        fireEvent.click(await screen.findByRole("button", { name: /Actions/i }));
+        fireEvent.click(screen.getByRole("menuitem", { name: "Deactivate" }));
 
         await waitFor(() => {
             expect(mockedDeactivateProduct).toHaveBeenCalledWith(1);
@@ -133,7 +149,8 @@ describe("ProductsPage", () => {
     it("deletes a product after confirmation", async () => {
         render(<ProductsPage />);
 
-        fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+        fireEvent.click(await screen.findByRole("button", { name: /Actions/i }));
+        fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
 
         await waitFor(() => {
             expect(mockedDeleteProduct).toHaveBeenCalledWith(1);
