@@ -281,6 +281,172 @@
   font-weight: 600;
 }
 
+
+
+.section-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-overlay {
+  align-items: center;
+  background: rgba(17, 24, 39, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1rem;
+  position: fixed;
+  z-index: 20;
+}
+
+.modal-panel {
+  margin: 0;
+  max-width: 34rem;
+  width: min(100%, 34rem);
+}
+
+.modal-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.icon-button {
+  align-items: center;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  color: #374151;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  line-height: 1;
+  width: 2rem;
+}
+
+.icon-button:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.modal-form-grid {
+  grid-template-columns: 1fr;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.secondary-button {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  color: #111827;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.65rem 1rem;
+}
+
+.secondary-button:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.product-row td {
+  vertical-align: middle;
+}
+
+.product-name-cell {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.product-name-cell strong {
+  color: #111827;
+  font-size: 0.98rem;
+}
+
+.product-name-cell span,
+.muted-table-cell {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.money-table-cell {
+  color: #111827;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.row-action-menu {
+  display: flex;
+  justify-content: flex-end;
+  position: relative;
+}
+
+.row-action-trigger {
+  align-items: center;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  color: #111827;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  gap: 0.45rem;
+  padding: 0.45rem 0.7rem;
+}
+
+.row-action-trigger:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.row-action-dropdown {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.6rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  display: grid;
+  min-width: 9rem;
+  padding: 0.35rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 5;
+}
+
+.row-action-dropdown button {
+  background: transparent;
+  border: 0;
+  border-radius: 0.4rem;
+  color: #111827;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+}
+
+.row-action-dropdown button:hover {
+  background: #f3f4f6;
+}
+
+.row-action-dropdown .danger-menu-item {
+  color: #b91c1c;
+}
+
 .name-actions {
   display: flex;
   align-items: center;
