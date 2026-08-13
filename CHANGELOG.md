@@ -3,6 +3,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.0] - 2026-08-14
+
+### Added
+
+* Customer detail preview with invoice summary, and recent invoice activity.
+* Invoice detail preview page with customer context, invoice status, totals, line items, and payment summary.
+* Customer-facing printable invoice view.
+
+### Changed
+
+* Refined the product catalog UI with richer product cards and clearer product status and price presentation.
+
 ## [0.12.0] - 2026-06-18
 
 ### Added

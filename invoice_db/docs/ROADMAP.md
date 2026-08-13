@@ -13,13 +13,22 @@
 - `v0.9.0` - AI query assistant MVP
 - `v0.10.0` - Product catalog
 - `v0.11.0` - Invoice line items
+- `v0.12.0` - Payments
+- `v0.13.0` - Invoice preview/detail page and printable invoice view
 
 ## Current
-- `v0.12.0` - Payments
+
+- `v0.14.0` - Product categories
 
 ## Planned
 
-- `v0.13.0` - Invoice preview/detail page and printable invoice view
-- `v0.14.0` - Expanded reporting dashboard
-- `v0.15.0` - Stronger assistant workflows
+- `v0.15.0` - Product tags
+- `v0.16.0` - Reporting foundation
+- `v0.17.0` - User accounts
+- `v0.18.0` - Business profile
+- `v0.19.0` - Invoice settings
+- `v0.20.0` - Exports
+- `v0.21.0` - Audit history
+- `v0.22.0` - Recurring invoices
+- `v0.23.0` - Team support
 - `v1.0.0` - Stable deployable release

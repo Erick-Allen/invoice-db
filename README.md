@@ -4,10 +4,12 @@ A relational database, CLI, API, React UI, and AI assistant application built wi
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.12.0**, the project includes support for:
+As of **v0.13.0**, the project includes support for:
 
 - Customer, invoice, product, line-item, and payment workflows
 - Derived invoice totals, payment summaries, and invoice status rules
+- Customer and invoice detail previews with printable invoice output
+- Improved product catalog browsing in the React frontend
 - Typer CLI, Django REST API, and React + TypeScript frontend
 - Shared service layer used by CLI and API
 - Guarded natural-language invoice assistant
@@ -240,6 +242,15 @@ npm run test:run
 
 ## Version History
 
+### [v0.13.0]
+#### Added
+- Customer detail preview page with customer profile, invoice summary, and recent invoice activity
+- Invoice detail preview page with customer context, invoice status, totals, line items, and payment summary
+- Customer-facing printable invoice view
+
+#### Changed
+- Refined product catalog UI with richer product cards and clearer product status/price presentation
+
 ### [v0.12.0]
 #### Added
 - Payments across DB, services, CLI, API, and React frontend
@@ -335,11 +346,7 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.13.0] (Minor)
-- Invoice preview/detail 
-- Printable invoice view or simple HTML export
-
 ### [v0.14.0] (Minor)
-- Expanded reporting dashboard with revenue, unpaid totals, overdue amounts, top customers, and most-used products/services
+- Product categories
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).
