@@ -101,6 +101,14 @@ def normalize_sort_by(sort_by: str, allowed_fields: set[str]) -> str:
     return sort_by
 
 # Products
+def normalize_category_name(name: str) -> str:
+    if not name or not isinstance(name, str):
+        raise ValueError("Product category name cannot be empty.")
+    name = " ".join(name.strip().split())
+    if not name:
+        raise ValueError("Product category name cannot be empty.")
+    return name
+
 def normalize_product_name(name: str) -> str:
     if not name or not isinstance(name, str):
         raise ValueError("Product name cannot be empty.")

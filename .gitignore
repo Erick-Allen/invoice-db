@@ -6,6 +6,7 @@ venv/
 *.egg-info/
 dist/
 build/
+uv.lock
 
 # Python cache files
 **pycache**/

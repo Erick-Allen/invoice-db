@@ -8,6 +8,17 @@ def _sql_string_values(values: set[str]) -> str:
 # TRIGGER
 def create_triggers(cursor):
     cursor.executescript("""
+    CREATE TRIGGER IF NOT EXISTS trigger_product_categories_updated
+    AFTER UPDATE ON
+        product_categories
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE product_categories
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
+
     CREATE TRIGGER IF NOT EXISTS trigger_customers_updated
     AFTER UPDATE ON 
         customers
@@ -116,6 +127,28 @@ def create_invoice_schema(cursor):
         idx_invoices_customer_date ON invoices(customer_id, date_issued);
     """)
 
+def create_product_category_schema(cursor):
+    cursor.executescript("""
+    -- Product categories table: reportable catalog buckets for products.
+    CREATE TABLE IF NOT EXISTS product_categories (
+        id              INTEGER PRIMARY KEY,
+        name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
+        description     TEXT,
+        is_active       INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_product_categories_name_nocase ON product_categories(lower(name));
+    CREATE INDEX IF NOT EXISTS
+        idx_product_categories_is_active ON product_categories(is_active);
+
+    INSERT OR IGNORE INTO product_categories (id, name, description, is_active)
+    VALUES (1, 'Uncategorized', 'Default category for uncategorized products.', 1);
+    """)
+
 def create_product_schema(cursor):
     cursor.executescript("""
     -- Products table: reusable catalog items that can later be attached to invoice line items.
@@ -125,18 +158,32 @@ def create_product_schema(cursor):
         description     TEXT,
         unit_price      INTEGER NOT NULL DEFAULT 0
                                 CHECK (unit_price >= 0 AND unit_price = CAST(unit_price AS INTEGER)),
+        category_id     INTEGER NOT NULL DEFAULT 1,
         is_active       INTEGER NOT NULL DEFAULT 1
                                 CHECK (is_active IN (0, 1)),
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (category_id) REFERENCES product_categories(id) ON DELETE RESTRICT
     );
 
     -- Support catalog lookup.
     CREATE INDEX IF NOT EXISTS
         idx_products_name ON products(name);
     CREATE INDEX IF NOT EXISTS
+        idx_products_category_id ON products(category_id);
+    CREATE INDEX IF NOT EXISTS
         idx_products_is_active ON products(is_active);
     """)
+    cursor.execute("PRAGMA table_info(products)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "category_id" not in columns:
+        cursor.execute(
+            "ALTER TABLE products ADD COLUMN category_id INTEGER NOT NULL DEFAULT 1"
+        )
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS
+                idx_products_category_id ON products(category_id)
+        """)
 
 def create_invoice_item_schema(cursor):
     cursor.executescript("""
@@ -208,6 +255,7 @@ def create_customer_summary_view(cursor):
 def create_schema(cursor):
     create_customer_schema(cursor)
     create_invoice_schema(cursor)
+    create_product_category_schema(cursor)
     create_product_schema(cursor)
     create_invoice_item_schema(cursor)
     create_payment_schema(cursor)

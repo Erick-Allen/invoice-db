@@ -11,6 +11,9 @@ from .views import (
     PaymentListCreateView,
     PaymentSummaryView,
     PaymentDetailView,
+    ProductCategoryListCreateView,
+    ProductCategoryDetailView,
+    ProductCategoryDeactivateView,
     ProductListCreateView,
     ProductDetailView,
     ProductDeactivateView,
@@ -34,6 +37,9 @@ urlpatterns = [
     path("payments/<int:payment_id>/", PaymentDetailView.as_view(), name="payment-detail"),
 
     path("products/", ProductListCreateView.as_view(), name="product-list-create"),
+    path("product-categories/", ProductCategoryListCreateView.as_view(), name="product-category-list-create"),
+    path("product-categories/<int:category_id>/", ProductCategoryDetailView.as_view(), name="product-category-detail"),
+    path("product-categories/<int:category_id>/deactivate/", ProductCategoryDeactivateView.as_view(), name="product-category-deactivate"),
     path("products/<int:product_id>/", ProductDetailView.as_view(), name="product-detail"),
     path("products/<int:product_id>/deactivate/", ProductDeactivateView.as_view(), name="product-deactivate"),
 

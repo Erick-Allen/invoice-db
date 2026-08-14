@@ -5,6 +5,7 @@ from .validators import (
     normalize_description,
     normalize_is_active,
     normalize_product_name,
+    validate_positive_id,
     validate_unit_price_cents,
 )
 
@@ -13,6 +14,7 @@ class ProductCreate:
     name: str
     unit_price_cents: int
     description: str | None = None
+    category_id: int = 1
     is_active: bool = True
 
 @dataclass
@@ -21,6 +23,8 @@ class Product:
     name: str
     description: str | None
     unit_price_cents: int
+    category_id: int
+    category_name: str
     is_active: bool
     created_at: str
     updated_at: str
@@ -32,6 +36,8 @@ def _to_product(row: Row) -> Product:
         name=row["name"],
         description=row["description"],
         unit_price_cents=row["unit_price"],
+        category_id=row["category_id"],
+        category_name=row["category_name"],
         is_active=bool(row["is_active"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -42,12 +48,13 @@ def create_product(cursor, product: ProductCreate) -> Product:
     name = normalize_product_name(product.name)
     description = normalize_description(product.description)
     unit_price_cents = validate_unit_price_cents(product.unit_price_cents)
+    validate_positive_id(product.category_id, "Product category id")
     is_active = normalize_is_active(product.is_active)
 
     cursor.execute("""
-        INSERT INTO products (name, description, unit_price, is_active)
-        VALUES (?, ?, ?, ?)
-    """, (name, description, unit_price_cents, is_active))
+        INSERT INTO products (name, description, unit_price, category_id, is_active)
+        VALUES (?, ?, ?, ?, ?)
+    """, (name, description, unit_price_cents, product.category_id, is_active))
 
     created_product = get_product_by_id(cursor, cursor.lastrowid)
 
@@ -58,20 +65,29 @@ def create_product(cursor, product: ProductCreate) -> Product:
 
 
 def get_product_by_id(cursor, product_id: int) -> Product | None:
-    cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+    cursor.execute("""
+        SELECT products.*, product_categories.name AS category_name
+        FROM products
+        JOIN product_categories ON product_categories.id = products.category_id
+        WHERE products.id = ?
+    """, (product_id,))
     row = cursor.fetchone()
     return _to_product(row) if row else None
 
 
 def get_products(cursor, active_only: bool = False) -> list[Product]:
-    sql = "SELECT * FROM products"
+    sql = """
+        SELECT products.*, product_categories.name AS category_name
+        FROM products
+        JOIN product_categories ON product_categories.id = products.category_id
+    """
     params = []
 
     if active_only:
-        sql += " WHERE is_active = ?"
+        sql += " WHERE products.is_active = ?"
         params.append(1)
 
-    sql += " ORDER BY id"
+    sql += " ORDER BY products.id"
     cursor.execute(sql, params)
     return [_to_product(row) for row in cursor.fetchall()]
 
@@ -83,6 +99,7 @@ def update_product(
     name: str | None = None,
     description: str | None = None,
     unit_price_cents: int | None = None,
+    category_id: int | None = None,
     is_active: bool | None = None,
 ) -> Product | None:
     updates, params = [], []
@@ -100,6 +117,10 @@ def update_product(
     if unit_price_cents is not None:
         updates.append("unit_price = ?")
         params.append(validate_unit_price_cents(unit_price_cents))
+    if category_id is not None:
+        validate_positive_id(category_id, "Product category id")
+        updates.append("category_id = ?")
+        params.append(category_id)
     if is_active is not None:
         updates.append("is_active = ?")
         params.append(normalize_is_active(is_active))

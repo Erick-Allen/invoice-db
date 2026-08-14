@@ -165,10 +165,8 @@
 }
 
 .table-wrapper {
- width: calc(100vw - 4rem);
-  max-width: 1400px;
-  margin-left: 50%;
-  transform: translateX(-50%);
+  width: 100%;
+  overflow-x: auto;
 }
 
 .data-table {
@@ -286,6 +284,48 @@
 .section-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.segmented-tabs {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.55rem;
+  background: #f9fafb;
+}
+
+.segmented-tabs button {
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #374151;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.45rem 0.75rem;
+}
+
+.segmented-tabs button.active {
+  background: #111827;
+  color: white;
+}
+
+.compact-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.compact-filter select {
+  min-width: 10rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.45rem;
+  background: white;
 }
 
 .modal-overlay {
@@ -497,6 +537,14 @@
 .payment-add input,
 .payment-add select {
   max-width: 140px;
+}
+
+.detail-add-row {
+  margin-bottom: 1rem;
+}
+
+.detail-add-row select {
+  max-width: 280px;
 }
 
 .payment-summary-grid {
