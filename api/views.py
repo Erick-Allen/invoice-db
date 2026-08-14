@@ -9,6 +9,7 @@ from invoice_db.services import customers as customer_services
 from invoice_db.services import invoices as invoice_services
 from invoice_db.services import invoice_items as invoice_item_services
 from invoice_db.services import payments as payment_services
+from invoice_db.services import product_categories as product_category_services
 from invoice_db.services import products as product_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError, ConflictError
 from rest_framework.decorators import api_view
@@ -32,6 +33,8 @@ from .serializers import (
     PaymentSerializer,
     PaymentCreateSerializer,
     PaymentSummarySerializer,
+    ProductCategorySerializer,
+    ProductCategoryUpdateSerializer,
     ProductSerializer,
     ProductUpdateSerializer,
 )
@@ -772,6 +775,7 @@ class ProductListCreateView(APIView):
                     name=serializer.validated_data["name"],
                     description=serializer.validated_data.get("description"),
                     unit_price_cents=serializer.validated_data["unit_price_cents"],
+                    category_id=serializer.validated_data.get("category_id", 1),
                     is_active=serializer.validated_data.get("is_active", True),
                 )
 
@@ -833,6 +837,7 @@ class ProductDetailView(APIView):
                     name=serializer.validated_data.get("name"),
                     description=serializer.validated_data.get("description"),
                     unit_price_cents=serializer.validated_data.get("unit_price_cents"),
+                    category_id=serializer.validated_data.get("category_id"),
                     is_active=serializer.validated_data.get("is_active"),
                 )
 
@@ -882,6 +887,134 @@ class ProductDetailView(APIView):
             )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class ProductCategoryListCreateView(APIView):
+    def get(self, request):
+        active_only = request.query_params.get("active_only", "").lower() in {"1", "true", "yes"}
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                categories = product_category_services.list_product_categories(
+                    cursor,
+                    active_only=active_only,
+                )
+
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving product categories."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductCategorySerializer(categories, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = ProductCategorySerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                category = product_category_services.create_product_category(
+                    cursor,
+                    name=serializer.validated_data["name"],
+                    description=serializer.validated_data.get("description"),
+                    is_active=serializer.validated_data.get("is_active", True),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the product category."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the product category."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductCategorySerializer(category)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class ProductCategoryDetailView(APIView):
+    def patch(self, request, category_id):
+        serializer = ProductCategoryUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                category = product_category_services.update_product_category_by_id(
+                    cursor,
+                    category_id=category_id,
+                    name=serializer.validated_data.get("name"),
+                    description=serializer.validated_data.get("description"),
+                    is_active=serializer.validated_data.get("is_active"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the product category."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the product category."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductCategorySerializer(category)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class ProductCategoryDeactivateView(APIView):
+    def patch(self, request, category_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                category = product_category_services.deactivate_product_category(
+                    cursor,
+                    category_id=category_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deactivating the product category."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deactivating the product category."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductCategorySerializer(category)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ProductDeactivateView(APIView):
     def patch(self, request, product_id):

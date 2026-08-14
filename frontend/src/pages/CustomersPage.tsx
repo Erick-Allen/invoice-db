@@ -7,6 +7,7 @@ export function CustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [isCreateOverlayOpen, setIsCreateOverlayOpen] = useState(false);
     const [editingCustomerId, setEditingCustomerId] = useState<number | null>(null);
     const [editName, setEditName] = useState("");
     const [editEmail, setEditEmail] = useState("");
@@ -41,6 +42,25 @@ export function CustomersPage() {
 
     function openCustomerDetail(customerId: number) {
         navigate(`/customers/${customerId}`);
+    }
+
+    function resetCreateForm() {
+        setName("");
+        setEmail("");
+    }
+
+    function openCreateOverlay() {
+        setError(null);
+        setIsCreateOverlayOpen(true);
+    }
+
+    function closeCreateOverlay() {
+        if (isSubmitting) {
+            return;
+        }
+
+        resetCreateForm();
+        setIsCreateOverlayOpen(false);
     }
 
     function handleCustomerRowKeyDown(event: KeyboardEvent<HTMLTableRowElement>, customerId: number) {
@@ -126,8 +146,8 @@ export function CustomersPage() {
                 email: trimmedEmail,
             });
 
-        setName("");
-        setEmail("");
+        resetCreateForm();
+        setIsCreateOverlayOpen(false);
 
         await loadCustomers();
         } catch (err) {
@@ -147,45 +167,67 @@ export function CustomersPage() {
         <section className="invoice-page-stack">
         {error && <p className="error-message">{error}</p>}
 
-        <form onSubmit={handleSubmit} className="form-card">
-            <div>
-            <h3>Create Customer</h3>
-            </div>
-
-            <div className="form-grid">
-            <div className="form-field">
-                <label htmlFor="name">Name</label>
-                <br />
-                <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Jane Doe"
-                />
-            </div>
-
-            <div className="form-field">
-                <label htmlFor="email">Email</label>
-                <br />
-                <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="jane@example.com"
-                />
-            </div>
-
-            <button className="primary-button" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Customer"}
-            </button>
-            </div>
-        </form>
-
         <div className="section-header">
             <h3>Customer List</h3>
+            <div className="section-actions">
+                <button className="primary-button" type="button" onClick={openCreateOverlay}>
+                    Create Customer
+                </button>
+            </div>
         </div>
+
+        {isCreateOverlayOpen && (
+            <div className="modal-overlay" role="presentation" onMouseDown={closeCreateOverlay}>
+                <form
+                    onSubmit={handleSubmit}
+                    className="form-card modal-panel"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="create-customer-title"
+                    onMouseDown={(event) => event.stopPropagation()}
+                >
+                    <div className="modal-header">
+                        <h3 id="create-customer-title">Create Customer</h3>
+                        <button className="icon-button" type="button" aria-label="Close create customer" onClick={closeCreateOverlay}>
+                            x
+                        </button>
+                    </div>
+
+                    <div className="form-grid modal-form-grid">
+                        <div className="form-field">
+                            <label htmlFor="name">Name</label>
+                            <input
+                                id="name"
+                                type="text"
+                                value={name}
+                                onChange={(event) => setName(event.target.value)}
+                                placeholder="Jane Doe"
+                            />
+                        </div>
+
+                        <div className="form-field">
+                            <label htmlFor="email">Email</label>
+                            <input
+                                id="email"
+                                type="email"
+                                value={email}
+                                onChange={(event) => setEmail(event.target.value)}
+                                placeholder="jane@example.com"
+                            />
+                        </div>
+
+                        <div className="modal-actions">
+                            <button className="secondary-button" type="button" onClick={closeCreateOverlay} disabled={isSubmitting}>
+                                Cancel
+                            </button>
+                            <button className="primary-button" type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? "Creating..." : "Create Customer"}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        )}
 
         <div className="table-wrapper wide-table-wrapper">
             {isLoading ? (

@@ -11,6 +11,8 @@ class ProductRecord(TypedDict):
     name: str
     description: str | None
     unit_price_cents: int
+    category_id: int
+    category_name: str
     is_active: bool
     created_at: str
     updated_at: str
@@ -22,6 +24,8 @@ def _to_product_record(product: products_db.Product) -> ProductRecord:
         "name": product.name,
         "description": product.description,
         "unit_price_cents": product.unit_price_cents,
+        "category_id": product.category_id,
+        "category_name": product.category_name,
         "is_active": product.is_active,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
@@ -50,6 +54,7 @@ def create_product(
     name: str,
     unit_price_cents: int,
     description: str | None = None,
+    category_id: int = 1,
     is_active: bool = True,
 ) -> ProductRecord:
     try:
@@ -59,6 +64,7 @@ def create_product(
                 name=name,
                 description=description,
                 unit_price_cents=unit_price_cents,
+                category_id=category_id,
                 is_active=is_active,
             ),
         )
@@ -85,11 +91,12 @@ def update_product_by_id(
     name: str | None = None,
     description: str | None = None,
     unit_price_cents: int | None = None,
+    category_id: int | None = None,
     is_active: bool | None = None,
 ) -> ProductRecord:
     product = _require_product(cursor, product_id)
 
-    if name is None and description is None and unit_price_cents is None and is_active is None:
+    if name is None and description is None and unit_price_cents is None and category_id is None and is_active is None:
         raise exceptions.ValidationError("Please provide at least one value to update the product.")
 
     try:
@@ -99,6 +106,7 @@ def update_product_by_id(
             name=name,
             description=description,
             unit_price_cents=unit_price_cents,
+            category_id=category_id,
             is_active=is_active,
         )
     except ValueError as e:

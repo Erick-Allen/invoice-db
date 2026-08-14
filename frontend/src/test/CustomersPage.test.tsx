@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CustomersPage } from "../pages/CustomersPage";
@@ -39,10 +39,14 @@ describe("CustomersPage", () => {
         );
 
         expect(screen.getByRole("heading", { name: "Customers" })).toBeInTheDocument();
+        expect(screen.queryByRole("dialog", { name: "Create Customer" })).not.toBeInTheDocument();
 
-        expect(screen.getByLabelText("Name")).toBeInTheDocument();
-        expect(screen.getByLabelText("Email")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Create Customer" })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Create Customer" }));
+
+        const dialog = screen.getByRole("dialog", { name: "Create Customer" });
+        expect(within(dialog).getByLabelText("Name")).toBeInTheDocument();
+        expect(within(dialog).getByLabelText("Email")).toBeInTheDocument();
 
         expect(await screen.findByText("John Doe")).toBeInTheDocument();
         expect(screen.getByText("john@example.com")).toBeInTheDocument();

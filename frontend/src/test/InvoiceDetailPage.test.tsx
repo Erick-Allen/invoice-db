@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCustomer } from "../api/customers";
+import { createInvoiceItem } from "../api/invoiceItems";
 import { getInvoice } from "../api/invoices";
 import { getPaymentSummary, listPayments } from "../api/payments";
 import { listProducts } from "../api/products";
@@ -15,6 +16,10 @@ vi.mock("../api/invoices", () => ({
     getInvoice: vi.fn(),
 }));
 
+vi.mock("../api/invoiceItems", () => ({
+    createInvoiceItem: vi.fn(),
+}));
+
 vi.mock("../api/payments", () => ({
     getPaymentSummary: vi.fn(),
     listPayments: vi.fn(),
@@ -25,6 +30,7 @@ vi.mock("../api/products", () => ({
 }));
 
 const mockedGetCustomer = vi.mocked(getCustomer);
+const mockedCreateInvoiceItem = vi.mocked(createInvoiceItem);
 const mockedGetInvoice = vi.mocked(getInvoice);
 const mockedGetPaymentSummary = vi.mocked(getPaymentSummary);
 const mockedListPayments = vi.mocked(listPayments);
@@ -80,9 +86,28 @@ describe("InvoiceDetailPage", () => {
                 name: "Consulting",
                 description: null,
                 unit_price_cents: 2500,
+                category_id: 2,
+                category_name: "Labor",
+                is_active: true,
+            },
+            {
+                id: 4,
+                name: "Hosting",
+                description: null,
+                unit_price_cents: 1500,
+                category_id: 3,
+                category_name: "Infrastructure",
                 is_active: true,
             },
         ]);
+        mockedCreateInvoiceItem.mockResolvedValue({
+            id: 12,
+            invoice_id: 7,
+            product_id: 4,
+            quantity: 3,
+            unit_price_cents: 1500,
+            line_total_cents: 4500,
+        });
     });
 
     it("renders invoice detail with line items and payments", async () => {
@@ -107,6 +132,7 @@ describe("InvoiceDetailPage", () => {
 
         expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
         expect(screen.getAllByText("Consulting").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Labor").length).toBeGreaterThan(0);
         expect(screen.getByText("Deposit")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Back to invoices" })).toHaveAttribute("href", "/invoices");
     });
@@ -157,5 +183,38 @@ describe("InvoiceDetailPage", () => {
 
         expect(printSpy).toHaveBeenCalledOnce();
         printSpy.mockRestore();
+    });
+
+    it("adds a line item to a draft invoice from detail", async () => {
+        mockedGetInvoice.mockResolvedValue({
+            id: 7,
+            customer_id: 1,
+            date_issued: "2026-06-01",
+            date_due: "2026-07-01",
+            total: 0,
+            status: "draft",
+            items: [],
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await screen.findByRole("heading", { name: "Invoice #7", level: 2 });
+        fireEvent.change(screen.getByLabelText("Product for new invoice detail item"), { target: { value: "4" } });
+        fireEvent.change(screen.getByLabelText("Quantity for new invoice detail item"), { target: { value: "3" } });
+        fireEvent.click(screen.getByRole("button", { name: "Add Item" }));
+
+        await waitFor(() => {
+            expect(mockedCreateInvoiceItem).toHaveBeenCalledWith(7, {
+                product_id: 4,
+                quantity: 3,
+                unit_price_cents: null,
+            });
+        });
     });
 });
