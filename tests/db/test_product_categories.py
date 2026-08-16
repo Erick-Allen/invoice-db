@@ -112,3 +112,13 @@ def test_delete_category_with_products_is_restricted(cursor):
 
     with pytest.raises(sqlite3.IntegrityError):
         cursor.execute("DELETE FROM product_categories WHERE id = ?", (category.id,))
+
+
+def test_delete_unused_product_category(cursor):
+    category = product_categories.create_product_category(
+        cursor,
+        ProductCategoryCreate(name="Materials"),
+    )
+
+    assert product_categories.delete_product_category(cursor, category.id) is True
+    assert product_categories.get_product_category_by_id(cursor, category.id) is None

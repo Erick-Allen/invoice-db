@@ -4,12 +4,12 @@ A relational database, CLI, API, React UI, and AI assistant application built wi
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.13.0**, the project includes support for:
+As of **v0.14.0**, the project includes support for:
 
-- Customer, invoice, product, line-item, and payment workflows
+- Customer, invoice, product, product category, line-item, and payment workflows
 - Derived invoice totals, payment summaries, and invoice status rules
 - Customer and invoice detail previews with printable invoice output
-- Improved product catalog browsing in the React frontend
+- Product catalog browsing, category filtering, and catalog-driven invoice item selection
 - Typer CLI, Django REST API, and React + TypeScript frontend
 - Shared service layer used by CLI and API
 - Guarded natural-language invoice assistant
@@ -165,6 +165,13 @@ qwen3:0.6b
 - `invoicedb products deactivate`
 - `invoicedb products delete`
 
+### Product category commands
+- `invoicedb product-categories add`
+- `invoicedb product-categories list`
+- `invoicedb product-categories update`
+- `invoicedb product-categories deactivate`
+- `invoicedb product-categories delete`
+
 ### Assistant command
 - `invoicedb assistant ask`
 - `invoicedb assistant ask --use-qwen`
@@ -214,6 +221,13 @@ qwen3:0.6b
 - `DELETE /api/products/{id}/`
 - `PATCH /api/products/{id}/deactivate/`
 
+### Product Categories
+- `GET /api/product-categories/`
+- `POST /api/product-categories/`
+- `PATCH /api/product-categories/{id}/`
+- `DELETE /api/product-categories/{id}/`
+- `PATCH /api/product-categories/{id}/deactivate/`
+
 ### Assistant
 
 - `POST /api/assistant/query/`
@@ -241,6 +255,17 @@ npm run test:run
 ```
 
 ## Version History
+
+### [v0.14.0]
+#### Added
+- Product categories across DB, services, CLI, API, and React frontend
+- Catalog category management, deletion rules, and product filtering
+- Invoice creation and draft invoice detail item adding from catalog products
+
+#### Changed
+- Improved duplicate product category errors with clearer messages
+- Simplified invoice lists to show item counts instead of inline item/payment controls
+- Moved create workflows into modal forms
 
 ### [v0.13.0]
 #### Added
@@ -346,7 +371,10 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.14.0] (Minor)
-- Product categories
+### [v0.15.0] (Planned)
+- Invoice tags for job/context reporting
+
+### [v0.16.0] (Planned)
+- Expanded reporting dashboard
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).

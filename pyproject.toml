@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "invoice-db"
-version = "0.12.0"
+version = "0.14.0"
 authors = [{name = "Erick Allen" }]
 description = "A relational database, CLI, API, and frontend application for managing customers, invoices, and products with SQLite."
 readme = "README.md"

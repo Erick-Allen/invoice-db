@@ -247,6 +247,24 @@ def test_create_product_category_returns_201(api_client, test_db):
     assert data["is_active"] is True
 
 
+def test_create_duplicate_product_category_returns_clear_400(api_client, test_db):
+    first_response = api_client.post(
+        "/api/product-categories/",
+        {"name": "Labor"},
+        format="json",
+    )
+    assert first_response.status_code == 201
+
+    response = api_client.post(
+        "/api/product-categories/",
+        {"name": "labor"},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == 'A product category named "Labor" already exists.'
+
+
 def test_patch_product_category_returns_200(api_client, test_db):
     category_response = api_client.post(
         "/api/product-categories/",
@@ -270,6 +288,30 @@ def test_patch_product_category_returns_200(api_client, test_db):
     assert data["description"] == "Updated"
 
 
+def test_patch_duplicate_product_category_returns_clear_400(api_client, test_db):
+    labor_response = api_client.post(
+        "/api/product-categories/",
+        {"name": "Labor"},
+        format="json",
+    )
+    assert labor_response.status_code == 201
+    materials_response = api_client.post(
+        "/api/product-categories/",
+        {"name": "Materials"},
+        format="json",
+    )
+    category_id = materials_response.json()["id"]
+
+    response = api_client.patch(
+        f"/api/product-categories/{category_id}/",
+        {"name": "labor"},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == 'A product category named "Labor" already exists.'
+
+
 def test_deactivate_product_category_returns_200(api_client, test_db):
     category_response = api_client.post(
         "/api/product-categories/",
@@ -282,3 +324,48 @@ def test_deactivate_product_category_returns_200(api_client, test_db):
 
     assert response.status_code == 200
     assert response.json()["is_active"] is False
+
+
+def test_delete_unused_product_category_returns_204(api_client, test_db):
+    category_response = api_client.post(
+        "/api/product-categories/",
+        {"name": "Materials"},
+        format="json",
+    )
+    category_id = category_response.json()["id"]
+
+    response = api_client.delete(f"/api/product-categories/{category_id}/")
+
+    assert response.status_code == 204
+
+
+def test_delete_default_product_category_returns_400(api_client, test_db):
+    response = api_client.delete("/api/product-categories/1/")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "The default product category cannot be deleted."
+
+
+def test_delete_product_category_with_products_returns_409(api_client, test_db):
+    category_response = api_client.post(
+        "/api/product-categories/",
+        {"name": "Materials"},
+        format="json",
+    )
+    category_id = category_response.json()["id"]
+    product_response = api_client.post(
+        "/api/products/",
+        {
+            "name": "Cable",
+            "unit_price_cents": 1200,
+            "category_id": category_id,
+            "is_active": True,
+        },
+        format="json",
+    )
+    assert product_response.status_code == 201
+
+    response = api_client.delete(f"/api/product-categories/{category_id}/")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == 'Cannot delete product category "Materials" because 1 product uses it.'

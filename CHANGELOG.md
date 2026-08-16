@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.0] - 2026-08-16
+
+### Added
+
+* Product categories across DB, services, CLI, API, and React frontend.
+* Catalog category management with create, edit, deactivate, delete, and product filtering.
+* Draft invoice detail workflow for adding line items from the product catalog.
+
 ## [0.13.0] - 2026-08-14
 
 ### Added
