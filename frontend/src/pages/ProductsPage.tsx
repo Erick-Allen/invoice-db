@@ -6,6 +6,7 @@ import {
     deactivateProduct,
     deactivateProductCategory,
     deleteProduct,
+    deleteProductCategory,
     listProductCategories,
     listProducts,
     updateProduct,
@@ -321,6 +322,22 @@ export function ProductsPage() {
             await loadCategories();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to deactivate category.");
+        }
+    }
+
+    async function handleDeleteCategory(categoryIdToDelete: number) {
+        const confirmed = window.confirm("Are you sure you want to delete this category?");
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setError(null);
+            await deleteProductCategory(categoryIdToDelete);
+            await loadCategories();
+            await loadProducts();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete category.");
         }
     }
 
@@ -758,6 +775,15 @@ export function ProductsPage() {
                                                                         onClick={() => handleDeactivateCategory(category.id)}
                                                                     >
                                                                         Deactivate
+                                                                    </button>
+                                                                )}
+                                                                {category.id !== 1 && (
+                                                                    <button
+                                                                        className="small-danger-button"
+                                                                        type="button"
+                                                                        onClick={() => handleDeleteCategory(category.id)}
+                                                                    >
+                                                                        Delete
                                                                     </button>
                                                                 )}
                                                             </div>

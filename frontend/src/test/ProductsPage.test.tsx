@@ -6,6 +6,7 @@ import {
     deactivateProduct,
     deactivateProductCategory,
     deleteProduct,
+    deleteProductCategory,
     listProductCategories,
     listProducts,
     updateProduct,
@@ -23,6 +24,7 @@ vi.mock("../api/products", () => ({
     deactivateProduct: vi.fn(),
     deactivateProductCategory: vi.fn(),
     deleteProduct: vi.fn(),
+    deleteProductCategory: vi.fn(),
 }));
 
 const mockedListProducts = vi.mocked(listProducts);
@@ -34,6 +36,7 @@ const mockedUpdateProductCategory = vi.mocked(updateProductCategory);
 const mockedDeactivateProduct = vi.mocked(deactivateProduct);
 const mockedDeactivateProductCategory = vi.mocked(deactivateProductCategory);
 const mockedDeleteProduct = vi.mocked(deleteProduct);
+const mockedDeleteProductCategory = vi.mocked(deleteProductCategory);
 
 describe("ProductsPage", () => {
     beforeEach(() => {
@@ -115,6 +118,7 @@ describe("ProductsPage", () => {
         });
 
         mockedDeleteProduct.mockResolvedValue(undefined);
+        mockedDeleteProductCategory.mockResolvedValue(undefined);
     });
 
     it("renders the product form and product table", async () => {
@@ -258,6 +262,17 @@ describe("ProductsPage", () => {
                     is_active: true,
                 }),
             );
+        });
+    });
+
+    it("deletes a product category after confirmation", async () => {
+        render(<ProductsPage />);
+
+        fireEvent.click(await screen.findByRole("button", { name: "Categories" }));
+        fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+        await waitFor(() => {
+            expect(mockedDeleteProductCategory).toHaveBeenCalledWith(2);
         });
     });
 });

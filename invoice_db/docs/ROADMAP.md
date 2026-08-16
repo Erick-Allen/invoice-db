@@ -22,7 +22,7 @@
 
 ## Planned
 
-- `v0.15.0` - Product tags
+- `v0.15.0` - Invoice tags
 - `v0.16.0` - Reporting foundation
 - `v0.17.0` - User accounts
 - `v0.18.0` - Business profile

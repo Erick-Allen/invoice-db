@@ -14,6 +14,7 @@ def test_add_and_get_product(product_widget, runner, temp_db):
 
     assert result.exit_code == 0, result.stdout
     assert "Widget" in result.stdout
+    assert "Uncategorized" in result.stdout
     assert "$12.34" in result.stdout
 
 
@@ -26,6 +27,17 @@ def test_list_products(product_widget, product_service, runner, temp_db):
 
 
 def test_update_product(product_widget, runner, temp_db):
+    category_result = runner.invoke(app, [
+        "product-categories",
+        "add",
+        "--name",
+        "Labor",
+        "--db",
+        temp_db,
+    ])
+    assert category_result.exit_code == 0, category_result.stdout
+    category_id = int(category_result.stdout.split("id=")[1].split(")")[0])
+
     result = runner.invoke(app, [
         "products",
         "update",
@@ -35,13 +47,48 @@ def test_update_product(product_widget, runner, temp_db):
         "Updated Widget",
         "--price",
         "20",
+        "--category-id",
+        str(category_id),
         "--db",
         temp_db,
     ])
 
     assert result.exit_code == 0, result.stdout
     assert "Updated Widget" in result.stdout
+    assert "Labor" in result.stdout
     assert "$20.00" in result.stdout
+
+
+def test_add_product_with_category(runner, temp_db):
+    category_result = runner.invoke(app, [
+        "product-categories",
+        "add",
+        "--name",
+        "Materials",
+        "--db",
+        temp_db,
+    ])
+    assert category_result.exit_code == 0, category_result.stdout
+    category_id = int(category_result.stdout.split("id=")[1].split(")")[0])
+
+    result = runner.invoke(app, [
+        "products",
+        "add",
+        "--name",
+        "Cable",
+        "--price",
+        "12",
+        "--category-id",
+        str(category_id),
+        "--db",
+        temp_db,
+    ])
+    assert result.exit_code == 0, result.stdout
+
+    list_result = runner.invoke(app, ["products", "list", "--db", temp_db])
+    assert list_result.exit_code == 0, list_result.stdout
+    assert "Cable" in list_result.stdout
+    assert "Materials" in list_result.stdout
 
 
 def test_deactivate_product(product_widget, runner, temp_db):

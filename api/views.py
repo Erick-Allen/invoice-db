@@ -983,6 +983,42 @@ class ProductCategoryDetailView(APIView):
         serializer = ProductCategorySerializer(category)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    def delete(self, request, category_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                product_category_services.delete_product_category(
+                    cursor,
+                    category_id=category_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deleting the product category."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the product category."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 class ProductCategoryDeactivateView(APIView):
     def patch(self, request, category_id):
         try:

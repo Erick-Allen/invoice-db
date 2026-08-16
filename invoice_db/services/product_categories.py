@@ -43,6 +43,19 @@ def _require_category(cursor, category_id: int) -> categories_db.ProductCategory
     return category
 
 
+def _raise_if_category_name_exists(
+    cursor,
+    name: str,
+    *,
+    current_category_id: int | None = None,
+) -> None:
+    existing_category = categories_db.get_product_category_by_name(cursor, name)
+    if existing_category is not None and existing_category.id != current_category_id:
+        raise exceptions.ValidationError(
+            f'A product category named "{existing_category.name}" already exists.'
+        )
+
+
 def create_product_category(
     cursor,
     name: str,
@@ -50,6 +63,7 @@ def create_product_category(
     is_active: bool = True,
 ) -> ProductCategoryRecord:
     try:
+        _raise_if_category_name_exists(cursor, name)
         category = categories_db.create_product_category(
             cursor,
             categories_db.ProductCategoryCreate(
@@ -87,6 +101,9 @@ def update_product_category_by_id(
         raise exceptions.ValidationError("Please provide at least one value to update the product category.")
 
     try:
+        if name is not None:
+            _raise_if_category_name_exists(cursor, name, current_category_id=category_id)
+
         updated_category = categories_db.update_product_category(
             cursor,
             category_id=category_id,
@@ -111,3 +128,22 @@ def deactivate_product_category(cursor, category_id: int) -> ProductCategoryReco
         raise exceptions.ValidationError("Product category is already inactive.")
 
     return update_product_category_by_id(cursor, category_id, is_active=False)
+
+
+def delete_product_category(cursor, category_id: int) -> None:
+    category = _require_category(cursor, category_id)
+
+    if category.id == categories_db.DEFAULT_CATEGORY_ID:
+        raise exceptions.ValidationError("The default product category cannot be deleted.")
+
+    product_count = categories_db.count_products_for_category(cursor, category_id)
+    if product_count > 0:
+        product_word = "product" if product_count == 1 else "products"
+        verb = "uses" if product_count == 1 else "use"
+        raise exceptions.ConflictError(
+            f'Cannot delete product category "{category.name}" because {product_count} {product_word} {verb} it.'
+        )
+
+    deleted = categories_db.delete_product_category(cursor, category_id)
+    if not deleted:
+        raise exceptions.NotFoundError(f"Product category not found (id={category_id})")

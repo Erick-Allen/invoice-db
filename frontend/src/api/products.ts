@@ -89,6 +89,12 @@ export function deactivateProductCategory(id: number) {
     });
 }
 
+export function deleteProductCategory(id: number) {
+    return apiRequest<void>(`/product-categories/${id}/`, {
+        method: "DELETE",
+    });
+}
+
 export function deleteProduct(id: number) {
     return apiRequest<void>(`/products/${id}/`, {
         method: "DELETE",

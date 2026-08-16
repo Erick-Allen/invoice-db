@@ -119,6 +119,20 @@ def update_product_category(
     return get_product_category_by_id(cursor, category_id)
 
 
+def count_products_for_category(cursor, category_id: int) -> int:
+    cursor.execute(
+        "SELECT COUNT(*) AS product_count FROM products WHERE category_id = ?",
+        (category_id,),
+    )
+    row = cursor.fetchone()
+    return row["product_count"] if row else 0
+
+
+def delete_product_category(cursor, category_id: int) -> bool:
+    cursor.execute("DELETE FROM product_categories WHERE id = ?", (category_id,))
+    return cursor.rowcount > 0
+
+
 def assert_product_category_exists(cursor, category_id: int) -> None:
     if get_product_category_by_id(cursor, category_id) is None:
         raise ValueError(f"Product category not found (id={category_id})")
