@@ -14,6 +14,7 @@ invoice-db/
 |   |   |   |-- invoices.ts
 |   |   |   |-- payments.ts
 |   |   |   |-- products.ts
+|   |   |   |-- suppliers.ts
 |   |   |   `-- tags.ts
 |   |   |
 |   |   |-- pages/               # Page-level React components
@@ -69,7 +70,9 @@ invoice-db/
 |   |   |-- render_payments.py
 |   |   |-- render_product_categories.py
 |   |   |-- render_products.py
+|   |   |-- render_suppliers.py
 |   |   |-- render_tags.py
+|   |   |-- suppliers_cmds.py
 |   |   `-- ui.py
 |   |
 |   |-- db/                      # SQLite database layer
@@ -81,6 +84,7 @@ invoice-db/
 |   |   |-- product_categories.py
 |   |   |-- products.py
 |   |   |-- schema.py
+|   |   |-- suppliers.py
 |   |   |-- tags.py
 |   |   `-- validators.py
 |   |
@@ -97,6 +101,7 @@ invoice-db/
 |   |   |-- payments.py
 |   |   |-- product_categories.py
 |   |   |-- products.py
+|   |   |-- suppliers.py
 |   |   `-- tags.py
 |   |
 |   |-- __main__.py
@@ -116,6 +121,7 @@ invoice-db/
 |   |   |-- test_invoices_api.py
 |   |   |-- test_payments_api.py
 |   |   |-- test_products_api.py
+|   |   |-- test_suppliers_api.py
 |   |   `-- test_tags_api.py
 |   |
 |   |-- cli/
@@ -127,6 +133,7 @@ invoice-db/
 |   |   |-- test_cli_payments.py
 |   |   |-- test_cli_product_categories.py
 |   |   |-- test_cli_products.py
+|   |   |-- test_cli_suppliers.py
 |   |   `-- test_cli_tags.py
 |   |
 |   |-- assistant/
@@ -138,6 +145,8 @@ invoice-db/
 |   |   |-- test_product_categories.py
 |   |   |-- test_product_validation.py
 |   |   |-- test_products_crud.py
+|   |   |-- test_suppliers_crud.py
+|   |   |-- test_suppliers_schema.py
 |   |   |-- test_tags_crud.py
 |   |   `-- test_tags_schema.py
 |   |
@@ -145,6 +154,7 @@ invoice-db/
 |       |-- test_invoice_items_service.py
 |       |-- test_invoices_service.py
 |       |-- test_payments_service.py
+|       |-- test_suppliers_service.py
 |       `-- test_tags_service.py
 |
 |-- scripts/

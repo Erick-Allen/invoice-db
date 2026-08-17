@@ -8,6 +8,7 @@ CUSTOMER_ID_REGEX = re.compile(r"id=(\d+)")
 INVOICE_ID_REGEX = re.compile(r"Created invoice \(id=(\d+)\)")
 PRODUCT_ID_REGEX = re.compile(r"id=(\d+)")
 TAG_ID_REGEX = re.compile(r"id=(\d+)")
+SUPPLIER_ID_REGEX = re.compile(r"id=(\d+)")
 
 #CLI fixtures
 @pytest.fixture
@@ -129,4 +130,22 @@ def tag_repair(runner, temp_db):
     assert result.exit_code == 0, result.stdout
     match = TAG_ID_REGEX.search(result.stdout)
     assert match, f"Could not parse tag id from output: {result.stdout}"
+    return int(match.group(1))
+
+
+@pytest.fixture
+def supplier_johnstone(runner, temp_db):
+    result = runner.invoke(app, [
+        "suppliers",
+        "add",
+        "--name",
+        "Johnstone",
+        "--phone",
+        "555-0100",
+        "--db",
+        temp_db,
+    ])
+    assert result.exit_code == 0, result.stdout
+    match = SUPPLIER_ID_REGEX.search(result.stdout)
+    assert match, f"Could not parse supplier id from output: {result.stdout}"
     return int(match.group(1))
