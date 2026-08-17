@@ -14,11 +14,26 @@ import {
     type Product,
     type ProductCategory,
 } from "../api/products";
+import {
+    addSupplierToProduct,
+    createSupplier,
+    deactivateSupplier,
+    deleteSupplier,
+    listProductSuppliers,
+    listSuppliers,
+    removeSupplierFromProduct,
+    removeSupplierFromProducts,
+    updateSupplier,
+    type Supplier,
+} from "../api/suppliers";
 
 export function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<ProductCategory[]>([]);
-    const [activeTab, setActiveTab] = useState<"products" | "categories">("products");
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [productSuppliers, setProductSuppliers] = useState<Record<number, Supplier[]>>({});
+    const [productSupplierSelections, setProductSupplierSelections] = useState<Record<number, string>>({});
+    const [activeTab, setActiveTab] = useState<"products" | "categories" | "suppliers">("products");
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
@@ -45,20 +60,42 @@ export function ProductsPage() {
     const [editCategoryDescription, setEditCategoryDescription] = useState("");
     const [editCategoryIsActive, setEditCategoryIsActive] = useState(true);
 
+    const [supplierName, setSupplierName] = useState("");
+    const [supplierPhone, setSupplierPhone] = useState("");
+    const [supplierEmail, setSupplierEmail] = useState("");
+    const [supplierWebsite, setSupplierWebsite] = useState("");
+    const [isCreateSupplierOverlayOpen, setIsCreateSupplierOverlayOpen] = useState(false);
+    const [editingSupplierId, setEditingSupplierId] = useState<number | null>(null);
+    const [editSupplierName, setEditSupplierName] = useState("");
+    const [editSupplierPhone, setEditSupplierPhone] = useState("");
+    const [editSupplierEmail, setEditSupplierEmail] = useState("");
+    const [editSupplierWebsite, setEditSupplierWebsite] = useState("");
+    const [editSupplierIsActive, setEditSupplierIsActive] = useState(true);
+
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const activeCategories = categories.filter((category) => category.is_active);
+    const activeSuppliers = suppliers.filter((supplier) => supplier.is_active);
     const filteredProducts = categoryFilterId === "all"
         ? products
         : products.filter((product) => product.category_id === Number(categoryFilterId));
+
+    async function loadProductSupplierLinks(productData: Product[]) {
+        const supplierEntries = await Promise.all(
+            productData.map(async (product) => [product.id, await listProductSuppliers(product.id)] as const),
+        );
+
+        setProductSuppliers(Object.fromEntries(supplierEntries));
+    }
 
     async function loadProducts(nextActiveOnly = activeOnly) {
         try {
             setError(null);
             const data = await listProducts(nextActiveOnly);
             setProducts(data);
+            await loadProductSupplierLinks(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load products.");
         } finally {
@@ -71,16 +108,24 @@ export function ProductsPage() {
         setCategories(data);
     }
 
+    async function loadSuppliers() {
+        const data = await listSuppliers();
+        setSuppliers(data);
+    }
+
     async function loadCatalog(nextActiveOnly = activeOnly) {
         try {
             setIsLoading(true);
             setError(null);
-            const [productData, categoryData] = await Promise.all([
+            const [productData, categoryData, supplierData] = await Promise.all([
                 listProducts(nextActiveOnly),
                 listProductCategories(),
+                listSuppliers(),
             ]);
             setProducts(productData);
             setCategories(categoryData);
+            setSuppliers(supplierData);
+            await loadProductSupplierLinks(productData);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load product catalog.");
         } finally {
@@ -165,6 +210,45 @@ export function ProductsPage() {
 
         resetCreateCategoryForm();
         setIsCreateCategoryOverlayOpen(false);
+    }
+
+    function resetCreateSupplierForm() {
+        setSupplierName("");
+        setSupplierPhone("");
+        setSupplierEmail("");
+        setSupplierWebsite("");
+    }
+
+    function openCreateSupplierOverlay() {
+        setError(null);
+        setIsCreateSupplierOverlayOpen(true);
+    }
+
+    function closeCreateSupplierOverlay() {
+        if (isSubmitting) {
+            return;
+        }
+
+        resetCreateSupplierForm();
+        setIsCreateSupplierOverlayOpen(false);
+    }
+
+    function startEditingSupplier(supplier: Supplier) {
+        setEditingSupplierId(supplier.id);
+        setEditSupplierName(supplier.name);
+        setEditSupplierPhone(supplier.phone ?? "");
+        setEditSupplierEmail(supplier.email ?? "");
+        setEditSupplierWebsite(supplier.website ?? "");
+        setEditSupplierIsActive(supplier.is_active);
+    }
+
+    function cancelEditingSupplier() {
+        setEditingSupplierId(null);
+        setEditSupplierName("");
+        setEditSupplierPhone("");
+        setEditSupplierEmail("");
+        setEditSupplierWebsite("");
+        setEditSupplierIsActive(true);
     }
 
     const handleSubmit: SubmitEventHandler<HTMLFormElement> = async (event) => {
@@ -366,6 +450,124 @@ export function ProductsPage() {
         }
     }
 
+    const handleCreateSupplier: SubmitEventHandler<HTMLFormElement> = async (event) => {
+        event.preventDefault();
+
+        const trimmedName = supplierName.trim();
+        if (!trimmedName) {
+            setError("Supplier name is required.");
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            setError(null);
+            await createSupplier({
+                name: trimmedName,
+                phone: supplierPhone.trim() || null,
+                email: supplierEmail.trim() || null,
+                website: supplierWebsite.trim() || null,
+                is_active: true,
+            });
+            resetCreateSupplierForm();
+            setIsCreateSupplierOverlayOpen(false);
+            await loadSuppliers();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to create supplier.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    async function handleUpdateSupplier(supplierIdToUpdate: number) {
+        const trimmedName = editSupplierName.trim();
+        if (!trimmedName) {
+            setError("Supplier name is required.");
+            return;
+        }
+
+        try {
+            setError(null);
+            await updateSupplier(supplierIdToUpdate, {
+                name: trimmedName,
+                phone: editSupplierPhone.trim() || null,
+                email: editSupplierEmail.trim() || null,
+                website: editSupplierWebsite.trim() || null,
+                is_active: editSupplierIsActive,
+            });
+            cancelEditingSupplier();
+            await loadCatalog();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to update supplier.");
+        }
+    }
+
+    async function handleDeactivateSupplier(supplierIdToDeactivate: number) {
+        try {
+            setError(null);
+            await deactivateSupplier(supplierIdToDeactivate);
+            await loadSuppliers();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to deactivate supplier.");
+        }
+    }
+
+    async function handleDeleteSupplier(supplierIdToDelete: number) {
+        const confirmed = window.confirm("Are you sure you want to delete this supplier?");
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setError(null);
+            await deleteSupplier(supplierIdToDelete);
+            await loadSuppliers();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete supplier.");
+        }
+    }
+
+    async function handleRemoveSupplierFromProducts(supplierIdToRemove: number) {
+        const confirmed = window.confirm("Remove this inactive supplier from every product?");
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setError(null);
+            await removeSupplierFromProducts(supplierIdToRemove);
+            await loadProductSupplierLinks(products);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to remove supplier from products.");
+        }
+    }
+
+    async function handleAddProductSupplier(productId: number) {
+        const selectedSupplierId = Number(productSupplierSelections[productId]);
+        if (!selectedSupplierId) {
+            return;
+        }
+
+        try {
+            setError(null);
+            await addSupplierToProduct(productId, { supplier_id: selectedSupplierId });
+            setProductSupplierSelections((current) => ({ ...current, [productId]: "" }));
+            await loadProductSupplierLinks(products);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to add supplier to product.");
+        }
+    }
+
+    async function handleRemoveProductSupplier(productId: number, supplierId: number) {
+        try {
+            setError(null);
+            await removeSupplierFromProduct(productId, supplierId);
+            await loadProductSupplierLinks(products);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to remove supplier from product.");
+        }
+    }
+
     return (
         <>
             <div className="page-header">
@@ -392,15 +594,26 @@ export function ProductsPage() {
                         >
                             Categories
                         </button>
+                        <button
+                            type="button"
+                            className={activeTab === "suppliers" ? "active" : ""}
+                            onClick={() => setActiveTab("suppliers")}
+                        >
+                            Suppliers
+                        </button>
                     </div>
                     <div className="section-actions">
                         {activeTab === "products" ? (
                                 <button className="primary-button" type="button" onClick={openCreateOverlay}>
                                     Create Product
                                 </button>
-                            ) : (
+                            ) : activeTab === "categories" ? (
                                 <button className="primary-button" type="button" onClick={openCreateCategoryOverlay}>
                                     Create Category
+                                </button>
+                            ) : (
+                                <button className="primary-button" type="button" onClick={openCreateSupplierOverlay}>
+                                    Create Supplier
                                 </button>
                             )}
                     </div>
@@ -541,7 +754,7 @@ export function ProductsPage() {
                                         <tr>
                                             <th>#</th>
                                             <th>Name</th>
-                                            <th>Category</th>
+                                            <th>Suppliers</th>
                                             <th>Description</th>
                                             <th>Cost</th>
                                             <th>Sell Price</th>
@@ -558,24 +771,25 @@ export function ProductsPage() {
                                                 {editingProductId === product.id ? (
                                                     <>
                                                         <td>
-                                                            <input
-                                                                type="text"
-                                                                value={editName}
-                                                                onChange={(event) => setEditName(event.target.value)}
-                                                            />
+                                                            <div className="product-name-cell">
+                                                                <input
+                                                                    type="text"
+                                                                    value={editName}
+                                                                    onChange={(event) => setEditName(event.target.value)}
+                                                                />
+                                                                <select
+                                                                    value={editCategoryId}
+                                                                    onChange={(event) => setEditCategoryId(event.target.value)}
+                                                                >
+                                                                    {categories.map((category) => (
+                                                                        <option key={category.id} value={category.id}>
+                                                                            {category.name}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
                                                         </td>
-                                                        <td>
-                                                            <select
-                                                                value={editCategoryId}
-                                                                onChange={(event) => setEditCategoryId(event.target.value)}
-                                                            >
-                                                                {categories.map((category) => (
-                                                                    <option key={category.id} value={category.id}>
-                                                                        {category.name}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        </td>
+                                                        <td className="muted-table-cell">Saved on product row</td>
                                                         <td>
                                                             <input
                                                                 className="wide-select"
@@ -634,7 +848,62 @@ export function ProductsPage() {
                                                                 <span>{product.category_name}</span>
                                                             </div>
                                                         </td>
-                                                        <td>{product.category_name}</td>
+                                                        <td>
+                                                            <div className="supplier-cell">
+                                                                <div className="supplier-chip-list">
+                                                                    {(productSuppliers[product.id] ?? []).length === 0 ? (
+                                                                        <span className="muted-table-cell">-</span>
+                                                                    ) : (
+                                                                        (productSuppliers[product.id] ?? []).map((supplier) => (
+                                                                            <span className="supplier-chip" key={supplier.id}>
+                                                                                {supplier.name}
+                                                                                <button
+                                                                                    type="button"
+                                                                                    aria-label={`Remove ${supplier.name} from ${product.name}`}
+                                                                                    onClick={() => handleRemoveProductSupplier(product.id, supplier.id)}
+                                                                                >
+                                                                                    x
+                                                                                </button>
+                                                                            </span>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+                                                                <div className="supplier-add">
+                                                                    <select
+                                                                        aria-label={`Supplier for ${product.name}`}
+                                                                        value={productSupplierSelections[product.id] ?? ""}
+                                                                        onChange={(event) =>
+                                                                            setProductSupplierSelections((current) => ({
+                                                                                ...current,
+                                                                                [product.id]: event.target.value,
+                                                                            }))
+                                                                        }
+                                                                    >
+                                                                        <option value="">Add supplier</option>
+                                                                        {activeSuppliers
+                                                                            .filter(
+                                                                                (supplier) =>
+                                                                                    !(productSuppliers[product.id] ?? []).some(
+                                                                                        (linkedSupplier) => linkedSupplier.id === supplier.id,
+                                                                                    ),
+                                                                            )
+                                                                            .map((supplier) => (
+                                                                                <option key={supplier.id} value={supplier.id}>
+                                                                                    {supplier.name}
+                                                                                </option>
+                                                                            ))}
+                                                                    </select>
+                                                                    <button
+                                                                        className="small-action-button"
+                                                                        type="button"
+                                                                        onClick={() => handleAddProductSupplier(product.id)}
+                                                                        disabled={!productSupplierSelections[product.id]}
+                                                                    >
+                                                                        Add
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </td>
                                                         <td className="muted-table-cell">{product.description ?? "-"}</td>
                                                         <td className="money-table-cell">${centsToDollars(product.cost_cents)}</td>
                                                         <td className="money-table-cell">${centsToDollars(product.unit_price_cents)}</td>
@@ -831,6 +1100,215 @@ export function ProductsPage() {
                                                                         Delete
                                                                     </button>
                                                                 )}
+                                                            </div>
+                                                        </td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </section>
+                )}
+
+                {activeTab === "suppliers" && (
+                    <section className="invoice-page-stack">
+                        {isCreateSupplierOverlayOpen && (
+                            <div className="modal-overlay" role="presentation" onMouseDown={closeCreateSupplierOverlay}>
+                                <form
+                                    className="form-card modal-panel"
+                                    onSubmit={handleCreateSupplier}
+                                    role="dialog"
+                                    aria-modal="true"
+                                    aria-labelledby="create-supplier-title"
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                >
+                                    <div className="modal-header">
+                                        <h3 id="create-supplier-title">Create Supplier</h3>
+                                        <button className="icon-button" type="button" aria-label="Close create supplier" onClick={closeCreateSupplierOverlay}>
+                                            x
+                                        </button>
+                                    </div>
+
+                                    <div className="form-grid modal-form-grid">
+                                        <div className="form-field">
+                                            <label htmlFor="supplier-name">Name</label>
+                                            <input
+                                                id="supplier-name"
+                                                type="text"
+                                                value={supplierName}
+                                                onChange={(event) => setSupplierName(event.target.value)}
+                                                placeholder="Johnstone Supply"
+                                            />
+                                        </div>
+                                        <div className="form-field">
+                                            <label htmlFor="supplier-phone">Phone</label>
+                                            <input
+                                                id="supplier-phone"
+                                                type="text"
+                                                value={supplierPhone}
+                                                onChange={(event) => setSupplierPhone(event.target.value)}
+                                                placeholder="555-0100"
+                                            />
+                                        </div>
+                                        <div className="form-field">
+                                            <label htmlFor="supplier-email">Email</label>
+                                            <input
+                                                id="supplier-email"
+                                                type="email"
+                                                value={supplierEmail}
+                                                onChange={(event) => setSupplierEmail(event.target.value)}
+                                                placeholder="orders@example.com"
+                                            />
+                                        </div>
+                                        <div className="form-field">
+                                            <label htmlFor="supplier-website">Website</label>
+                                            <input
+                                                id="supplier-website"
+                                                type="url"
+                                                value={supplierWebsite}
+                                                onChange={(event) => setSupplierWebsite(event.target.value)}
+                                                placeholder="https://example.com"
+                                            />
+                                        </div>
+                                        <div className="modal-actions">
+                                            <button className="secondary-button" type="button" onClick={closeCreateSupplierOverlay} disabled={isSubmitting}>
+                                                Cancel
+                                            </button>
+                                            <button className="primary-button" type="submit" disabled={isSubmitting}>
+                                                {isSubmitting ? "Creating..." : "Create Supplier"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="table-wrapper wide-table-wrapper">
+                            {isLoading ? (
+                                <p>Loading suppliers...</p>
+                            ) : suppliers.length === 0 ? (
+                                <p className="empty-state">No suppliers found.</p>
+                            ) : (
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Phone</th>
+                                            <th>Email</th>
+                                            <th>Website</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {suppliers.map((supplier) => (
+                                            <tr key={supplier.id}>
+                                                {editingSupplierId === supplier.id ? (
+                                                    <>
+                                                        <td>
+                                                            <input
+                                                                type="text"
+                                                                value={editSupplierName}
+                                                                onChange={(event) => setEditSupplierName(event.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type="text"
+                                                                value={editSupplierPhone}
+                                                                onChange={(event) => setEditSupplierPhone(event.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type="email"
+                                                                value={editSupplierEmail}
+                                                                onChange={(event) => setEditSupplierEmail(event.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type="url"
+                                                                value={editSupplierWebsite}
+                                                                onChange={(event) => setEditSupplierWebsite(event.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                value={editSupplierIsActive ? "active" : "inactive"}
+                                                                onChange={(event) => setEditSupplierIsActive(event.target.value === "active")}
+                                                            >
+                                                                <option value="active">Active</option>
+                                                                <option value="inactive">Inactive</option>
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <div className="name-actions">
+                                                                <button
+                                                                    className="small-action-button"
+                                                                    type="button"
+                                                                    onClick={() => handleUpdateSupplier(supplier.id)}
+                                                                >
+                                                                    Save
+                                                                </button>
+                                                                <button
+                                                                    className="small-danger-button"
+                                                                    type="button"
+                                                                    onClick={cancelEditingSupplier}
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <td><strong>{supplier.name}</strong></td>
+                                                        <td className="muted-table-cell">{supplier.phone ?? "-"}</td>
+                                                        <td className="muted-table-cell">{supplier.email ?? "-"}</td>
+                                                        <td className="muted-table-cell">{supplier.website ?? "-"}</td>
+                                                        <td>
+                                                            <span className="status-badge">
+                                                                {supplier.is_active ? "active" : "inactive"}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <div className="name-actions">
+                                                                <button
+                                                                    className="small-action-button"
+                                                                    type="button"
+                                                                    onClick={() => startEditingSupplier(supplier)}
+                                                                >
+                                                                    Edit
+                                                                </button>
+                                                                {supplier.is_active && (
+                                                                    <button
+                                                                        className="small-action-button"
+                                                                        type="button"
+                                                                        onClick={() => handleDeactivateSupplier(supplier.id)}
+                                                                    >
+                                                                        Deactivate
+                                                                    </button>
+                                                                )}
+                                                                {!supplier.is_active && (
+                                                                    <button
+                                                                        className="small-action-button"
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveSupplierFromProducts(supplier.id)}
+                                                                    >
+                                                                        Remove from Products
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    className="small-danger-button"
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteSupplier(supplier.id)}
+                                                                >
+                                                                    Delete
+                                                                </button>
                                                             </div>
                                                         </td>
                                                     </>

@@ -52,6 +52,29 @@ def create_triggers(cursor):
         WHERE id = NEW.id;
     END;
 
+    CREATE TRIGGER IF NOT EXISTS trigger_suppliers_updated
+    AFTER UPDATE ON
+        suppliers
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE suppliers
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trigger_product_suppliers_updated
+    AFTER UPDATE ON
+        product_suppliers
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE product_suppliers
+        SET updated_at = datetime('now', 'localtime')
+        WHERE product_id = NEW.product_id
+          AND supplier_id = NEW.supplier_id;
+    END;
+
     CREATE TRIGGER IF NOT EXISTS trigger_products_updated
     AFTER UPDATE ON
         products
@@ -236,6 +259,47 @@ def create_product_schema(cursor):
             "ALTER TABLE products ADD COLUMN cost INTEGER NOT NULL DEFAULT 0"
         )
 
+def create_supplier_schema(cursor):
+    cursor.executescript("""
+    -- Suppliers table: optional product source labels for catalog sourcing.
+    CREATE TABLE IF NOT EXISTS suppliers (
+        id              INTEGER PRIMARY KEY,
+        name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
+        phone           TEXT,
+        email           TEXT,
+        website         TEXT,
+        is_active       INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_suppliers_name_nocase ON suppliers(lower(name));
+    CREATE INDEX IF NOT EXISTS
+        idx_suppliers_is_active ON suppliers(is_active);
+    """)
+
+def create_product_supplier_schema(cursor):
+    cursor.executescript("""
+    -- Product suppliers table: many-to-many product source assignments.
+    CREATE TABLE IF NOT EXISTS product_suppliers (
+        product_id      INTEGER NOT NULL,
+        supplier_id     INTEGER NOT NULL,
+        note            TEXT,
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        PRIMARY KEY (product_id, supplier_id),
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE RESTRICT
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_product_suppliers_product_id ON product_suppliers(product_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_product_suppliers_supplier_id ON product_suppliers(supplier_id);
+    """)
+
 def create_invoice_item_schema(cursor):
     cursor.executescript("""
     -- Invoice items table: product-backed line items for invoices.
@@ -324,6 +388,8 @@ def create_schema(cursor):
     create_tag_schema(cursor)
     create_product_category_schema(cursor)
     create_product_schema(cursor)
+    create_supplier_schema(cursor)
+    create_product_supplier_schema(cursor)
     create_invoice_item_schema(cursor)
     create_payment_schema(cursor)
     create_customer_summary_view(cursor)

@@ -12,6 +12,7 @@ from invoice_db.services import payments as payment_services
 from invoice_db.services import product_categories as product_category_services
 from invoice_db.services import products as product_services
 from invoice_db.services import reports as report_services
+from invoice_db.services import suppliers as supplier_services
 from invoice_db.services import tags as tag_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError, ConflictError
 from rest_framework.decorators import api_view
@@ -37,8 +38,13 @@ from .serializers import (
     PaymentSummarySerializer,
     ProductCategorySerializer,
     ProductCategoryUpdateSerializer,
+    ProductSupplierCreateSerializer,
+    ProductSupplierSerializer,
+    ProductSupplierUpdateSerializer,
     ProductSerializer,
     ProductUpdateSerializer,
+    SupplierSerializer,
+    SupplierUpdateSerializer,
     TagSerializer,
     TagUpdateSerializer,
     InvoiceTagSerializer,
@@ -68,6 +74,7 @@ def api_root(request):
                 "invoices": "/api/invoices",
                 "products": "/api/products/",
                 "reports": "/api/reports/overview/",
+                "suppliers": "/api/suppliers/",
                 "tags": "/api/tags/",
             }
         }
@@ -1118,6 +1125,387 @@ class ProductDeactivateView(APIView):
 
         serializer = ProductSerializer(product)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SupplierListCreateView(APIView):
+    def get(self, request):
+        active_only = request.query_params.get("active_only", "").lower() in {"1", "true", "yes"}
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                suppliers = supplier_services.list_suppliers(cursor, active_only=active_only)
+
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving suppliers."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierSerializer(suppliers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = SupplierSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                supplier = supplier_services.create_supplier(
+                    cursor,
+                    name=serializer.validated_data["name"],
+                    phone=serializer.validated_data.get("phone"),
+                    email=serializer.validated_data.get("email"),
+                    website=serializer.validated_data.get("website"),
+                    is_active=serializer.validated_data.get("is_active", True),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierSerializer(supplier)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class SupplierDetailView(APIView):
+    def get(self, request, supplier_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                supplier = supplier_services.get_supplier_by_id(cursor, supplier_id=supplier_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierSerializer(supplier)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, supplier_id):
+        serializer = SupplierUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                supplier = supplier_services.update_supplier_by_id(
+                    cursor,
+                    supplier_id=supplier_id,
+                    name=serializer.validated_data.get("name"),
+                    phone=serializer.validated_data.get("phone"),
+                    email=serializer.validated_data.get("email"),
+                    website=serializer.validated_data.get("website"),
+                    is_active=serializer.validated_data.get("is_active"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierSerializer(supplier)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, supplier_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                supplier_services.delete_supplier(cursor, supplier_id=supplier_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deleting the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class SupplierDeactivateView(APIView):
+    def patch(self, request, supplier_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                supplier = supplier_services.deactivate_supplier(cursor, supplier_id=supplier_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deactivating the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deactivating the supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierSerializer(supplier)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SupplierProductsView(APIView):
+    def get(self, request, supplier_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                products = supplier_services.list_supplier_products(cursor, supplier_id=supplier_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving supplier products."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SupplierRemoveFromProductsView(APIView):
+    def post(self, request, supplier_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                result = supplier_services.remove_supplier_from_all_products(
+                    cursor,
+                    supplier_id=supplier_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while removing supplier product links."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while removing supplier product links."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+class ProductSupplierListCreateView(APIView):
+    def get(self, request, product_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                suppliers = supplier_services.list_product_suppliers(cursor, product_id=product_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving product suppliers."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierSerializer(suppliers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, product_id):
+        serializer = ProductSupplierCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                product_supplier = supplier_services.add_supplier_to_product(
+                    cursor,
+                    product_id=product_id,
+                    supplier_id=serializer.validated_data["supplier_id"],
+                    note=serializer.validated_data.get("note"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while adding the product supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while adding the product supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductSupplierSerializer(product_supplier)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class ProductSupplierDetailView(APIView):
+    def patch(self, request, product_id, supplier_id):
+        serializer = ProductSupplierUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                product_supplier = supplier_services.update_product_supplier_note(
+                    cursor,
+                    product_id=product_id,
+                    supplier_id=supplier_id,
+                    note=serializer.validated_data.get("note"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the product supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the product supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductSupplierSerializer(product_supplier)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, product_id, supplier_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                supplier_services.remove_supplier_from_product(
+                    cursor,
+                    product_id=product_id,
+                    supplier_id=supplier_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while removing the product supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while removing the product supplier."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
     
 class TagListCreateView(APIView):
     def get(self, request):
