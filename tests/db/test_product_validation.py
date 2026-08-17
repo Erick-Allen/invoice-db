@@ -28,6 +28,14 @@ def test_create_product_negative_unit_price_raises(cursor):
         )
 
 
+def test_create_product_negative_cost_raises(cursor):
+    with pytest.raises(ValueError):
+        products.create_product(
+            cursor,
+            ProductCreate(name="Widget", cost_cents=-1, unit_price_cents=2500),
+        )
+
+
 def test_create_product_non_integer_unit_price_raises(cursor):
     with pytest.raises(ValueError):
         products.create_product(
@@ -84,6 +92,16 @@ def test_update_product_negative_unit_price_raises(cursor):
 
     with pytest.raises(ValueError):
         products.update_product(cursor, product.id, unit_price_cents=-1)
+
+
+def test_update_product_negative_cost_raises(cursor):
+    product = products.create_product(
+        cursor,
+        ProductCreate(name="Widget", unit_price_cents=2500),
+    )
+
+    with pytest.raises(ValueError):
+        products.update_product(cursor, product.id, cost_cents=-1)
 
 
 def test_update_product_invalid_active_flag_raises(cursor):

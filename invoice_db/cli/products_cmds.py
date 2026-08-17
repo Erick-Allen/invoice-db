@@ -26,6 +26,7 @@ def _handle_service_error(error: Exception) -> None:
 def add_product(
     name: str = typer.Option(..., "-n", "--name", help="Name of the product."),
     unit_price: float = typer.Option(..., "-p", "--price", help="Unit price in dollars."),
+    cost: float = typer.Option(0, "--cost", help="Default product cost in dollars."),
     description: Optional[str] = typer.Option(None, "-d", "--description", help="Product description."),
     category_id: int = typer.Option(1, "--category-id", help="Product category ID."),
     active: bool = typer.Option(True, "--active/--inactive", help="Initial product active state."),
@@ -37,6 +38,7 @@ def add_product(
                 cursor,
                 name=name,
                 description=description,
+                cost_cents=to_cents(cost),
                 unit_price_cents=to_cents(unit_price),
                 category_id=category_id,
                 is_active=active,
@@ -87,12 +89,13 @@ def update_product(
     product_id: int = typer.Option(..., "-i", "--id", help="ID of product to update."),
     name: Optional[str] = typer.Option(None, "-n", "--name", help="New product name."),
     unit_price: Optional[float] = typer.Option(None, "-p", "--price", help="New unit price in dollars."),
+    cost: Optional[float] = typer.Option(None, "--cost", help="New default product cost in dollars."),
     description: Optional[str] = typer.Option(None, "-d", "--description", help="New product description."),
     category_id: Optional[int] = typer.Option(None, "--category-id", help="New product category ID."),
     active: Optional[bool] = typer.Option(None, "--active/--inactive", help="Product active state."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
 ):
-    if name is None and unit_price is None and description is None and category_id is None and active is None:
+    if name is None and unit_price is None and cost is None and description is None and category_id is None and active is None:
         ui.console.print("Please provide at least one value to update the product.", style="warning")
         raise typer.Exit(code=1)
 
@@ -103,6 +106,7 @@ def update_product(
                 product_id=product_id,
                 name=name,
                 description=description,
+                cost_cents=to_cents(cost) if cost is not None else None,
                 unit_price_cents=to_cents(unit_price) if unit_price is not None else None,
                 category_id=category_id,
                 is_active=active,

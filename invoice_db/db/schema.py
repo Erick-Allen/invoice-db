@@ -201,6 +201,8 @@ def create_product_schema(cursor):
         id              INTEGER PRIMARY KEY,
         name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
         description     TEXT,
+        cost            INTEGER NOT NULL DEFAULT 0
+                                CHECK (cost >= 0 AND cost = CAST(cost AS INTEGER)),
         unit_price      INTEGER NOT NULL DEFAULT 0
                                 CHECK (unit_price >= 0 AND unit_price = CAST(unit_price AS INTEGER)),
         category_id     INTEGER NOT NULL DEFAULT 1,
@@ -229,6 +231,10 @@ def create_product_schema(cursor):
             CREATE INDEX IF NOT EXISTS
                 idx_products_category_id ON products(category_id)
         """)
+    if "cost" not in columns:
+        cursor.execute(
+            "ALTER TABLE products ADD COLUMN cost INTEGER NOT NULL DEFAULT 0"
+        )
 
 def create_invoice_item_schema(cursor):
     cursor.executescript("""

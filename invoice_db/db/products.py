@@ -6,6 +6,7 @@ from .validators import (
     normalize_is_active,
     normalize_product_name,
     validate_positive_id,
+    validate_product_cost_cents,
     validate_unit_price_cents,
 )
 
@@ -13,6 +14,7 @@ from .validators import (
 class ProductCreate:
     name: str
     unit_price_cents: int
+    cost_cents: int = 0
     description: str | None = None
     category_id: int = 1
     is_active: bool = True
@@ -22,6 +24,7 @@ class Product:
     id: int
     name: str
     description: str | None
+    cost_cents: int
     unit_price_cents: int
     category_id: int
     category_name: str
@@ -35,6 +38,7 @@ def _to_product(row: Row) -> Product:
         id=row["id"],
         name=row["name"],
         description=row["description"],
+        cost_cents=row["cost"],
         unit_price_cents=row["unit_price"],
         category_id=row["category_id"],
         category_name=row["category_name"],
@@ -47,14 +51,15 @@ def _to_product(row: Row) -> Product:
 def create_product(cursor, product: ProductCreate) -> Product:
     name = normalize_product_name(product.name)
     description = normalize_description(product.description)
+    cost_cents = validate_product_cost_cents(product.cost_cents)
     unit_price_cents = validate_unit_price_cents(product.unit_price_cents)
     validate_positive_id(product.category_id, "Product category id")
     is_active = normalize_is_active(product.is_active)
 
     cursor.execute("""
-        INSERT INTO products (name, description, unit_price, category_id, is_active)
-        VALUES (?, ?, ?, ?, ?)
-    """, (name, description, unit_price_cents, product.category_id, is_active))
+        INSERT INTO products (name, description, cost, unit_price, category_id, is_active)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (name, description, cost_cents, unit_price_cents, product.category_id, is_active))
 
     created_product = get_product_by_id(cursor, cursor.lastrowid)
 
@@ -98,6 +103,7 @@ def update_product(
     *,
     name: str | None = None,
     description: str | None = None,
+    cost_cents: int | None = None,
     unit_price_cents: int | None = None,
     category_id: int | None = None,
     is_active: bool | None = None,
@@ -114,6 +120,9 @@ def update_product(
     if description is not None:
         updates.append("description = ?")
         params.append(normalize_description(description))
+    if cost_cents is not None:
+        updates.append("cost = ?")
+        params.append(validate_product_cost_cents(cost_cents))
     if unit_price_cents is not None:
         updates.append("unit_price = ?")
         params.append(validate_unit_price_cents(unit_price_cents))
