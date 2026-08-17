@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { getCustomer, type Customer } from "../api/customers";
-import { createInvoiceItem } from "../api/invoiceItems";
+import { createInvoiceItem, deleteInvoiceItem, updateInvoiceItem } from "../api/invoiceItems";
 import { getInvoice, type Invoice } from "../api/invoices";
 import { listPayments, getPaymentSummary, type Payment, type PaymentSummary } from "../api/payments";
 import { listProducts, type Product } from "../api/products";
@@ -14,6 +14,14 @@ function productLabel(product: Product | undefined, productId: number) {
 
 function categoryLabel(product: Product | undefined) {
     return product?.category_name ?? "Uncategorized";
+}
+
+function restoreScrollPosition(scrollY: number) {
+    if (navigator.userAgent.includes("jsdom")) {
+        return;
+    }
+
+    window.requestAnimationFrame(() => window.scrollTo({ top: scrollY }));
 }
 
 type InvoiceDetailLocationState = {
@@ -112,6 +120,13 @@ export function InvoiceDetailPage() {
             return;
         }
 
+        const productId = Number(newItemProductId);
+        const selectedProduct = productsById[productId];
+        if (!selectedProduct) {
+            setActionError("Product is required.");
+            return;
+        }
+
         const quantity = Number(newItemQuantity);
         if (!Number.isInteger(quantity) || quantity <= 0) {
             setActionError("Quantity must be a positive whole number.");
@@ -138,24 +153,68 @@ export function InvoiceDetailPage() {
             }
         }
 
+        const resolvedUnitCostCents = unitCostCents ?? selectedProduct.cost_cents;
+        const resolvedUnitPriceCents = unitPriceCents ?? selectedProduct.unit_price_cents;
+        const matchingItem = invoice.items?.find((item) => (
+            item.product_id === productId
+            && item.unit_cost_cents === resolvedUnitCostCents
+            && item.unit_price_cents === resolvedUnitPriceCents
+        ));
+
         try {
             setIsItemSubmitting(true);
             setActionError(null);
-            await createInvoiceItem(invoice.id, {
-                product_id: Number(newItemProductId),
-                quantity,
-                unit_cost_cents: unitCostCents,
-                unit_price_cents: unitPriceCents,
-            });
+            const scrollY = window.scrollY;
+            if (matchingItem) {
+                await updateInvoiceItem(matchingItem.id, {
+                    quantity: matchingItem.quantity + quantity,
+                });
+            } else {
+                await createInvoiceItem(invoice.id, {
+                    product_id: productId,
+                    quantity,
+                    unit_cost_cents: unitCostCents,
+                    unit_price_cents: unitPriceCents,
+                });
+            }
             setNewItemProductId("");
             setNewItemQuantity("1");
             setNewItemUnitCostDollars("");
             setNewItemUnitPriceDollars("");
             await loadInvoiceDetail();
+            restoreScrollPosition(scrollY);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : "Failed to add line item.");
         } finally {
             setIsItemSubmitting(false);
+        }
+    }
+
+    async function handleDeleteInvoiceItem(itemId: number) {
+        try {
+            setActionError(null);
+            const scrollY = window.scrollY;
+            await deleteInvoiceItem(itemId);
+            await loadInvoiceDetail();
+            restoreScrollPosition(scrollY);
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : "Failed to delete line item.");
+        }
+    }
+
+    async function handleChangeInvoiceItemQuantity(itemId: number, quantity: number) {
+        if (quantity < 1) {
+            return;
+        }
+
+        try {
+            setActionError(null);
+            const scrollY = window.scrollY;
+            await updateInvoiceItem(itemId, { quantity });
+            await loadInvoiceDetail();
+            restoreScrollPosition(scrollY);
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : "Failed to update line item quantity.");
         }
     }
 
@@ -305,6 +364,10 @@ export function InvoiceDetailPage() {
                                 <dd><span className="status-badge">{invoice.status}</span></dd>
                             </div>
                             <div>
+                                <dt>Total</dt>
+                                <dd>${centsToDollars(invoice.total)}</dd>
+                            </div>
+                            <div>
                                 <dt>Issued</dt>
                                 <dd>{invoice.date_issued ?? "-"}</dd>
                             </div>
@@ -317,20 +380,20 @@ export function InvoiceDetailPage() {
 
                     <section className="detail-summary-grid" aria-label="Invoice payment summary">
                         <div>
-                            <span>Total</span>
-                            <strong>${centsToDollars(invoice.total)}</strong>
+                            <span>Balance Due</span>
+                            <strong>${centsToDollars(paymentSummary?.balance_due_cents ?? invoice.total)}</strong>
                         </div>
                         <div>
                             <span>Paid</span>
                             <strong>${centsToDollars(paymentSummary?.amount_paid_cents ?? 0)}</strong>
                         </div>
                         <div>
-                            <span>Balance Due</span>
-                            <strong>${centsToDollars(paymentSummary?.balance_due_cents ?? invoice.total)}</strong>
+                            <span>Cost</span>
+                            <strong>${centsToDollars(invoice.cost_total_cents ?? 0)}</strong>
                         </div>
                         <div>
-                            <span>Line Items</span>
-                            <strong>{invoice.items?.length ?? 0}</strong>
+                            <span>Profit</span>
+                            <strong>${centsToDollars(invoice.profit_total_cents ?? 0)}</strong>
                         </div>
                     </section>
 
@@ -387,6 +450,7 @@ export function InvoiceDetailPage() {
                     <section className="detail-panel">
                         <div className="section-header">
                             <h3>Line Items</h3>
+                            <span className="section-count">{invoice.items?.length ?? 0} items</span>
                         </div>
 
                         {invoice.status === "draft" && (
@@ -415,14 +479,14 @@ export function InvoiceDetailPage() {
                                     type="text"
                                     value={newItemUnitCostDollars}
                                     onChange={(event) => setNewItemUnitCostDollars(event.target.value)}
-                                    placeholder="Cost"
+                                    placeholder="Unit Cost"
                                 />
                                 <input
                                     aria-label="Unit price override for new invoice detail item"
                                     type="text"
                                     value={newItemUnitPriceDollars}
                                     onChange={(event) => setNewItemUnitPriceDollars(event.target.value)}
-                                    placeholder="Override"
+                                    placeholder="Unit Price"
                                 />
                                 <button
                                     className="small-action-button"
@@ -446,9 +510,11 @@ export function InvoiceDetailPage() {
                                             <th>Category</th>
                                             <th>Quantity</th>
                                             <th>Unit Cost</th>
-                                            <th>Cost Total</th>
+                                            <th>Total Cost</th>
                                             <th>Unit Price</th>
-                                            <th>Line Total</th>
+                                            <th>Total Price</th>
+                                            <th>Profit</th>
+                                            {invoice.status === "draft" && <th>Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -456,11 +522,46 @@ export function InvoiceDetailPage() {
                                             <tr key={item.id}>
                                                 <td>{productLabel(productsById[item.product_id], item.product_id)}</td>
                                                 <td>{categoryLabel(productsById[item.product_id])}</td>
-                                                <td>{item.quantity}</td>
+                                                <td>
+                                                    {invoice.status === "draft" ? (
+                                                        <div className="quantity-stepper">
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`Decrease quantity for ${productLabel(productsById[item.product_id], item.product_id)}`}
+                                                                onClick={() => handleChangeInvoiceItemQuantity(item.id, item.quantity - 1)}
+                                                                disabled={item.quantity <= 1}
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <span>{item.quantity}</span>
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`Increase quantity for ${productLabel(productsById[item.product_id], item.product_id)}`}
+                                                                onClick={() => handleChangeInvoiceItemQuantity(item.id, item.quantity + 1)}
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        item.quantity
+                                                    )}
+                                                </td>
                                                 <td>${centsToDollars(item.unit_cost_cents)}</td>
                                                 <td>${centsToDollars(item.cost_total_cents)}</td>
                                                 <td>${centsToDollars(item.unit_price_cents)}</td>
                                                 <td>${centsToDollars(item.line_total_cents)}</td>
+                                                <td>${centsToDollars(item.profit_total_cents)}</td>
+                                                {invoice.status === "draft" && (
+                                                    <td>
+                                                        <button
+                                                            className="small-action-button"
+                                                            type="button"
+                                                            onClick={() => handleDeleteInvoiceItem(item.id)}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>

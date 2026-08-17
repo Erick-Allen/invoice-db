@@ -53,6 +53,7 @@ def test_add_and_get_invoice_item(runner, temp_db, invoice_john, product_widget)
     assert "$17.00" in result.stdout
     assert "$12.34" in result.stdout
     assert "$24.68" in result.stdout
+    assert "$7.68" in result.stdout
 
 
 def test_list_invoice_items(runner, temp_db, invoice_john, product_widget, product_service):
@@ -91,6 +92,7 @@ def test_update_invoice_item(runner, temp_db, invoice_john, product_widget):
     assert "$12.00" in result.stdout
     assert "$10.00" in result.stdout
     assert "$30.00" in result.stdout
+    assert "$18.00" in result.stdout
 
 
 def test_delete_invoice_item(runner, temp_db, invoice_john, product_widget):
@@ -123,6 +125,8 @@ def test_get_invoice_includes_line_items(runner, temp_db, invoice_john, product_
     assert str(item_id) in result.stdout
     assert "$12.34" in result.stdout
     assert "$24.68" in result.stdout
+    assert "Profit Summary" in result.stdout
+    assert "$6.68" in result.stdout
 
 
 def test_list_invoices_can_include_line_items(runner, temp_db, invoice_john, product_widget):

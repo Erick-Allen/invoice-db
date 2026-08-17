@@ -71,6 +71,7 @@ def test_create_invoice_item_returns_201(api_client, test_db, customer_john_id):
     assert data["cost_total_cents"] == 1000
     assert data["unit_price_cents"] == 1234
     assert data["line_total_cents"] == 2468
+    assert data["profit_total_cents"] == 1468
 
 
 def test_create_invoice_item_recalculates_invoice_total(api_client, test_db, customer_john_id):
@@ -117,6 +118,7 @@ def test_patch_invoice_item_returns_200(api_client, test_db, customer_john_id):
     assert data["cost_total_cents"] == 2100
     assert data["unit_price_cents"] == 2000
     assert data["line_total_cents"] == 6000
+    assert data["profit_total_cents"] == 3900
 
 
 def test_patch_invoice_item_product_resets_price(api_client, test_db, customer_john_id):
@@ -138,6 +140,7 @@ def test_patch_invoice_item_product_resets_price(api_client, test_db, customer_j
     assert data["cost_total_cents"] == 3000
     assert data["unit_price_cents"] == 4000
     assert data["line_total_cents"] == 8000
+    assert data["profit_total_cents"] == 5000
 
 
 def test_delete_invoice_item_returns_204(api_client, test_db, customer_john_id):

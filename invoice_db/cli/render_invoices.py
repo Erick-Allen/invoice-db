@@ -1,4 +1,5 @@
 from invoice_db import utils
+from invoice_db.services import invoice_items as invoice_item_services
 from . import render_customers, ui
 from rich.table import Table
 
@@ -41,6 +42,7 @@ def print_invoice_line_items(items: list[dict]) -> None:
     table.add_column("Cost Total", justify="right")
     table.add_column("Unit Price", justify="right")
     table.add_column("Line Total", justify="right")
+    table.add_column("Profit", justify="right")
 
     for item in items:
         table.add_row(
@@ -51,9 +53,11 @@ def print_invoice_line_items(items: list[dict]) -> None:
             utils.fmt_dollars(item["cost_total_cents"]),
             utils.fmt_dollars(item["unit_price_cents"]),
             utils.fmt_dollars(item["line_total_cents"]),
+            utils.fmt_dollars(item["profit_total_cents"]),
         )
 
     ui.console.print(table)
+    print_invoice_profit_summary(items)
 
 def print_invoice_items_by_invoice(invoice_id: int, items: list[dict]) -> None:
     if not items:
@@ -68,6 +72,7 @@ def print_invoice_items_by_invoice(invoice_id: int, items: list[dict]) -> None:
     table.add_column("Cost Total", justify="right")
     table.add_column("Unit Price", justify="right")
     table.add_column("Line Total", justify="right")
+    table.add_column("Profit", justify="right")
 
     for item in items:
         table.add_row(
@@ -78,8 +83,29 @@ def print_invoice_items_by_invoice(invoice_id: int, items: list[dict]) -> None:
             utils.fmt_dollars(item["cost_total_cents"]),
             utils.fmt_dollars(item["unit_price_cents"]),
             utils.fmt_dollars(item["line_total_cents"]),
+            utils.fmt_dollars(item["profit_total_cents"]),
         )
 
+    ui.console.print(table)
+    print_invoice_profit_summary(items)
+
+def print_invoice_profit_summary(items: list[dict]) -> None:
+    summary = invoice_item_services.summarize_invoice_profit(items)
+    margin = (
+        f"{summary['profit_margin_percent']}%"
+        if summary["profit_margin_percent"] is not None
+        else "-"
+    )
+
+    table = Table(title="[title]Profit Summary[/title]")
+    table.add_column("Cost", justify="right")
+    table.add_column("Profit", justify="right")
+    table.add_column("Margin", justify="right")
+    table.add_row(
+        utils.fmt_dollars(summary["cost_total_cents"]),
+        utils.fmt_dollars(summary["profit_total_cents"]),
+        margin,
+    )
     ui.console.print(table)
 
 def print_invoices_table(invoices: list) -> None:

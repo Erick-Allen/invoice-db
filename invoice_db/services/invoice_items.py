@@ -19,8 +19,14 @@ class InvoiceItemRecord(TypedDict):
     cost_total_cents: int
     unit_price_cents: int
     line_total_cents: int
+    profit_total_cents: int
     created_at: str
     updated_at: str
+
+class InvoiceProfitSummary(TypedDict):
+    cost_total_cents: int
+    profit_total_cents: int
+    profit_margin_percent: float | None
 
 
 def _to_invoice_item_record(item: invoice_items_db.InvoiceItem) -> InvoiceItemRecord:
@@ -33,8 +39,26 @@ def _to_invoice_item_record(item: invoice_items_db.InvoiceItem) -> InvoiceItemRe
         "cost_total_cents": item.cost_total_cents,
         "unit_price_cents": item.unit_price_cents,
         "line_total_cents": item.line_total_cents,
+        "profit_total_cents": item.profit_total_cents,
         "created_at": item.created_at,
         "updated_at": item.updated_at,
+    }
+
+
+def summarize_invoice_profit(items: list[InvoiceItemRecord]) -> InvoiceProfitSummary:
+    revenue_total_cents = sum(item["line_total_cents"] for item in items)
+    cost_total_cents = sum(item["cost_total_cents"] for item in items)
+    profit_total_cents = revenue_total_cents - cost_total_cents
+    profit_margin_percent = (
+        round((profit_total_cents / revenue_total_cents) * 100, 2)
+        if revenue_total_cents > 0
+        else None
+    )
+
+    return {
+        "cost_total_cents": cost_total_cents,
+        "profit_total_cents": profit_total_cents,
+        "profit_margin_percent": profit_margin_percent,
     }
 
 

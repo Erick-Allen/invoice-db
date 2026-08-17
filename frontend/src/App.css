@@ -617,6 +617,44 @@
   margin: 0;
 }
 
+.section-count {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.quantity-stepper {
+  align-items: center;
+  display: inline-grid;
+  gap: 0.35rem;
+  grid-template-columns: 1.75rem 2rem 1.75rem;
+}
+
+.quantity-stepper button {
+  align-items: center;
+  aspect-ratio: 1;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #111827;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1;
+}
+
+.quantity-stepper button:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.quantity-stepper span {
+  color: #111827;
+  font-weight: 700;
+  text-align: center;
+}
+
 .inline-toggle {
   display: inline-flex;
   align-items: center;

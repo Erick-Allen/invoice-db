@@ -52,7 +52,9 @@ def _include_items(request) -> bool:
 def _with_invoice_items(cursor, invoice: dict) -> dict:
     invoice_data = dict(InvoiceSerializer(invoice).data)
     invoice_items = invoice_item_services.list_invoice_items(cursor, invoice_id=invoice_data["id"])
+    profit_summary = invoice_item_services.summarize_invoice_profit(invoice_items)
     invoice_data["items"] = InvoiceItemSerializer(invoice_items, many=True).data
+    invoice_data.update(profit_summary)
     return invoice_data
 
 @api_view(["GET"])
