@@ -15,6 +15,7 @@ def test_add_and_get_product(product_widget, runner, temp_db):
     assert result.exit_code == 0, result.stdout
     assert "Widget" in result.stdout
     assert "Uncategorized" in result.stdout
+    assert "$9.00" in result.stdout
     assert "$12.34" in result.stdout
 
 
@@ -47,6 +48,8 @@ def test_update_product(product_widget, runner, temp_db):
         "Updated Widget",
         "--price",
         "20",
+        "--cost",
+        "8.50",
         "--category-id",
         str(category_id),
         "--db",
@@ -56,6 +59,7 @@ def test_update_product(product_widget, runner, temp_db):
     assert result.exit_code == 0, result.stdout
     assert "Updated Widget" in result.stdout
     assert "Labor" in result.stdout
+    assert "$8.50" in result.stdout
     assert "$20.00" in result.stdout
 
 
@@ -78,6 +82,8 @@ def test_add_product_with_category(runner, temp_db):
         "Cable",
         "--price",
         "12",
+        "--cost",
+        "7.25",
         "--category-id",
         str(category_id),
         "--db",
@@ -89,6 +95,7 @@ def test_add_product_with_category(runner, temp_db):
     assert list_result.exit_code == 0, list_result.stdout
     assert "Cable" in list_result.stdout
     assert "Materials" in list_result.stdout
+    assert "$7.25" in list_result.stdout
 
 
 def test_deactivate_product(product_widget, runner, temp_db):

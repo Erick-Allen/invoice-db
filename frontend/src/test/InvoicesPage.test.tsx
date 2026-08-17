@@ -115,6 +115,7 @@ describe("InvoicesPage", () => {
                 id: 1,
                 name: "Widget",
                 description: "A test widget",
+                cost_cents: 0,
                 unit_price_cents: 1234,
                 category_id: 1,
                 category_name: "Uncategorized",

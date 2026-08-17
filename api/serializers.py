@@ -120,6 +120,7 @@ class ProductSerializer(StrictSerializer):
     id = serializers.IntegerField(read_only=True)
     name = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    cost_cents = serializers.IntegerField(min_value=0, required=False, default=0)
     unit_price_cents = serializers.IntegerField(min_value=0)
     category_id = serializers.IntegerField(min_value=1, required=False, default=1)
     category_name = serializers.CharField(read_only=True)
@@ -128,6 +129,7 @@ class ProductSerializer(StrictSerializer):
 class ProductUpdateSerializer(StrictSerializer):
     name = serializers.CharField(max_length=255, required=False)
     description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    cost_cents = serializers.IntegerField(min_value=0, required=False)
     unit_price_cents = serializers.IntegerField(min_value=0, required=False)
     category_id = serializers.IntegerField(min_value=1, required=False)
     is_active = serializers.BooleanField(required=False)

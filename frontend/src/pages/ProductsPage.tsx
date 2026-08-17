@@ -22,6 +22,7 @@ export function ProductsPage() {
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
+    const [costDollars, setCostDollars] = useState("");
     const [unitPriceDollars, setUnitPriceDollars] = useState("");
     const [categoryId, setCategoryId] = useState("1");
     const [categoryFilterId, setCategoryFilterId] = useState("all");
@@ -31,6 +32,7 @@ export function ProductsPage() {
     const [editingProductId, setEditingProductId] = useState<number | null>(null);
     const [editName, setEditName] = useState("");
     const [editDescription, setEditDescription] = useState("");
+    const [editCostDollars, setEditCostDollars] = useState("");
     const [editUnitPriceDollars, setEditUnitPriceDollars] = useState("");
     const [editCategoryId, setEditCategoryId] = useState("1");
     const [editIsActive, setEditIsActive] = useState(true);
@@ -93,6 +95,7 @@ export function ProductsPage() {
     function resetCreateForm() {
         setName("");
         setDescription("");
+        setCostDollars("");
         setUnitPriceDollars("");
         setCategoryId("1");
     }
@@ -115,6 +118,7 @@ export function ProductsPage() {
         setEditingProductId(product.id);
         setEditName(product.name);
         setEditDescription(product.description ?? "");
+        setEditCostDollars(centsToDollars(product.cost_cents));
         setEditUnitPriceDollars(centsToDollars(product.unit_price_cents));
         setEditCategoryId(String(product.category_id));
         setEditIsActive(product.is_active);
@@ -124,6 +128,7 @@ export function ProductsPage() {
         setEditingProductId(null);
         setEditName("");
         setEditDescription("");
+        setEditCostDollars("");
         setEditUnitPriceDollars("");
         setEditCategoryId("1");
         setEditIsActive(true);
@@ -171,6 +176,16 @@ export function ProductsPage() {
             return;
         }
 
+        let costCents = 0;
+        if (costDollars.trim()) {
+            try {
+                costCents = dollarsToCents(costDollars);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : "Enter a valid product cost.");
+                return;
+            }
+        }
+
         let unitPriceCents: number;
         try {
             unitPriceCents = dollarsToCents(unitPriceDollars);
@@ -186,6 +201,7 @@ export function ProductsPage() {
             await createProduct({
                 name: trimmedName,
                 description: description.trim() || null,
+                cost_cents: costCents,
                 unit_price_cents: unitPriceCents,
                 category_id: Number(categoryId) || 1,
                 is_active: true,
@@ -209,6 +225,14 @@ export function ProductsPage() {
             return;
         }
 
+        let costCents: number;
+        try {
+            costCents = dollarsToCents(editCostDollars);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Enter a valid product cost.");
+            return;
+        }
+
         let unitPriceCents: number;
         try {
             unitPriceCents = dollarsToCents(editUnitPriceDollars);
@@ -223,6 +247,7 @@ export function ProductsPage() {
             await updateProduct(productId, {
                 name: trimmedName,
                 description: editDescription.trim() || null,
+                cost_cents: costCents,
                 unit_price_cents: unitPriceCents,
                 category_id: Number(editCategoryId) || 1,
                 is_active: editIsActive,
@@ -422,7 +447,18 @@ export function ProductsPage() {
                                 </div>
 
                                 <div className="form-field">
-                                    <label htmlFor="product-price">Unit Price</label>
+                                    <label htmlFor="product-cost">Cost</label>
+                                    <input
+                                        id="product-cost"
+                                        type="text"
+                                        value={costDollars}
+                                        onChange={(event) => setCostDollars(event.target.value)}
+                                        placeholder="90.00"
+                                    />
+                                </div>
+
+                                <div className="form-field">
+                                    <label htmlFor="product-price">Sell Price</label>
                                     <input
                                         id="product-price"
                                         type="text"
@@ -507,7 +543,8 @@ export function ProductsPage() {
                                             <th>Name</th>
                                             <th>Category</th>
                                             <th>Description</th>
-                                            <th>Unit Price</th>
+                                            <th>Cost</th>
+                                            <th>Sell Price</th>
                                             <th>Status</th>
                                             <th>Actions</th>
                                         </tr>
@@ -545,6 +582,13 @@ export function ProductsPage() {
                                                                 type="text"
                                                                 value={editDescription}
                                                                 onChange={(event) => setEditDescription(event.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type="text"
+                                                                value={editCostDollars}
+                                                                onChange={(event) => setEditCostDollars(event.target.value)}
                                                             />
                                                         </td>
                                                         <td>
@@ -592,6 +636,7 @@ export function ProductsPage() {
                                                         </td>
                                                         <td>{product.category_name}</td>
                                                         <td className="muted-table-cell">{product.description ?? "-"}</td>
+                                                        <td className="money-table-cell">${centsToDollars(product.cost_cents)}</td>
                                                         <td className="money-table-cell">${centsToDollars(product.unit_price_cents)}</td>
                                                         <td>
                                                             <span className="status-badge">

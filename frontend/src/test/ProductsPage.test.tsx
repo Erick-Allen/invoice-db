@@ -48,6 +48,7 @@ describe("ProductsPage", () => {
                 id: 1,
                 name: "Consulting",
                 description: "Hourly service",
+                cost_cents: 0,
                 unit_price_cents: 12500,
                 category_id: 2,
                 category_name: "Labor",
@@ -73,6 +74,7 @@ describe("ProductsPage", () => {
             id: 2,
             name: "Hosting",
             description: null,
+            cost_cents: 2500,
             unit_price_cents: 5000,
             category_id: 1,
             category_name: "Uncategorized",
@@ -89,6 +91,7 @@ describe("ProductsPage", () => {
             id: 1,
             name: "Updated Consulting",
             description: "Updated service",
+            cost_cents: 5000,
             unit_price_cents: 15000,
             category_id: 2,
             category_name: "Labor",
@@ -105,6 +108,7 @@ describe("ProductsPage", () => {
             id: 1,
             name: "Consulting",
             description: "Hourly service",
+            cost_cents: 0,
             unit_price_cents: 12500,
             category_id: 2,
             category_name: "Labor",
@@ -134,7 +138,8 @@ describe("ProductsPage", () => {
         const dialog = screen.getByRole("dialog", { name: "Create Product" });
         expect(within(dialog).getByLabelText("Name")).toBeInTheDocument();
         expect(within(dialog).getByLabelText("Description")).toBeInTheDocument();
-        expect(within(dialog).getByLabelText("Unit Price")).toBeInTheDocument();
+        expect(within(dialog).getByLabelText("Cost")).toBeInTheDocument();
+        expect(within(dialog).getByLabelText("Sell Price")).toBeInTheDocument();
         expect(within(dialog).getByLabelText("Category")).toBeInTheDocument();
 
         expect(await screen.findByText("Consulting")).toBeInTheDocument();
@@ -155,7 +160,8 @@ describe("ProductsPage", () => {
 
         fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Hosting" } });
         fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Monthly plan" } });
-        fireEvent.change(screen.getByLabelText("Unit Price"), { target: { value: "50.25" } });
+        fireEvent.change(screen.getByLabelText("Cost"), { target: { value: "25.00" } });
+        fireEvent.change(screen.getByLabelText("Sell Price"), { target: { value: "50.25" } });
 
         const dialog = screen.getByRole("dialog", { name: "Create Product" });
         fireEvent.change(within(dialog).getByLabelText("Category"), { target: { value: "2" } });
@@ -165,6 +171,7 @@ describe("ProductsPage", () => {
             expect(mockedCreateProduct).toHaveBeenCalledWith({
                 name: "Hosting",
                 description: "Monthly plan",
+                cost_cents: 2500,
                 unit_price_cents: 5025,
                 category_id: 2,
                 is_active: true,
@@ -177,6 +184,7 @@ describe("ProductsPage", () => {
 
         fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
         fireEvent.change(screen.getByDisplayValue("Consulting"), { target: { value: "Updated Consulting" } });
+        fireEvent.change(screen.getByDisplayValue("0.00"), { target: { value: "50.00" } });
         fireEvent.change(screen.getByDisplayValue("125.00"), { target: { value: "150.00" } });
         fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -185,6 +193,7 @@ describe("ProductsPage", () => {
                 1,
                 expect.objectContaining({
                     name: "Updated Consulting",
+                    cost_cents: 5000,
                     unit_price_cents: 15000,
                     category_id: 2,
                 }),

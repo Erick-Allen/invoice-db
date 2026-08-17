@@ -20,6 +20,7 @@ def print_product_table(product: dict) -> None:
     table.add_column("ID", justify="right")
     table.add_column("Name")
     table.add_column("Category")
+    table.add_column("Cost", justify="right")
     table.add_column("Price", justify="right")
     table.add_column("Active", justify="center")
     table.add_column("Description")
@@ -28,6 +29,7 @@ def print_product_table(product: dict) -> None:
         str(product["id"]),
         product["name"],
         product.get("category_name", "Uncategorized"),
+        utils.fmt_dollars(product["cost_cents"]),
         utils.fmt_dollars(product["unit_price_cents"]),
         "yes" if product["is_active"] else "no",
         product["description"] or "[muted]-[/muted]",
@@ -40,6 +42,7 @@ def print_products_table(products: list[dict]) -> None:
     table.add_column("ID", justify="right")
     table.add_column("Name")
     table.add_column("Category")
+    table.add_column("Cost", justify="right")
     table.add_column("Price", justify="right")
     table.add_column("Active", justify="center")
     table.add_column("Description")
@@ -49,6 +52,7 @@ def print_products_table(products: list[dict]) -> None:
             str(product["id"]),
             product["name"],
             product.get("category_name", "Uncategorized"),
+            utils.fmt_dollars(product["cost_cents"]),
             utils.fmt_dollars(product["unit_price_cents"]),
             "yes" if product["is_active"] else "no",
             product["description"] or "[muted]-[/muted]",

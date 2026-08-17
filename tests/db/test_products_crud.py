@@ -8,6 +8,7 @@ def test_create_product(cursor):
         ProductCreate(
             name="Widget",
             description="A test widget",
+            cost_cents=1000,
             unit_price_cents=2500,
         ),
     )
@@ -18,6 +19,7 @@ def test_create_product(cursor):
     assert product.id == row["id"]
     assert product.name == "Widget"
     assert product.description == "A test widget"
+    assert product.cost_cents == 1000
     assert product.unit_price_cents == 2500
     assert product.is_active is True
 
@@ -75,6 +77,7 @@ def test_update_product_name_description_price_and_active_flag(cursor):
         product.id,
         name="Updated Widget",
         description="Updated",
+        cost_cents=1500,
         unit_price_cents=3000,
         is_active=False,
     )
@@ -82,6 +85,7 @@ def test_update_product_name_description_price_and_active_flag(cursor):
     assert updated.id == product.id
     assert updated.name == "Updated Widget"
     assert updated.description == "Updated"
+    assert updated.cost_cents == 1500
     assert updated.unit_price_cents == 3000
     assert updated.is_active is False
 

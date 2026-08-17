@@ -62,6 +62,7 @@ def post_product(api_client, test_db):
     def helper(
         name="Widget",
         unit_price_cents=1234,
+        cost_cents=0,
         description="A test widget",
         is_active=True,
     ):
@@ -70,6 +71,7 @@ def post_product(api_client, test_db):
             {
                 "name": name,
                 "description": description,
+                "cost_cents": cost_cents,
                 "unit_price_cents": unit_price_cents,
                 "is_active": is_active,
             },

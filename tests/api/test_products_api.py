@@ -14,6 +14,7 @@ def test_create_product_returns_201(api_client, test_db):
         {
             "name": "Widget",
             "description": "A test widget",
+            "cost_cents": 900,
             "unit_price_cents": 1234,
             "is_active": True,
         },
@@ -25,6 +26,7 @@ def test_create_product_returns_201(api_client, test_db):
     assert data["id"] == 1
     assert data["name"] == "Widget"
     assert data["description"] == "A test widget"
+    assert data["cost_cents"] == 900
     assert data["unit_price_cents"] == 1234
     assert data["category_id"] == 1
     assert data["category_name"] == "Uncategorized"
@@ -76,13 +78,14 @@ def test_patch_product_with_single_field_returns_200(api_client, test_db, post_p
 
     response = api_client.patch(
         f"/api/products/{product_id}/",
-        {"unit_price_cents": 2500},
+        {"cost_cents": 1200, "unit_price_cents": 2500},
         format="json",
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == product_id
+    assert data["cost_cents"] == 1200
     assert data["unit_price_cents"] == 2500
 
 
@@ -179,6 +182,20 @@ def test_create_product_with_negative_price_returns_400(api_client, test_db):
         {
             "name": "Widget",
             "unit_price_cents": -1,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+
+
+def test_create_product_with_negative_cost_returns_400(api_client, test_db):
+    response = api_client.post(
+        "/api/products/",
+        {
+            "name": "Widget",
+            "cost_cents": -1,
+            "unit_price_cents": 1234,
         },
         format="json",
     )
