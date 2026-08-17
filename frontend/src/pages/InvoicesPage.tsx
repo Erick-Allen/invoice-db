@@ -13,6 +13,14 @@ import {
 } from "../api/invoices";
 import { createInvoiceItem } from "../api/invoiceItems";
 import { listProducts, type Product } from "../api/products";
+import {
+    createTag,
+    deactivateTag,
+    deleteTag,
+    listTags,
+    updateTag,
+    type Tag,
+} from "../api/tags";
 import { AssistantChatBox } from "../components/AssistantChatBox";
 
 type CreateInvoiceItemForm = {
@@ -26,6 +34,8 @@ export function InvoicesPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [tags, setTags] = useState<Tag[]>([]);
+    const [activeTab, setActiveTab] = useState<"invoices" | "tags">("invoices");
 
     const [customerId, setCustomerId] = useState("");
     const [dateIssued, setDateIssued] = useState("");
@@ -40,6 +50,14 @@ export function InvoicesPage() {
     const [editDateIssued, setEditDateIssued] = useState("");
     const [editDateDue, setEditDateDue] = useState("");
 
+    const [tagName, setTagName] = useState("");
+    const [tagDescription, setTagDescription] = useState("");
+    const [isCreateTagOverlayOpen, setIsCreateTagOverlayOpen] = useState(false);
+    const [editingTagId, setEditingTagId] = useState<number | null>(null);
+    const [editTagName, setEditTagName] = useState("");
+    const [editTagDescription, setEditTagDescription] = useState("");
+    const [editTagIsActive, setEditTagIsActive] = useState(true);
+
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -51,15 +69,17 @@ export function InvoicesPage() {
             setError(null);
             setLoadError(null);
 
-            const [customerData, productData, invoiceData] = await Promise.all([
+            const [customerData, productData, invoiceData, tagData] = await Promise.all([
                 listCustomers(),
                 listProducts(true),
                 listInvoices(true),
+                listTags(),
             ]);
 
             setCustomers(customerData);
             setProducts(productData);
             setInvoices(invoiceData);
+            setTags(tagData);
         } catch (err) {
             const message = err instanceof Error ? err.message : "Unknown error.";
             setLoadError(`Failed to load invoices and line items. ${message}`);
@@ -171,6 +191,39 @@ export function InvoicesPage() {
         setEditDateDue("");
     }
 
+    function resetCreateTagForm() {
+        setTagName("");
+        setTagDescription("");
+    }
+
+    function openCreateTagOverlay() {
+        setError(null);
+        setIsCreateTagOverlayOpen(true);
+    }
+
+    function closeCreateTagOverlay() {
+        if (isSubmitting) {
+            return;
+        }
+
+        resetCreateTagForm();
+        setIsCreateTagOverlayOpen(false);
+    }
+
+    function startEditingTag(tag: Tag) {
+        setEditingTagId(tag.id);
+        setEditTagName(tag.name);
+        setEditTagDescription(tag.description ?? "");
+        setEditTagIsActive(tag.is_active);
+    }
+
+    function cancelEditingTag() {
+        setEditingTagId(null);
+        setEditTagName("");
+        setEditTagDescription("");
+        setEditTagIsActive(true);
+    }
+
     async function handleUpdateInvoice(invoiceId: number) {
         if (!editCustomerId) {
             setError("Customer is required.");
@@ -235,6 +288,79 @@ export function InvoicesPage() {
             await loadData();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to delete invoice.");
+        }
+    }
+
+    const handleCreateTag: SubmitEventHandler<HTMLFormElement> = async (event) => {
+        event.preventDefault();
+
+        const trimmedName = tagName.trim();
+        if (!trimmedName) {
+            setError("Tag name is required.");
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            setError(null);
+            await createTag({
+                name: trimmedName,
+                description: tagDescription.trim() || null,
+                is_active: true,
+            });
+            resetCreateTagForm();
+            setIsCreateTagOverlayOpen(false);
+            await loadData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to create tag.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    async function handleUpdateTag(tagId: number) {
+        const trimmedName = editTagName.trim();
+        if (!trimmedName) {
+            setError("Tag name is required.");
+            return;
+        }
+
+        try {
+            setError(null);
+            await updateTag(tagId, {
+                name: trimmedName,
+                description: editTagDescription.trim() || null,
+                is_active: editTagIsActive,
+            });
+            cancelEditingTag();
+            await loadData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to update tag.");
+        }
+    }
+
+    async function handleDeactivateTag(tagId: number) {
+        try {
+            setError(null);
+            await deactivateTag(tagId);
+            await loadData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to deactivate tag.");
+        }
+    }
+
+    async function handleDeleteTag(tagId: number) {
+        const confirmed = window.confirm("Are you sure you want to delete this tag?");
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setError(null);
+            await deleteTag(tagId);
+            await loadData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete tag.");
         }
     }
 
@@ -323,11 +449,32 @@ export function InvoicesPage() {
 
                 <AssistantChatBox />
                 <div className="section-header">
-                    <h3>Invoice List</h3>
-                    <div className="section-actions">
-                        <button className="primary-button" type="button" onClick={openCreateOverlay}>
-                            Create Invoice
+                    <div className="segmented-tabs" role="tablist" aria-label="Invoice sections">
+                        <button
+                            type="button"
+                            className={activeTab === "invoices" ? "active" : ""}
+                            onClick={() => setActiveTab("invoices")}
+                        >
+                            Invoices
                         </button>
+                        <button
+                            type="button"
+                            className={activeTab === "tags" ? "active" : ""}
+                            onClick={() => setActiveTab("tags")}
+                        >
+                            Tags
+                        </button>
+                    </div>
+                    <div className="section-actions">
+                        {activeTab === "invoices" ? (
+                            <button className="primary-button" type="button" onClick={openCreateOverlay}>
+                                Create Invoice
+                            </button>
+                        ) : (
+                            <button className="primary-button" type="button" onClick={openCreateTagOverlay}>
+                                Create Tag
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -444,6 +591,7 @@ export function InvoicesPage() {
                     </div>
                 )}
 
+                {activeTab === "invoices" && (
                 <div className="table-wrapper">
                     {isLoading ? (
                         <p>Loading Invoices...</p>
@@ -600,6 +748,150 @@ export function InvoicesPage() {
                         </table>
                     )}
                 </div>
+                )}
+
+                {activeTab === "tags" && (
+                    <section className="invoice-page-stack">
+                        {isCreateTagOverlayOpen && (
+                            <div className="modal-overlay" role="presentation" onMouseDown={closeCreateTagOverlay}>
+                                <form
+                                    className="form-card modal-panel"
+                                    onSubmit={handleCreateTag}
+                                    role="dialog"
+                                    aria-modal="true"
+                                    aria-labelledby="create-tag-title"
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                >
+                                    <div className="modal-header">
+                                        <h3 id="create-tag-title">Create Tag</h3>
+                                        <button className="icon-button" type="button" aria-label="Close create tag" onClick={closeCreateTagOverlay}>
+                                            x
+                                        </button>
+                                    </div>
+
+                                    <div className="form-grid modal-form-grid">
+                                        <div className="form-field">
+                                            <label htmlFor="tag-name">Name</label>
+                                            <input
+                                                id="tag-name"
+                                                type="text"
+                                                value={tagName}
+                                                onChange={(event) => setTagName(event.target.value)}
+                                                placeholder="Commercial"
+                                            />
+                                        </div>
+                                        <div className="form-field">
+                                            <label htmlFor="tag-description">Description</label>
+                                            <input
+                                                id="tag-description"
+                                                type="text"
+                                                value={tagDescription}
+                                                onChange={(event) => setTagDescription(event.target.value)}
+                                                placeholder="Invoice reporting context"
+                                            />
+                                        </div>
+                                        <div className="modal-actions">
+                                            <button className="secondary-button" type="button" onClick={closeCreateTagOverlay} disabled={isSubmitting}>
+                                                Cancel
+                                            </button>
+                                            <button className="primary-button" type="submit" disabled={isSubmitting}>
+                                                {isSubmitting ? "Creating..." : "Create Tag"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="table-wrapper wide-table-wrapper">
+                            {isLoading ? (
+                                <p>Loading tags...</p>
+                            ) : tags.length === 0 ? (
+                                <p className="empty-state">No tags found.</p>
+                            ) : (
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Description</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {tags.map((tag) => (
+                                            <tr key={tag.id}>
+                                                {editingTagId === tag.id ? (
+                                                    <>
+                                                        <td>
+                                                            <input
+                                                                type="text"
+                                                                value={editTagName}
+                                                                onChange={(event) => setEditTagName(event.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                className="wide-select"
+                                                                type="text"
+                                                                value={editTagDescription}
+                                                                onChange={(event) => setEditTagDescription(event.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                value={editTagIsActive ? "active" : "inactive"}
+                                                                onChange={(event) => setEditTagIsActive(event.target.value === "active")}
+                                                            >
+                                                                <option value="active">Active</option>
+                                                                <option value="inactive">Inactive</option>
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <div className="name-actions">
+                                                                <button className="small-action-button" type="button" onClick={() => handleUpdateTag(tag.id)}>
+                                                                    Save
+                                                                </button>
+                                                                <button className="small-danger-button" type="button" onClick={cancelEditingTag}>
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <td><strong>{tag.name}</strong></td>
+                                                        <td className="muted-table-cell">{tag.description ?? "-"}</td>
+                                                        <td>
+                                                            <span className="status-badge">
+                                                                {tag.is_active ? "active" : "inactive"}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <div className="name-actions">
+                                                                <button className="small-action-button" type="button" onClick={() => startEditingTag(tag)}>
+                                                                    Edit
+                                                                </button>
+                                                                {tag.is_active && (
+                                                                    <button className="small-action-button" type="button" onClick={() => handleDeactivateTag(tag.id)}>
+                                                                        Deactivate
+                                                                    </button>
+                                                                )}
+                                                                <button className="small-danger-button" type="button" onClick={() => handleDeleteTag(tag.id)}>
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </section>
+                )}
             </section>
         </>
     );

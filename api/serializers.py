@@ -162,3 +162,32 @@ class ProductCategoryUpdateSerializer(StrictSerializer):
             )
 
         return attrs
+
+class TagSerializer(StrictSerializer):
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    is_active = serializers.BooleanField(required=False, default=True)
+
+class TagUpdateSerializer(StrictSerializer):
+    name = serializers.CharField(max_length=255, required=False)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    is_active = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        if not attrs:
+            raise serializers.ValidationError(
+                "At least one field must be provided."
+            )
+
+        return attrs
+
+class InvoiceTagSerializer(StrictSerializer):
+    invoice_id = serializers.IntegerField()
+    tag_id = serializers.IntegerField()
+    created_at = serializers.CharField(read_only=True)
+
+class InvoiceTagCreateSerializer(StrictSerializer):
+    tag_id = serializers.IntegerField(min_value=1)

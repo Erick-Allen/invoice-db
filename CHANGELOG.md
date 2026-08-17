@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.0] - 2026-08-17
+
+### Added
+
+* Invoice tags across DB, services, CLI, API, and React frontend.
+* Tag management under invoices with create, edit, deactivate, and delete workflows.
+* Invoice detail tag assignment.
+
 ## [0.14.0] - 2026-08-16
 
 ### Added

@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 CUSTOMER_ID_REGEX = re.compile(r"id=(\d+)")
 INVOICE_ID_REGEX = re.compile(r"Created invoice \(id=(\d+)\)")
 PRODUCT_ID_REGEX = re.compile(r"id=(\d+)")
+TAG_ID_REGEX = re.compile(r"id=(\d+)")
 
 #CLI fixtures
 @pytest.fixture
@@ -106,4 +107,22 @@ def product_service(runner, temp_db):
     assert result.exit_code == 0, result.stdout
     match = PRODUCT_ID_REGEX.search(result.stdout)
     assert match, f"Could not parse product id from output: {result.stdout}"
+    return int(match.group(1))
+
+
+@pytest.fixture
+def tag_repair(runner, temp_db):
+    result = runner.invoke(app, [
+        "tags",
+        "add",
+        "--name",
+        "Repair",
+        "--description",
+        "Repair work",
+        "--db",
+        temp_db,
+    ])
+    assert result.exit_code == 0, result.stdout
+    match = TAG_ID_REGEX.search(result.stdout)
+    assert match, f"Could not parse tag id from output: {result.stdout}"
     return int(match.group(1))
