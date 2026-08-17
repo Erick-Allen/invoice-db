@@ -4,13 +4,14 @@ A relational database, CLI, API, React UI, and AI assistant application built wi
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.15.0**, the project includes support for:
+As of **v0.16.0**, the project includes support for:
 
 - Customer, invoice, invoice tag, product, product category, line-item, and payment workflows
-- Derived invoice totals, payment summaries, and invoice status rules
+- Derived invoice totals, payment summaries, cost snapshots, profit calculations, and invoice status rules
 - Customer and invoice detail previews with printable invoice output
 - Product catalog browsing, category filtering, and catalog-driven invoice item selection
 - Invoice tagging for job/context reporting
+- Reporting foundation for revenue, outstanding due, cost, profit, status, and tag performance
 - Typer CLI, Django REST API, and React + TypeScript frontend
 - Shared service layer used by CLI and API
 - Guarded natural-language invoice assistant
@@ -252,6 +253,10 @@ qwen3:0.6b
 - `DELETE /api/tags/{id}/`
 - `PATCH /api/tags/{id}/deactivate/`
 
+### Reports
+- `GET /api/reports/overview/`
+- `GET /api/reports/overview/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`
+
 ### Assistant
 
 - `POST /api/assistant/query/`
@@ -279,6 +284,12 @@ npm run test:run
 ```
 
 ## Version History
+
+### [v0.16.0]
+#### Added
+- Product costs and invoice item cost snapshots across DB, services, CLI, API, and React frontend
+- Invoice profit calculations and internal line item controls
+- Reporting foundation with revenue, outstanding due, cost, profit, status, and tag performance
 
 ### [v0.15.0]
 #### Added
@@ -401,7 +412,10 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.16.0] (Planned)
-- Reporting foundation
+### [v0.17.0] (Planned)
+- Product suppliers
+
+### [v0.18.0] (Planned)
+- Customer record improvements
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).

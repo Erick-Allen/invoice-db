@@ -5,6 +5,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { InvoiceDetailPage } from "./pages/InvoiceDetailPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { ProductsPage } from "./pages/ProductsPage";
+import { ReportingPage } from "./pages/ReportingPage";
 import "./App.css";
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
               <NavLink to="/customers">Customers</NavLink>
               <NavLink to="/invoices">Invoices</NavLink>
               <NavLink to="/products">Products</NavLink>
+              <NavLink to="/reporting">Reporting</NavLink>
             </nav>
           </div>
         </header>
@@ -32,6 +34,7 @@ function App() {
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="invoices/:invoiceId" element={<InvoiceDetailPage />} />
             <Route path="products" element={<ProductsPage />} />
+            <Route path="reporting" element={<ReportingPage />} />
           </Routes>
         </main>
       </div>

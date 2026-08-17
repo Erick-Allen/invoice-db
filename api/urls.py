@@ -22,6 +22,7 @@ from .views import (
     TagDeactivateView,
     InvoiceTagListCreateView,
     InvoiceTagDetailView,
+    ReportingOverviewView,
     AssistantQueryView,
     api_root
 )
@@ -42,6 +43,7 @@ urlpatterns = [
     path("invoices/<int:invoice_id>/payments/summary/", PaymentSummaryView.as_view(), name="payment-summary"),
     path("invoice-items/<int:invoice_item_id>/", InvoiceItemDetailView.as_view(), name="invoice-item-detail"),
     path("payments/<int:payment_id>/", PaymentDetailView.as_view(), name="payment-detail"),
+    path("reports/overview/", ReportingOverviewView.as_view(), name="reporting-overview"),
 
     path("products/", ProductListCreateView.as_view(), name="product-list-create"),
     path("product-categories/", ProductCategoryListCreateView.as_view(), name="product-category-list-create"),

@@ -11,6 +11,7 @@ from invoice_db.services import invoice_items as invoice_item_services
 from invoice_db.services import payments as payment_services
 from invoice_db.services import product_categories as product_category_services
 from invoice_db.services import products as product_services
+from invoice_db.services import reports as report_services
 from invoice_db.services import tags as tag_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError, ConflictError
 from rest_framework.decorators import api_view
@@ -66,10 +67,34 @@ def api_root(request):
                 "customers": "/api/customers/",
                 "invoices": "/api/invoices",
                 "products": "/api/products/",
+                "reports": "/api/reports/overview/",
                 "tags": "/api/tags/",
             }
         }
     )
+
+class ReportingOverviewView(APIView):
+    def get(self, request):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                report = report_services.get_reporting_overview(
+                    cursor,
+                    start_date=request.query_params.get("start_date"),
+                    end_date=request.query_params.get("end_date"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving report data."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(report, status=status.HTTP_200_OK)
 
 class CustomerListCreateView(APIView):
     def get(self, request):

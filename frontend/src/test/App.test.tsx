@@ -10,5 +10,6 @@ describe("App", () => {
         expect(screen.getByRole("link" , { name: "Customers" })).toBeInTheDocument();
         expect(screen.getByRole("link" , { name: "Invoices" })).toBeInTheDocument();
         expect(screen.getByRole("link" , { name: "Products" })).toBeInTheDocument();
+        expect(screen.getByRole("link" , { name: "Reporting" })).toBeInTheDocument();
     })
 })
