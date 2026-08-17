@@ -11,6 +11,7 @@ from invoice_db.services import invoice_items as invoice_item_services
 from invoice_db.services import payments as payment_services
 from invoice_db.services import product_categories as product_category_services
 from invoice_db.services import products as product_services
+from invoice_db.services import tags as tag_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError, ConflictError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -37,6 +38,10 @@ from .serializers import (
     ProductCategoryUpdateSerializer,
     ProductSerializer,
     ProductUpdateSerializer,
+    TagSerializer,
+    TagUpdateSerializer,
+    InvoiceTagSerializer,
+    InvoiceTagCreateSerializer,
 )
 
 router = AssistantRouter(use_qwen=True)
@@ -59,6 +64,7 @@ def api_root(request):
                 "customers": "/api/customers/",
                 "invoices": "/api/invoices",
                 "products": "/api/products/",
+                "tags": "/api/tags/",
             }
         }
     )
@@ -1082,6 +1088,281 @@ class ProductDeactivateView(APIView):
         serializer = ProductSerializer(product)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+class TagListCreateView(APIView):
+    def get(self, request):
+        active_only = request.query_params.get("active_only", "").lower() in {"1", "true", "yes"}
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tags = tag_services.list_tags(cursor, active_only=active_only)
+
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving tags."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = TagSerializer(tags, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = TagSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tag = tag_services.create_tag(
+                    cursor,
+                    name=serializer.validated_data["name"],
+                    description=serializer.validated_data.get("description"),
+                    is_active=serializer.validated_data.get("is_active", True),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = TagSerializer(tag)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class TagDetailView(APIView):
+    def get(self, request, tag_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tag = tag_services.get_tag_by_id(cursor, tag_id=tag_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = TagSerializer(tag)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, tag_id):
+        serializer = TagUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tag = tag_services.update_tag_by_id(
+                    cursor,
+                    tag_id=tag_id,
+                    name=serializer.validated_data.get("name"),
+                    description=serializer.validated_data.get("description"),
+                    is_active=serializer.validated_data.get("is_active"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = TagSerializer(tag)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, tag_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tag_services.delete_tag(cursor, tag_id=tag_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deleting the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class TagDeactivateView(APIView):
+    def patch(self, request, tag_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tag = tag_services.deactivate_tag(cursor, tag_id=tag_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deactivating the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deactivating the tag."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = TagSerializer(tag)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class InvoiceTagListCreateView(APIView):
+    def get(self, request, invoice_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tags = tag_services.list_invoice_tags(cursor, invoice_id=invoice_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving invoice tags."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = TagSerializer(tags, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, invoice_id):
+        serializer = InvoiceTagCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                invoice_tag = tag_services.add_tag_to_invoice(
+                    cursor,
+                    invoice_id=invoice_id,
+                    tag_id=serializer.validated_data["tag_id"],
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while adding the tag to the invoice."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while adding the tag to the invoice."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = InvoiceTagSerializer(invoice_tag)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class InvoiceTagDetailView(APIView):
+    def delete(self, request, invoice_id, tag_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tag_services.remove_tag_from_invoice(
+                    cursor,
+                    invoice_id=invoice_id,
+                    tag_id=tag_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while removing the tag from the invoice."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     
 class AssistantQueryView(APIView):
     def post(self, request):

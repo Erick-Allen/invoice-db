@@ -17,6 +17,11 @@ from .views import (
     ProductListCreateView,
     ProductDetailView,
     ProductDeactivateView,
+    TagListCreateView,
+    TagDetailView,
+    TagDeactivateView,
+    InvoiceTagListCreateView,
+    InvoiceTagDetailView,
     AssistantQueryView,
     api_root
 )
@@ -31,6 +36,8 @@ urlpatterns = [
     path("invoices/<int:invoice_id>/", InvoiceDetailView.as_view(), name="invoice-detail"),
     path("invoices/<int:invoice_id>/status/", InvoiceStatusUpdateView.as_view(), name="invoice-status-update"),
     path("invoices/<int:invoice_id>/items/", InvoiceItemListCreateView.as_view(), name="invoice-item-list-create"),
+    path("invoices/<int:invoice_id>/tags/", InvoiceTagListCreateView.as_view(), name="invoice-tag-list-create"),
+    path("invoices/<int:invoice_id>/tags/<int:tag_id>/", InvoiceTagDetailView.as_view(), name="invoice-tag-detail"),
     path("invoices/<int:invoice_id>/payments/", PaymentListCreateView.as_view(), name="payment-list-create"),
     path("invoices/<int:invoice_id>/payments/summary/", PaymentSummaryView.as_view(), name="payment-summary"),
     path("invoice-items/<int:invoice_item_id>/", InvoiceItemDetailView.as_view(), name="invoice-item-detail"),
@@ -42,6 +49,9 @@ urlpatterns = [
     path("product-categories/<int:category_id>/deactivate/", ProductCategoryDeactivateView.as_view(), name="product-category-deactivate"),
     path("products/<int:product_id>/", ProductDetailView.as_view(), name="product-detail"),
     path("products/<int:product_id>/deactivate/", ProductDeactivateView.as_view(), name="product-deactivate"),
+    path("tags/", TagListCreateView.as_view(), name="tag-list-create"),
+    path("tags/<int:tag_id>/", TagDetailView.as_view(), name="tag-detail"),
+    path("tags/<int:tag_id>/deactivate/", TagDeactivateView.as_view(), name="tag-deactivate"),
 
     path ("assistant/query/", AssistantQueryView.as_view(), name="assistant-query"),
 ]
