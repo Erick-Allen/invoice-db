@@ -2,6 +2,7 @@ import re
 
 EMAIL_RE = re.compile(r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$")
 NAME_RE = re.compile(r"^[A-Za-z][A-Z-a-z' -]*[A-Za-z]$")
+VALID_CUSTOMER_TYPES = {"residential", "commercial", "property_manager", "other"}
 
 # Customer
 def normalize_name(name: str) -> str:
@@ -19,6 +20,26 @@ def normalize_email(email: str) -> str:
     if not EMAIL_RE.match(email):
         raise ValueError("Invalid email format")
     return email
+
+def normalize_customer_type(customer_type: str | None) -> str:
+    if customer_type is None:
+        return "residential"
+
+    customer_type = customer_type.strip().lower()
+    if customer_type == "":
+        return "residential"
+
+    if customer_type not in VALID_CUSTOMER_TYPES:
+        allowed = ", ".join(sorted(VALID_CUSTOMER_TYPES))
+        raise ValueError(f"Customer type must be one of: {allowed}.")
+
+    return customer_type
+
+def normalize_optional_customer_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = " ".join(value.strip().split())
+    return value or None
 
 # Invoices
 def validate_total(amount: int | float) -> int:

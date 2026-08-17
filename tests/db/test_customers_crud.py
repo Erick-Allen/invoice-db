@@ -17,13 +17,17 @@ def test_create_customer(cursor):
 
 def test_get_customer_by_id(cursor, customer_john):
     row = customers.get_customer_by_id(cursor, customer_john)
-    assert row['id'] == customer_john
+    assert row.id == customer_john
+    assert row.phone is None
+    assert row.customer_type == "residential"
+    assert row.company_name is None
+    assert row.is_active
 
 def test_get_customer_by_email(cursor, customer_john):
     row = customers.get_customer_by_email(cursor, "john@test.com")
     assert row is not None
-    assert row['name'] == CUSTOMER_JOHN_NAME
-    assert row['email'] == CUSTOMER_JOHN_EMAIL
+    assert row.name == CUSTOMER_JOHN_NAME
+    assert row.email == CUSTOMER_JOHN_EMAIL
 
 def test_get_customer_id_by_email(cursor, customer_john):
     got_id = customers.get_customer_id_by_email(cursor, "john@test.com")
@@ -34,15 +38,15 @@ def test_get_customer(cursor, customer_john, customer_alice):
 
     assert len(rows) == 2
 
-    customer_1 = next((u for u in rows if u['id'] == customer_john), None)
-    customer_2 = next((u for u in rows if u['id'] == customer_alice), None)
+    customer_1 = next((u for u in rows if u.id == customer_john), None)
+    customer_2 = next((u for u in rows if u.id == customer_alice), None)
 
     assert customer_1 is not None
     assert customer_2 is not None
-    assert customer_1['name'] == CUSTOMER_JOHN_NAME
-    assert customer_1['email'] == CUSTOMER_JOHN_EMAIL
-    assert customer_2['name'] == CUSTOMER_ALICE_NAME
-    assert customer_2['email'] == CUSTOMER_ALICE_EMAIL
+    assert customer_1.name == CUSTOMER_JOHN_NAME
+    assert customer_1.email == CUSTOMER_JOHN_EMAIL
+    assert customer_2.name == CUSTOMER_ALICE_NAME
+    assert customer_2.email == CUSTOMER_ALICE_EMAIL
 
 def test_get_customer_filter_by_min_total(cursor):
     customer_id_1 = customers.create_customer(cursor, CUSTOMER_JOHN_NAME, CUSTOMER_JOHN_EMAIL)
@@ -53,7 +57,7 @@ def test_get_customer_filter_by_min_total(cursor):
     rows = customers.get_customers(cursor, min_total_cents=50000)
     assert len(rows) == 1
 
-    returned_ids = {r["id"] for r in rows}
+    returned_ids = {r.id for r in rows}
     assert customer_id_1 in returned_ids
     assert customer_id_2 not in returned_ids
 
@@ -63,8 +67,8 @@ def test_update_customer_name_only(cursor, customer_john):
     updated_customer = customers.get_customer_by_id(cursor, customer_john)
 
     assert customer_was_updated
-    assert updated_customer['name'] == updated_name
-    assert updated_customer['email'] == CUSTOMER_JOHN_EMAIL
+    assert updated_customer.name == updated_name
+    assert updated_customer.email == CUSTOMER_JOHN_EMAIL
 
 def test_update_customer_email_only(cursor, customer_john):
     updated_email = "paul@gmail.com"
@@ -72,8 +76,8 @@ def test_update_customer_email_only(cursor, customer_john):
     updated_customer = customers.get_customer_by_id(cursor, customer_john)
     
     assert customer_was_updated
-    assert updated_customer['name'] == CUSTOMER_JOHN_NAME
-    assert updated_customer['email'] == updated_email
+    assert updated_customer.name == CUSTOMER_JOHN_NAME
+    assert updated_customer.email == updated_email
 
 def test_update_customer_name_and_email(cursor, customer_john):
     updated_name = "Melissa"
@@ -82,11 +86,42 @@ def test_update_customer_name_and_email(cursor, customer_john):
     updated_customer = customers.get_customer_by_id(cursor, customer_john)
 
     assert customer_was_updated
-    assert updated_customer['name'] == updated_name
-    assert updated_customer['email'] == updated_email
+    assert updated_customer.name == updated_name
+    assert updated_customer.email == updated_email
 
 def test_update_customer_no_fields_returns_false(cursor, customer_john):
-    assert not customers.update_customer(cursor, customer_john)
+    customer = customers.update_customer(cursor, customer_john)
+    assert customer.id == customer_john
+
+def test_create_commercial_customer_with_company_name(cursor):
+    customer_id = customers.create_customer(
+        cursor,
+        "Tom",
+        "tom@test.com",
+        phone="555-0100",
+        customer_type="commercial",
+        company_name="Tom Services",
+    )
+
+    customer = customers.get_customer_by_id(cursor, customer_id)
+
+    assert customer.phone == "555-0100"
+    assert customer.customer_type == "commercial"
+    assert customer.company_name == "Tom Services"
+
+def test_residential_customer_clears_company_name(cursor):
+    customer_id = customers.create_customer(
+        cursor,
+        "Tom",
+        "tom@test.com",
+        customer_type="residential",
+        company_name="Should Not Save",
+    )
+
+    customer = customers.get_customer_by_id(cursor, customer_id)
+
+    assert customer.customer_type == "residential"
+    assert customer.company_name is None
 
 def test_delete_customer(cursor, customer_john):
     customer_was_deleted = customers.delete_customer(cursor, customer_john)

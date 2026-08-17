@@ -22,9 +22,15 @@ def drop_db_command(
 ):
     with connection.db_session(db_path) as (connect, cursor):
         cursor.execute("DROP VIEW IF EXISTS customer_invoice_summary;")
+        cursor.execute("DROP TABLE IF EXISTS product_suppliers;")
+        cursor.execute("DROP TABLE IF EXISTS invoice_tags;")
         cursor.execute("DROP TABLE IF EXISTS invoice_items;")
+        cursor.execute("DROP TABLE IF EXISTS payments;")
         cursor.execute("DROP TABLE IF EXISTS invoices;")
         cursor.execute("DROP TABLE IF EXISTS products;")
+        cursor.execute("DROP TABLE IF EXISTS product_categories;")
+        cursor.execute("DROP TABLE IF EXISTS suppliers;")
+        cursor.execute("DROP TABLE IF EXISTS tags;")
         cursor.execute("DROP TABLE IF EXISTS customers;")
         connect.commit()
     console.print(f"Dropped all tables from {db_path}", style="success")

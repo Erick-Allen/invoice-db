@@ -114,18 +114,26 @@ def create_customer_schema(cursor):
     cursor.executescript("""
     -- Customers table: stores basic account information.                       
     CREATE TABLE IF NOT EXISTS customers (
-        id          INTEGER PRIMARY KEY,
-        name        TEXT    NOT NULL CHECK (length(trim(name)) > 0),
-        email       TEXT    NOT NULL CHECK (length(trim(email)) > 0 ),
-        created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-        updated_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+        id              INTEGER PRIMARY KEY,
+        name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
+        email           TEXT    NOT NULL CHECK (length(trim(email)) > 0),
+        phone           TEXT,
+        customer_type   TEXT    NOT NULL DEFAULT 'residential'
+                                CHECK (customer_type IN ('residential', 'commercial', 'property_manager', 'other')),
+        company_name    TEXT,
+        is_active       INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
     );
-    
+
     -- Enforce case-insensitive unique emails & index customer names.
     CREATE UNIQUE INDEX IF NOT EXISTS 
         idx_customers_email_nocase ON customers(lower(email));
     CREATE INDEX IF NOT EXISTS
         idx_customers_name ON customers(name);
+    CREATE INDEX IF NOT EXISTS
+        idx_customers_is_active ON customers(is_active);
     """)
 
 def create_invoice_schema(cursor):
