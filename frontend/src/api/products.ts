@@ -4,6 +4,7 @@ export type Product = {
     id: number;
     name: string;
     description: string | null;
+    cost_cents: number;
     unit_price_cents: number;
     category_id: number;
     category_name: string;
@@ -24,6 +25,7 @@ export type ProductCategory = {
 export type CreateProductPayload = {
     name: string;
     description?: string | null;
+    cost_cents?: number;
     unit_price_cents: number;
     category_id?: number;
     is_active?: boolean;

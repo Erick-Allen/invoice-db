@@ -10,6 +10,7 @@ class ProductRecord(TypedDict):
     id: int
     name: str
     description: str | None
+    cost_cents: int
     unit_price_cents: int
     category_id: int
     category_name: str
@@ -23,6 +24,7 @@ def _to_product_record(product: products_db.Product) -> ProductRecord:
         "id": product.id,
         "name": product.name,
         "description": product.description,
+        "cost_cents": product.cost_cents,
         "unit_price_cents": product.unit_price_cents,
         "category_id": product.category_id,
         "category_name": product.category_name,
@@ -53,6 +55,7 @@ def create_product(
     cursor,
     name: str,
     unit_price_cents: int,
+    cost_cents: int = 0,
     description: str | None = None,
     category_id: int = 1,
     is_active: bool = True,
@@ -63,6 +66,7 @@ def create_product(
             products_db.ProductCreate(
                 name=name,
                 description=description,
+                cost_cents=cost_cents,
                 unit_price_cents=unit_price_cents,
                 category_id=category_id,
                 is_active=is_active,
@@ -90,13 +94,14 @@ def update_product_by_id(
     *,
     name: str | None = None,
     description: str | None = None,
+    cost_cents: int | None = None,
     unit_price_cents: int | None = None,
     category_id: int | None = None,
     is_active: bool | None = None,
 ) -> ProductRecord:
     product = _require_product(cursor, product_id)
 
-    if name is None and description is None and unit_price_cents is None and category_id is None and is_active is None:
+    if name is None and description is None and cost_cents is None and unit_price_cents is None and category_id is None and is_active is None:
         raise exceptions.ValidationError("Please provide at least one value to update the product.")
 
     try:
@@ -105,6 +110,7 @@ def update_product_by_id(
             product_id=product.id,
             name=name,
             description=description,
+            cost_cents=cost_cents,
             unit_price_cents=unit_price_cents,
             category_id=category_id,
             is_active=is_active,
