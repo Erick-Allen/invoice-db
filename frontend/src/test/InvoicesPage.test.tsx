@@ -90,6 +90,7 @@ describe("InvoicesPage", () => {
                         cost_total_cents: 1800,
                         unit_price_cents: 1234,
                         line_total_cents: 2468,
+                        profit_total_cents: 668,
                     },
                 ],
             },
@@ -112,6 +113,7 @@ describe("InvoicesPage", () => {
             cost_total_cents: 1800,
             unit_price_cents: 1234,
             line_total_cents: 2468,
+            profit_total_cents: 668,
         });
 
         mockedListProducts.mockResolvedValue([

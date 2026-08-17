@@ -51,6 +51,7 @@ def test_create_invoice_item_uses_product_price_snapshot(invoice_item_repo, invo
     assert item.cost_total_cents == 2000
     assert item.unit_price_cents == 2500
     assert item.line_total_cents == 5000
+    assert item.profit_total_cents == 3000
 
 
 def test_create_invoice_item_can_override_unit_price(invoice_item_repo, invoice_john, product_widget):
@@ -79,6 +80,7 @@ def test_create_invoice_item_can_override_unit_cost(invoice_item_repo, invoice_j
 
     assert item.unit_cost_cents == 1200
     assert item.cost_total_cents == 2400
+    assert item.profit_total_cents == 2600
 
 
 def test_create_invoice_item_recalculates_invoice_total(cursor, invoice_item_repo, invoice_john, product_widget):
@@ -145,6 +147,7 @@ def test_update_invoice_item_product_resets_unit_price(
     assert updated.cost_total_cents == 3000
     assert updated.unit_price_cents == 4000
     assert updated.line_total_cents == 8000
+    assert updated.profit_total_cents == 5000
     assert invoices.get_invoice_by_id(cursor, invoice_john)["total"] == 8000
 
 
@@ -196,6 +199,7 @@ def test_update_invoice_item_product_allows_unit_cost_override(
     assert updated.product_id == product_service.id
     assert updated.unit_cost_cents == 1800
     assert updated.cost_total_cents == 3600
+    assert updated.profit_total_cents == 4400
 
 
 def test_update_invoice_item_rejects_inactive_replacement_product(

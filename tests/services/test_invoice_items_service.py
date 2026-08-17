@@ -56,6 +56,7 @@ def test_create_invoice_item_recalculates_invoice_total(cursor, invoice_john, pr
     assert item["line_total_cents"] == 5000
     assert item["unit_cost_cents"] == 1000
     assert item["cost_total_cents"] == 2000
+    assert item["profit_total_cents"] == 3000
     assert invoice["total"] == 5000
 
 
@@ -146,6 +147,7 @@ def test_update_invoice_item_product_resets_unit_price(
     assert updated["cost_total_cents"] == 3000
     assert updated["unit_price_cents"] == 4000
     assert updated["line_total_cents"] == 8000
+    assert updated["profit_total_cents"] == 5000
 
 
 def test_update_invoice_item_product_allows_unit_price_override(
@@ -196,6 +198,45 @@ def test_update_invoice_item_product_allows_unit_cost_override(
     assert updated["product_id"] == product_service.id
     assert updated["unit_cost_cents"] == 1800
     assert updated["cost_total_cents"] == 3600
+    assert updated["profit_total_cents"] == 4400
+
+
+def test_summarize_invoice_profit_returns_cost_profit_and_margin(
+    cursor,
+    invoice_john,
+    product_widget,
+    product_service,
+):
+    first = invoice_item_services.create_invoice_item(
+        cursor,
+        invoice_id=invoice_john,
+        product_id=product_widget.id,
+        quantity=2,
+    )
+    second = invoice_item_services.create_invoice_item(
+        cursor,
+        invoice_id=invoice_john,
+        product_id=product_service.id,
+        quantity=1,
+    )
+
+    summary = invoice_item_services.summarize_invoice_profit([first, second])
+
+    assert summary == {
+        "cost_total_cents": 3500,
+        "profit_total_cents": 5500,
+        "profit_margin_percent": 61.11,
+    }
+
+
+def test_summarize_invoice_profit_handles_no_revenue():
+    summary = invoice_item_services.summarize_invoice_profit([])
+
+    assert summary == {
+        "cost_total_cents": 0,
+        "profit_total_cents": 0,
+        "profit_margin_percent": None,
+    }
 
 
 def test_update_invoice_item_rejects_inactive_replacement_product(

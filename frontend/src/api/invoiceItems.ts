@@ -9,6 +9,7 @@ export type InvoiceItem = {
     cost_total_cents: number;
     unit_price_cents: number;
     line_total_cents: number;
+    profit_total_cents: number;
 };
 
 export type CreateInvoiceItemPayload = {

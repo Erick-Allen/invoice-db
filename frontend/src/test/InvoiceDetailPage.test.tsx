@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCustomer } from "../api/customers";
-import { createInvoiceItem } from "../api/invoiceItems";
+import { createInvoiceItem, deleteInvoiceItem, updateInvoiceItem } from "../api/invoiceItems";
 import { getInvoice } from "../api/invoices";
 import { getPaymentSummary, listPayments } from "../api/payments";
 import { listProducts } from "../api/products";
@@ -19,6 +19,8 @@ vi.mock("../api/invoices", () => ({
 
 vi.mock("../api/invoiceItems", () => ({
     createInvoiceItem: vi.fn(),
+    deleteInvoiceItem: vi.fn(),
+    updateInvoiceItem: vi.fn(),
 }));
 
 vi.mock("../api/payments", () => ({
@@ -39,6 +41,8 @@ vi.mock("../api/tags", () => ({
 
 const mockedGetCustomer = vi.mocked(getCustomer);
 const mockedCreateInvoiceItem = vi.mocked(createInvoiceItem);
+const mockedDeleteInvoiceItem = vi.mocked(deleteInvoiceItem);
+const mockedUpdateInvoiceItem = vi.mocked(updateInvoiceItem);
 const mockedGetInvoice = vi.mocked(getInvoice);
 const mockedGetPaymentSummary = vi.mocked(getPaymentSummary);
 const mockedListPayments = vi.mocked(listPayments);
@@ -59,6 +63,9 @@ describe("InvoiceDetailPage", () => {
             date_due: "2026-07-01",
             total: 7500,
             status: "sent",
+            cost_total_cents: 2000,
+            profit_total_cents: 5500,
+            profit_margin_percent: 73.33,
             items: [
                 {
                     id: 11,
@@ -69,6 +76,7 @@ describe("InvoiceDetailPage", () => {
                     cost_total_cents: 2000,
                     unit_price_cents: 2500,
                     line_total_cents: 5000,
+                    profit_total_cents: 3000,
                 },
             ],
         });
@@ -138,6 +146,7 @@ describe("InvoiceDetailPage", () => {
             created_at: "2026-08-17T00:00:00",
         });
         mockedRemoveInvoiceTag.mockResolvedValue(undefined);
+        mockedDeleteInvoiceItem.mockResolvedValue(undefined);
         mockedCreateInvoiceItem.mockResolvedValue({
             id: 12,
             invoice_id: 7,
@@ -147,6 +156,18 @@ describe("InvoiceDetailPage", () => {
             cost_total_cents: 1500,
             unit_price_cents: 1500,
             line_total_cents: 4500,
+            profit_total_cents: 3000,
+        });
+        mockedUpdateInvoiceItem.mockResolvedValue({
+            id: 11,
+            invoice_id: 7,
+            product_id: 3,
+            quantity: 5,
+            unit_cost_cents: 1000,
+            cost_total_cents: 5000,
+            unit_price_cents: 2500,
+            line_total_cents: 12500,
+            profit_total_cents: 7500,
         });
     });
 
@@ -168,11 +189,15 @@ describe("InvoiceDetailPage", () => {
         expect(mockedListInvoiceTags).toHaveBeenCalledWith(7);
 
         const summary = screen.getByLabelText("Invoice payment summary");
-        expect(within(summary).getByText("$75.00")).toBeInTheDocument();
         expect(within(summary).getByText("$25.00")).toBeInTheDocument();
         expect(within(summary).getByText("$50.00")).toBeInTheDocument();
+        expect(within(summary).getByText("$20.00")).toBeInTheDocument();
+        expect(within(summary).getByText("$55.00")).toBeInTheDocument();
+        expect(within(summary).queryByText("73.33%")).not.toBeInTheDocument();
 
         expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("$75.00").length).toBeGreaterThan(0);
+        expect(screen.getByText("1 items")).toBeInTheDocument();
         expect(screen.getAllByText("Consulting").length).toBeGreaterThan(0);
         expect(screen.getAllByText("Labor").length).toBeGreaterThan(0);
         expect(screen.getByText("Repair")).toBeInTheDocument();
@@ -259,6 +284,159 @@ describe("InvoiceDetailPage", () => {
                 quantity: 3,
                 unit_cost_cents: 500,
                 unit_price_cents: null,
+            });
+        });
+    });
+
+    it("merges matching line items by increasing quantity", async () => {
+        mockedGetInvoice.mockResolvedValue({
+            id: 7,
+            customer_id: 1,
+            date_issued: "2026-06-01",
+            date_due: "2026-07-01",
+            total: 5000,
+            status: "draft",
+            cost_total_cents: 2000,
+            profit_total_cents: 3000,
+            profit_margin_percent: 60,
+            items: [
+                {
+                    id: 11,
+                    invoice_id: 7,
+                    product_id: 3,
+                    quantity: 2,
+                    unit_cost_cents: 1000,
+                    cost_total_cents: 2000,
+                    unit_price_cents: 2500,
+                    line_total_cents: 5000,
+                    profit_total_cents: 3000,
+                },
+            ],
+        });
+        mockedListProducts.mockResolvedValue([
+            {
+                id: 3,
+                name: "Consulting",
+                description: null,
+                cost_cents: 1000,
+                unit_price_cents: 2500,
+                category_id: 2,
+                category_name: "Labor",
+                is_active: true,
+            },
+        ]);
+
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await screen.findByRole("heading", { name: "Invoice #7", level: 2 });
+        fireEvent.change(screen.getByLabelText("Product for new invoice detail item"), { target: { value: "3" } });
+        fireEvent.change(screen.getByLabelText("Quantity for new invoice detail item"), { target: { value: "3" } });
+        fireEvent.click(screen.getByRole("button", { name: "Add Item" }));
+
+        await waitFor(() => {
+            expect(mockedUpdateInvoiceItem).toHaveBeenCalledWith(11, {
+                quantity: 5,
+            });
+        });
+        expect(mockedCreateInvoiceItem).not.toHaveBeenCalled();
+    });
+
+    it("deletes a draft invoice line item", async () => {
+        mockedGetInvoice.mockResolvedValue({
+            id: 7,
+            customer_id: 1,
+            date_issued: "2026-06-01",
+            date_due: "2026-07-01",
+            total: 5000,
+            status: "draft",
+            cost_total_cents: 2000,
+            profit_total_cents: 3000,
+            profit_margin_percent: 60,
+            items: [
+                {
+                    id: 11,
+                    invoice_id: 7,
+                    product_id: 3,
+                    quantity: 2,
+                    unit_cost_cents: 1000,
+                    cost_total_cents: 2000,
+                    unit_price_cents: 2500,
+                    line_total_cents: 5000,
+                    profit_total_cents: 3000,
+                },
+            ],
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await screen.findByRole("heading", { name: "Invoice #7", level: 2 });
+        fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+        await waitFor(() => {
+            expect(mockedDeleteInvoiceItem).toHaveBeenCalledWith(11);
+        });
+    });
+
+    it("increments and decrements a draft invoice line item quantity", async () => {
+        mockedGetInvoice.mockResolvedValue({
+            id: 7,
+            customer_id: 1,
+            date_issued: "2026-06-01",
+            date_due: "2026-07-01",
+            total: 5000,
+            status: "draft",
+            cost_total_cents: 2000,
+            profit_total_cents: 3000,
+            profit_margin_percent: 60,
+            items: [
+                {
+                    id: 11,
+                    invoice_id: 7,
+                    product_id: 3,
+                    quantity: 2,
+                    unit_cost_cents: 1000,
+                    cost_total_cents: 2000,
+                    unit_price_cents: 2500,
+                    line_total_cents: 5000,
+                    profit_total_cents: 3000,
+                },
+            ],
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await screen.findByRole("heading", { name: "Invoice #7", level: 2 });
+        fireEvent.click(screen.getByRole("button", { name: "Increase quantity for Consulting" }));
+
+        await waitFor(() => {
+            expect(mockedUpdateInvoiceItem).toHaveBeenCalledWith(11, {
+                quantity: 3,
+            });
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: "Decrease quantity for Consulting" }));
+
+        await waitFor(() => {
+            expect(mockedUpdateInvoiceItem).toHaveBeenCalledWith(11, {
+                quantity: 1,
             });
         });
     });
