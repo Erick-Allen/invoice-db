@@ -41,7 +41,7 @@ def test_get_invoice_returns_200(api_client, test_db, customer_john_id, post_inv
 def test_get_invoice_include_items_returns_line_items(api_client, test_db, customer_john_id, post_invoice, post_product):
     invoice_response = post_invoice(customer_id=customer_john_id)
     invoice_id = invoice_response.json()['id']
-    product_id = post_product(unit_price_cents=1234).json()["id"]
+    product_id = post_product(cost_cents=500, unit_price_cents=1234).json()["id"]
 
     item_response = api_client.post(
         f"/api/invoices/{invoice_id}/items/",
@@ -68,12 +68,16 @@ def test_get_invoice_include_items_returns_line_items(api_client, test_db, custo
             "invoice_id": invoice_id,
             "product_id": product_id,
             "quantity": 2,
-            "unit_cost_cents": 0,
-            "cost_total_cents": 0,
+            "unit_cost_cents": 500,
+            "cost_total_cents": 1000,
             "unit_price_cents": 1234,
             "line_total_cents": 2468,
+            "profit_total_cents": 1468,
         }
     ]
+    assert data["cost_total_cents"] == 1000
+    assert data["profit_total_cents"] == 1468
+    assert data["profit_margin_percent"] == 59.48
 
 def test_list_invoices_include_items_returns_line_items(api_client, test_db, customer_john_id, post_invoice, post_product):
     invoice_response = post_invoice(customer_id=customer_john_id)
@@ -101,6 +105,10 @@ def test_list_invoices_include_items_returns_line_items(api_client, test_db, cus
     assert data[0]["id"] == invoice_id
     assert data[0]["items"][0]["id"] == item_response.json()["id"]
     assert data[0]["items"][0]["line_total_cents"] == 2468
+    assert data[0]["items"][0]["profit_total_cents"] == 2468
+    assert data[0]["cost_total_cents"] == 0
+    assert data[0]["profit_total_cents"] == 2468
+    assert data[0]["profit_margin_percent"] == 100.0
 
 def test_patch_invoice_with_single_field_returns_200(api_client, test_db, customer_john_id, post_invoice,):
     invoice_response = post_invoice(customer_id=customer_john_id)

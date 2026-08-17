@@ -34,6 +34,10 @@ class InvoiceItem:
     def cost_total_cents(self) -> int:
         return self.quantity * self.unit_cost_cents
 
+    @property
+    def profit_total_cents(self) -> int:
+        return self.line_total_cents - self.cost_total_cents
+
 
 class InvoiceItemRepository:
     def __init__(self, cursor):

@@ -10,6 +10,9 @@ export type Invoice = {
     date_due: string | null;
     total: number;
     status: InvoiceStatus;
+    cost_total_cents?: number;
+    profit_total_cents?: number;
+    profit_margin_percent?: number | null;
     items?: InvoiceItem[];
 };
 

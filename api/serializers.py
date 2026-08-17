@@ -76,6 +76,7 @@ class InvoiceItemSerializer(StrictSerializer):
     cost_total_cents = serializers.IntegerField(read_only=True)
     unit_price_cents = serializers.IntegerField(min_value=0)
     line_total_cents = serializers.IntegerField(read_only=True)
+    profit_total_cents = serializers.IntegerField(read_only=True)
 
 class InvoiceItemCreateSerializer(StrictSerializer):
     product_id = serializers.IntegerField()
