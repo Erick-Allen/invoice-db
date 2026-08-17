@@ -4,8 +4,9 @@ from typing import Optional
 from invoice_db.db import connection
 from invoice_db.services import invoices as invoices_services
 from invoice_db.services import invoice_items as invoice_item_services
+from invoice_db.services import tags as tag_services
 from invoice_db.services import exceptions as service_exceptions
-from . import render_invoices, ui
+from . import render_invoices, render_tags, ui
 from ..utils import to_cents
 
 invoices_app = typer.Typer(help="Invoice commands.")
@@ -278,3 +279,69 @@ def delete_invoice(
             ui.db_error(e)
     
     ui.console.print(f"Deleted invoice (id={invoice_id})", style="success")
+
+
+@invoices_app.command("add-tag", help="Attach an existing tag to an invoice.")
+def add_tag_to_invoice(
+    invoice_id: int = typer.Option(..., "--invoice-id", help="Invoice to tag."),
+    tag_id: int = typer.Option(..., "--tag-id", help="Existing tag to attach."),
+    db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
+):
+    with connection.db_session(db_path) as (connect, cursor):
+        try:
+            tag_services.add_tag_to_invoice(cursor, invoice_id, tag_id)
+        except (
+            service_exceptions.ValidationError,
+            service_exceptions.NotFoundError,
+            service_exceptions.ConflictError,
+        ) as e:
+            ui.console.print(str(e), style="warning")
+            raise typer.Exit(code=1)
+        except sqlite3.Error as e:
+            ui.db_error(e)
+
+    ui.console.print(f"Attached tag (id={tag_id}) to invoice (id={invoice_id})", style="success")
+
+
+@invoices_app.command("remove-tag", help="Remove a tag from an invoice.")
+def remove_tag_from_invoice(
+    invoice_id: int = typer.Option(..., "--invoice-id", help="Invoice to update."),
+    tag_id: int = typer.Option(..., "--tag-id", help="Tag to remove."),
+    db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
+):
+    with connection.db_session(db_path) as (connect, cursor):
+        try:
+            tag_services.remove_tag_from_invoice(cursor, invoice_id, tag_id)
+        except (
+            service_exceptions.ValidationError,
+            service_exceptions.NotFoundError,
+        ) as e:
+            ui.console.print(str(e), style="warning")
+            raise typer.Exit(code=1)
+        except sqlite3.Error as e:
+            ui.db_error(e)
+
+    ui.console.print(f"Removed tag (id={tag_id}) from invoice (id={invoice_id})", style="success")
+
+
+@invoices_app.command("tags", help="List tags attached to an invoice.")
+def list_invoice_tags(
+    invoice_id: int = typer.Option(..., "--invoice-id", help="Invoice whose tags should be listed."),
+    db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
+):
+    with connection.db_session(db_path) as (connect, cursor):
+        try:
+            tags = tag_services.list_invoice_tags(cursor, invoice_id)
+        except (
+            service_exceptions.ValidationError,
+            service_exceptions.NotFoundError,
+        ) as e:
+            ui.console.print(str(e), style="warning")
+            raise typer.Exit(code=1)
+        except sqlite3.Error as e:
+            ui.db_error(e)
+
+    if tags:
+        render_tags.print_tags_table(tags, title=f"[title]Invoice {invoice_id} Tags[/title]")
+    else:
+        render_tags.no_tags_found()

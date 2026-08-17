@@ -15,14 +15,14 @@
 - `v0.11.0` - Invoice line items
 - `v0.12.0` - Payments
 - `v0.13.0` - Invoice preview/detail page and printable invoice view
+- `v0.14.0` - Product categories
 
 ## Current
 
-- `v0.14.0` - Product categories
+- `v0.15.0` - Invoice tags
 
 ## Planned
 
-- `v0.15.0` - Invoice tags
 - `v0.16.0` - Reporting foundation
 - `v0.17.0` - User accounts
 - `v0.18.0` - Business profile
