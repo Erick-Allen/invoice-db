@@ -72,17 +72,21 @@ class InvoiceItemSerializer(StrictSerializer):
     invoice_id = serializers.IntegerField()
     product_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1)
+    unit_cost_cents = serializers.IntegerField(min_value=0)
+    cost_total_cents = serializers.IntegerField(read_only=True)
     unit_price_cents = serializers.IntegerField(min_value=0)
     line_total_cents = serializers.IntegerField(read_only=True)
 
 class InvoiceItemCreateSerializer(StrictSerializer):
     product_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1, required=False, default=1)
+    unit_cost_cents = serializers.IntegerField(min_value=0, required=False, allow_null=True)
     unit_price_cents = serializers.IntegerField(min_value=0, required=False, allow_null=True)
 
 class InvoiceItemUpdateSerializer(StrictSerializer):
     product_id = serializers.IntegerField(required=False)
     quantity = serializers.IntegerField(min_value=1, required=False)
+    unit_cost_cents = serializers.IntegerField(min_value=0, required=False)
     unit_price_cents = serializers.IntegerField(min_value=0, required=False)
 
     def validate(self, attrs):

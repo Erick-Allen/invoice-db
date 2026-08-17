@@ -462,6 +462,7 @@ class InvoiceItemListCreateView(APIView):
                     invoice_id=invoice_id,
                     product_id=serializer.validated_data["product_id"],
                     quantity=serializer.validated_data.get("quantity", 1),
+                    unit_cost_cents=serializer.validated_data.get("unit_cost_cents"),
                     unit_price_cents=serializer.validated_data.get("unit_price_cents"),
                 )
 
@@ -535,6 +536,7 @@ class InvoiceItemDetailView(APIView):
                     invoice_item_id=invoice_item_id,
                     product_id=serializer.validated_data.get("product_id"),
                     quantity=serializer.validated_data.get("quantity"),
+                    unit_cost_cents=serializer.validated_data.get("unit_cost_cents"),
                     unit_price_cents=serializer.validated_data.get("unit_price_cents"),
                 )
 

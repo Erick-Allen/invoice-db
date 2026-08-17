@@ -11,6 +11,7 @@ def product_widget(cursor):
         ProductCreate(
             name="Widget",
             description="A test widget",
+            cost_cents=1000,
             unit_price_cents=2500,
         ),
     )
@@ -23,6 +24,7 @@ def product_service(cursor):
         ProductCreate(
             name="Service",
             description="A test service",
+            cost_cents=1500,
             unit_price_cents=4000,
         ),
     )
@@ -45,6 +47,8 @@ def test_create_invoice_item_uses_product_price_snapshot(invoice_item_repo, invo
     assert item.invoice_id == invoice_john
     assert item.product_id == product_widget.id
     assert item.quantity == 2
+    assert item.unit_cost_cents == 1000
+    assert item.cost_total_cents == 2000
     assert item.unit_price_cents == 2500
     assert item.line_total_cents == 5000
 
@@ -61,6 +65,20 @@ def test_create_invoice_item_can_override_unit_price(invoice_item_repo, invoice_
 
     assert item.unit_price_cents == 3000
     assert item.line_total_cents == 6000
+
+
+def test_create_invoice_item_can_override_unit_cost(invoice_item_repo, invoice_john, product_widget):
+    item = invoice_item_repo.create(
+        invoice_items.InvoiceItemCreate(
+            invoice_id=invoice_john,
+            product_id=product_widget.id,
+            quantity=2,
+            unit_cost_cents=1200,
+        ),
+    )
+
+    assert item.unit_cost_cents == 1200
+    assert item.cost_total_cents == 2400
 
 
 def test_create_invoice_item_recalculates_invoice_total(cursor, invoice_item_repo, invoice_john, product_widget):
@@ -123,6 +141,8 @@ def test_update_invoice_item_product_resets_unit_price(
     updated = invoice_item_repo.update(item.id, product_id=product_service.id)
 
     assert updated.product_id == product_service.id
+    assert updated.unit_cost_cents == 1500
+    assert updated.cost_total_cents == 3000
     assert updated.unit_price_cents == 4000
     assert updated.line_total_cents == 8000
     assert invoices.get_invoice_by_id(cursor, invoice_john)["total"] == 8000
@@ -151,6 +171,31 @@ def test_update_invoice_item_product_allows_unit_price_override(
     assert updated.product_id == product_service.id
     assert updated.unit_price_cents == 4500
     assert updated.line_total_cents == 9000
+
+
+def test_update_invoice_item_product_allows_unit_cost_override(
+    invoice_item_repo,
+    invoice_john,
+    product_widget,
+    product_service,
+):
+    item = invoice_item_repo.create(
+        invoice_items.InvoiceItemCreate(
+            invoice_id=invoice_john,
+            product_id=product_widget.id,
+            quantity=2,
+        ),
+    )
+
+    updated = invoice_item_repo.update(
+        item.id,
+        product_id=product_service.id,
+        unit_cost_cents=1800,
+    )
+
+    assert updated.product_id == product_service.id
+    assert updated.unit_cost_cents == 1800
+    assert updated.cost_total_cents == 3600
 
 
 def test_update_invoice_item_rejects_inactive_replacement_product(
@@ -248,3 +293,15 @@ def test_update_invoice_item_rejects_invalid_unit_price(invoice_item_repo, invoi
 
     with pytest.raises(ValueError):
         invoice_item_repo.update(item.id, unit_price_cents=-1)
+
+
+def test_update_invoice_item_rejects_invalid_unit_cost(invoice_item_repo, invoice_john, product_widget):
+    item = invoice_item_repo.create(
+        invoice_items.InvoiceItemCreate(
+            invoice_id=invoice_john,
+            product_id=product_widget.id,
+        ),
+    )
+
+    with pytest.raises(ValueError):
+        invoice_item_repo.update(item.id, unit_cost_cents=-1)

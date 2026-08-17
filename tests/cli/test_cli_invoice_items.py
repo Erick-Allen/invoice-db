@@ -41,12 +41,16 @@ def test_add_and_get_invoice_item(runner, temp_db, invoice_john, product_widget)
         product_widget,
         "--quantity",
         "2",
+        "--unit-cost",
+        "8.50",
     )
 
     result = runner.invoke(app, ["invoice-items", "get", "--id", str(item_id), "--db", temp_db])
 
     assert result.exit_code == 0, result.stdout
     assert f"id={item_id}" in result.stdout
+    assert "$8.50" in result.stdout
+    assert "$17.00" in result.stdout
     assert "$12.34" in result.stdout
     assert "$24.68" in result.stdout
 
@@ -58,7 +62,9 @@ def test_list_invoice_items(runner, temp_db, invoice_john, product_widget, produ
     result = runner.invoke(app, ["invoice-items", "list", "--invoice-id", str(invoice_john), "--db", temp_db])
 
     assert result.exit_code == 0, result.stdout
+    assert "$9.00" in result.stdout
     assert "$12.34" in result.stdout
+    assert "$0.00" in result.stdout
     assert "$25.00" in result.stdout
 
 
@@ -72,6 +78,8 @@ def test_update_invoice_item(runner, temp_db, invoice_john, product_widget):
         str(item_id),
         "--quantity",
         "3",
+        "--unit-cost",
+        "4",
         "--unit-price",
         "10",
         "--db",
@@ -79,6 +87,8 @@ def test_update_invoice_item(runner, temp_db, invoice_john, product_widget):
     ])
 
     assert result.exit_code == 0, result.stdout
+    assert "$4.00" in result.stdout
+    assert "$12.00" in result.stdout
     assert "$10.00" in result.stdout
     assert "$30.00" in result.stdout
 

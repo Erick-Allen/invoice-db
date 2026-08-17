@@ -65,6 +65,8 @@ describe("InvoiceDetailPage", () => {
                     invoice_id: 7,
                     product_id: 3,
                     quantity: 2,
+                    unit_cost_cents: 1000,
+                    cost_total_cents: 2000,
                     unit_price_cents: 2500,
                     line_total_cents: 5000,
                 },
@@ -141,6 +143,8 @@ describe("InvoiceDetailPage", () => {
             invoice_id: 7,
             product_id: 4,
             quantity: 3,
+            unit_cost_cents: 500,
+            cost_total_cents: 1500,
             unit_price_cents: 1500,
             line_total_cents: 4500,
         });
@@ -246,12 +250,14 @@ describe("InvoiceDetailPage", () => {
         await screen.findByRole("heading", { name: "Invoice #7", level: 2 });
         fireEvent.change(screen.getByLabelText("Product for new invoice detail item"), { target: { value: "4" } });
         fireEvent.change(screen.getByLabelText("Quantity for new invoice detail item"), { target: { value: "3" } });
+        fireEvent.change(screen.getByLabelText("Unit cost override for new invoice detail item"), { target: { value: "5" } });
         fireEvent.click(screen.getByRole("button", { name: "Add Item" }));
 
         await waitFor(() => {
             expect(mockedCreateInvoiceItem).toHaveBeenCalledWith(7, {
                 product_id: 4,
                 quantity: 3,
+                unit_cost_cents: 500,
                 unit_price_cents: null,
             });
         });

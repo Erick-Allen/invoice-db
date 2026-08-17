@@ -19,6 +19,7 @@ def create_product(api_client, **overrides):
     payload = {
         "name": "Widget",
         "description": "A test widget",
+        "cost_cents": 500,
         "unit_price_cents": 1234,
         "is_active": True,
     }
@@ -66,6 +67,8 @@ def test_create_invoice_item_returns_201(api_client, test_db, customer_john_id):
     assert data["invoice_id"] == invoice_id
     assert data["product_id"] == product_id
     assert data["quantity"] == 2
+    assert data["unit_cost_cents"] == 500
+    assert data["cost_total_cents"] == 1000
     assert data["unit_price_cents"] == 1234
     assert data["line_total_cents"] == 2468
 
@@ -101,6 +104,7 @@ def test_patch_invoice_item_returns_200(api_client, test_db, customer_john_id):
         f"/api/invoice-items/{item['id']}/",
         {
             "quantity": 3,
+            "unit_cost_cents": 700,
             "unit_price_cents": 2000,
         },
         format="json",
@@ -109,14 +113,16 @@ def test_patch_invoice_item_returns_200(api_client, test_db, customer_john_id):
     assert response.status_code == 200
     data = response.json()
     assert data["quantity"] == 3
+    assert data["unit_cost_cents"] == 700
+    assert data["cost_total_cents"] == 2100
     assert data["unit_price_cents"] == 2000
     assert data["line_total_cents"] == 6000
 
 
 def test_patch_invoice_item_product_resets_price(api_client, test_db, customer_john_id):
     invoice_id = create_invoice(api_client, customer_john_id)
-    first_product_id = create_product(api_client, name="Widget", unit_price_cents=1234)
-    second_product_id = create_product(api_client, name="Service", unit_price_cents=4000)
+    first_product_id = create_product(api_client, name="Widget", cost_cents=500, unit_price_cents=1234)
+    second_product_id = create_product(api_client, name="Service", cost_cents=1500, unit_price_cents=4000)
     item = create_invoice_item(api_client, invoice_id, first_product_id)
 
     response = api_client.patch(
@@ -128,6 +134,8 @@ def test_patch_invoice_item_product_resets_price(api_client, test_db, customer_j
     assert response.status_code == 200
     data = response.json()
     assert data["product_id"] == second_product_id
+    assert data["unit_cost_cents"] == 1500
+    assert data["cost_total_cents"] == 3000
     assert data["unit_price_cents"] == 4000
     assert data["line_total_cents"] == 8000
 

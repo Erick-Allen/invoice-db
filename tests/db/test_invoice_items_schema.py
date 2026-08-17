@@ -22,11 +22,13 @@ def test_invoice_items_columns(cursor):
         "invoice_id",
         "product_id",
         "quantity",
+        "unit_cost",
         "unit_price",
         "created_at",
         "updated_at",
     }
     assert columns["quantity"]["dflt_value"] == "1"
+    assert columns["unit_cost"]["dflt_value"] == "0"
 
 
 def test_invoice_items_foreign_keys(cursor):

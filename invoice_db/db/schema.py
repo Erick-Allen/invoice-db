@@ -245,6 +245,8 @@ def create_invoice_item_schema(cursor):
         product_id      INTEGER NOT NULL,
         quantity        INTEGER NOT NULL DEFAULT 1
                                 CHECK (quantity > 0 AND quantity = CAST(quantity AS INTEGER)),
+        unit_cost       INTEGER NOT NULL DEFAULT 0
+                                CHECK (unit_cost >= 0 AND unit_cost = CAST(unit_cost AS INTEGER)),
         unit_price      INTEGER NOT NULL
                                 CHECK (unit_price >= 0 AND unit_price = CAST(unit_price AS INTEGER)),
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
@@ -260,6 +262,19 @@ def create_invoice_item_schema(cursor):
     CREATE INDEX IF NOT EXISTS
         idx_invoice_items_invoice_product ON invoice_items(invoice_id, product_id);
     """)
+    cursor.execute("PRAGMA table_info(invoice_items)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "unit_cost" not in columns:
+        cursor.execute(
+            "ALTER TABLE invoice_items ADD COLUMN unit_cost INTEGER NOT NULL DEFAULT 0"
+        )
+        cursor.execute("""
+            UPDATE invoice_items
+            SET unit_cost = COALESCE(
+                (SELECT products.cost FROM products WHERE products.id = invoice_items.product_id),
+                0
+            )
+        """)
 
 def create_payment_schema(cursor):
     payment_methods = _sql_string_values(VALID_PAYMENT_METHODS)

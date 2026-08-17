@@ -5,6 +5,8 @@ export type InvoiceItem = {
     invoice_id: number;
     product_id: number;
     quantity: number;
+    unit_cost_cents: number;
+    cost_total_cents: number;
     unit_price_cents: number;
     line_total_cents: number;
 };
@@ -12,12 +14,14 @@ export type InvoiceItem = {
 export type CreateInvoiceItemPayload = {
     product_id: number;
     quantity?: number;
+    unit_cost_cents?: number | null;
     unit_price_cents?: number | null;
 };
 
 export type UpdateInvoiceItemPayload = {
     product_id?: number;
     quantity?: number;
+    unit_cost_cents?: number;
     unit_price_cents?: number;
 };
 

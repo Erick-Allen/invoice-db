@@ -15,6 +15,8 @@ class InvoiceItemRecord(TypedDict):
     invoice_id: int
     product_id: int
     quantity: int
+    unit_cost_cents: int
+    cost_total_cents: int
     unit_price_cents: int
     line_total_cents: int
     created_at: str
@@ -27,6 +29,8 @@ def _to_invoice_item_record(item: invoice_items_db.InvoiceItem) -> InvoiceItemRe
         "invoice_id": item.invoice_id,
         "product_id": item.product_id,
         "quantity": item.quantity,
+        "unit_cost_cents": item.unit_cost_cents,
+        "cost_total_cents": item.cost_total_cents,
         "unit_price_cents": item.unit_price_cents,
         "line_total_cents": item.line_total_cents,
         "created_at": item.created_at,
@@ -78,6 +82,7 @@ def create_invoice_item(
     invoice_id: int,
     product_id: int,
     quantity: int = 1,
+    unit_cost_cents: int | None = None,
     unit_price_cents: int | None = None,
 ) -> InvoiceItemRecord:
     _require_editable_invoice(cursor, invoice_id)
@@ -90,6 +95,7 @@ def create_invoice_item(
                 invoice_id=invoice_id,
                 product_id=product_id,
                 quantity=quantity,
+                unit_cost_cents=unit_cost_cents,
                 unit_price_cents=unit_price_cents,
             )
         )
@@ -124,9 +130,10 @@ def update_invoice_item_by_id(
     *,
     product_id: int | None = None,
     quantity: int | None = None,
+    unit_cost_cents: int | None = None,
     unit_price_cents: int | None = None,
 ) -> InvoiceItemRecord:
-    if product_id is None and quantity is None and unit_price_cents is None:
+    if product_id is None and quantity is None and unit_cost_cents is None and unit_price_cents is None:
         raise exceptions.ValidationError("Please provide at least one value to update the invoice item.")
 
     if product_id is not None:
@@ -141,6 +148,7 @@ def update_invoice_item_by_id(
             invoice_item_id,
             product_id=product_id,
             quantity=quantity,
+            unit_cost_cents=unit_cost_cents,
             unit_price_cents=unit_price_cents,
         )
     except ValueError as e:

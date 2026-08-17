@@ -153,6 +153,17 @@ def validate_product_cost_cents(cost_cents: int) -> int:
         raise ValueError("Product cost cannot be negative.")
     return cost_cents
 
+def validate_unit_cost_cents(unit_cost_cents: int) -> int:
+    if unit_cost_cents is None:
+        raise ValueError("Invoice item unit cost is required.")
+    try:
+        unit_cost_cents = int(unit_cost_cents)
+    except (TypeError, ValueError):
+        raise ValueError("Invoice item unit cost must be a valid integer.")
+    if unit_cost_cents < 0:
+        raise ValueError("Invoice item unit cost cannot be negative.")
+    return unit_cost_cents
+
 def normalize_is_active(is_active: bool | int) -> int:
     if isinstance(is_active, bool):
         return int(is_active)
