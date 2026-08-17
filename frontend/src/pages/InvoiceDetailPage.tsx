@@ -93,6 +93,21 @@ export function InvoiceDetailPage() {
         }
     }
 
+    async function refreshInvoiceSection(invoiceIdToRefresh: number) {
+        const [invoiceData, summaryData] = await Promise.all([
+            getInvoice(invoiceIdToRefresh, true),
+            getPaymentSummary(invoiceIdToRefresh),
+        ]);
+
+        setInvoice(invoiceData);
+        setPaymentSummary(summaryData);
+    }
+
+    async function refreshInvoiceTags(invoiceIdToRefresh: number) {
+        const invoiceTagData = await listInvoiceTags(invoiceIdToRefresh);
+        setInvoiceTags(invoiceTagData);
+    }
+
     useEffect(() => {
         loadInvoiceDetail();
     }, [invoiceId]);
@@ -181,7 +196,7 @@ export function InvoiceDetailPage() {
             setNewItemQuantity("1");
             setNewItemUnitCostDollars("");
             setNewItemUnitPriceDollars("");
-            await loadInvoiceDetail();
+            await refreshInvoiceSection(invoice.id);
             restoreScrollPosition(scrollY);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : "Failed to add line item.");
@@ -195,7 +210,9 @@ export function InvoiceDetailPage() {
             setActionError(null);
             const scrollY = window.scrollY;
             await deleteInvoiceItem(itemId);
-            await loadInvoiceDetail();
+            if (invoice) {
+                await refreshInvoiceSection(invoice.id);
+            }
             restoreScrollPosition(scrollY);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : "Failed to delete line item.");
@@ -211,7 +228,9 @@ export function InvoiceDetailPage() {
             setActionError(null);
             const scrollY = window.scrollY;
             await updateInvoiceItem(itemId, { quantity });
-            await loadInvoiceDetail();
+            if (invoice) {
+                await refreshInvoiceSection(invoice.id);
+            }
             restoreScrollPosition(scrollY);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : "Failed to update line item quantity.");
@@ -233,7 +252,7 @@ export function InvoiceDetailPage() {
             setActionError(null);
             await addInvoiceTag(invoice.id, { tag_id: Number(newTagId) });
             setNewTagId("");
-            await loadInvoiceDetail();
+            await refreshInvoiceTags(invoice.id);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : "Failed to add tag.");
         } finally {
@@ -249,7 +268,7 @@ export function InvoiceDetailPage() {
         try {
             setActionError(null);
             await removeInvoiceTag(invoice.id, tagId);
-            await loadInvoiceDetail();
+            await refreshInvoiceTags(invoice.id);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : "Failed to remove tag.");
         }
