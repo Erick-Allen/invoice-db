@@ -26,6 +26,7 @@ import { AssistantChatBox } from "../components/AssistantChatBox";
 type CreateInvoiceItemForm = {
     productId: string;
     quantity: string;
+    unitCostDollars: string;
     unitPriceDollars: string;
 };
 
@@ -41,7 +42,7 @@ export function InvoicesPage() {
     const [dateIssued, setDateIssued] = useState("");
     const [dateDue, setDateDue] = useState("");
     const [createLineItems, setCreateLineItems] = useState<CreateInvoiceItemForm[]>([
-        { productId: "", quantity: "1", unitPriceDollars: "" },
+        { productId: "", quantity: "1", unitCostDollars: "", unitPriceDollars: "" },
     ]);
     const [isCreateOverlayOpen, setIsCreateOverlayOpen] = useState(false);
 
@@ -96,7 +97,7 @@ export function InvoicesPage() {
         setCustomerId("");
         setDateIssued("");
         setDateDue("");
-        setCreateLineItems([{ productId: "", quantity: "1", unitPriceDollars: "" }]);
+        setCreateLineItems([{ productId: "", quantity: "1", unitCostDollars: "", unitPriceDollars: "" }]);
     }
 
     function openCreateOverlay() {
@@ -135,6 +136,16 @@ export function InvoicesPage() {
                 return;
             }
 
+            let unitCostCents: number | null = null;
+            if (item.unitCostDollars.trim()) {
+                try {
+                    unitCostCents = dollarsToCents(item.unitCostDollars);
+                } catch (err) {
+                    setError(err instanceof Error ? err.message : "Enter a valid unit cost.");
+                    return;
+                }
+            }
+
             let unitPriceCents: number | null = null;
             if (item.unitPriceDollars.trim()) {
                 try {
@@ -148,6 +159,7 @@ export function InvoicesPage() {
             preparedLineItems.push({
                 product_id: Number(item.productId),
                 quantity,
+                unit_cost_cents: unitCostCents,
                 unit_price_cents: unitPriceCents,
             });
         }
@@ -372,7 +384,7 @@ export function InvoicesPage() {
     function addCreateLineItem() {
         setCreateLineItems((current) => [
             ...current,
-            { productId: "", quantity: "1", unitPriceDollars: "" },
+            { productId: "", quantity: "1", unitCostDollars: "", unitPriceDollars: "" },
         ]);
     }
 
@@ -387,7 +399,7 @@ export function InvoicesPage() {
     function removeCreateLineItem(index: number) {
         setCreateLineItems((current) =>
             current.length === 1
-                ? [{ productId: "", quantity: "1", unitPriceDollars: "" }]
+                ? [{ productId: "", quantity: "1", unitCostDollars: "", unitPriceDollars: "" }]
                 : current.filter((_, itemIndex) => itemIndex !== index)
         );
     }
@@ -555,6 +567,13 @@ export function InvoicesPage() {
                                                     min="1"
                                                     value={item.quantity}
                                                     onChange={(event) => updateCreateLineItem(index, { quantity: event.target.value })}
+                                                />
+                                                <input
+                                                    aria-label={`Unit cost override for new invoice item ${index + 1}`}
+                                                    type="text"
+                                                    value={item.unitCostDollars}
+                                                    onChange={(event) => updateCreateLineItem(index, { unitCostDollars: event.target.value })}
+                                                    placeholder="Cost"
                                                 />
                                                 <input
                                                     aria-label={`Unit price override for new invoice item ${index + 1}`}

@@ -68,6 +68,8 @@ def test_get_invoice_include_items_returns_line_items(api_client, test_db, custo
             "invoice_id": invoice_id,
             "product_id": product_id,
             "quantity": 2,
+            "unit_cost_cents": 0,
+            "cost_total_cents": 0,
             "unit_price_cents": 1234,
             "line_total_cents": 2468,
         }

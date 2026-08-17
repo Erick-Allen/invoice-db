@@ -31,6 +31,7 @@ def add_invoice_item(
     invoice_id: int = typer.Option(..., "--invoice-id", help="Invoice to add this line item to."),
     product_id: int = typer.Option(..., "--product-id", help="Product to add to the invoice."),
     quantity: int = typer.Option(1, "-q", "--quantity", help="Line item quantity."),
+    unit_cost: Optional[float] = typer.Option(None, "--unit-cost", help="Override unit cost in dollars."),
     unit_price: Optional[float] = typer.Option(None, "--unit-price", help="Override unit price in dollars."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
 ):
@@ -41,6 +42,7 @@ def add_invoice_item(
                 invoice_id=invoice_id,
                 product_id=product_id,
                 quantity=quantity,
+                unit_cost_cents=to_cents(unit_cost) if unit_cost is not None else None,
                 unit_price_cents=to_cents(unit_price) if unit_price is not None else None,
             )
         except (
@@ -96,10 +98,11 @@ def get_invoice_item(
 def update_invoice_item(
     invoice_item_id: int = typer.Option(..., "-i", "--id", help="Invoice item ID."),
     quantity: Optional[int] = typer.Option(None, "-q", "--quantity", help="New line item quantity."),
+    unit_cost: Optional[float] = typer.Option(None, "--unit-cost", help="New unit cost in dollars."),
     unit_price: Optional[float] = typer.Option(None, "--unit-price", help="New unit price in dollars."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
 ):
-    if quantity is None and unit_price is None:
+    if quantity is None and unit_cost is None and unit_price is None:
         ui.console.print("Please provide at least one value to update the invoice item.", style="warning")
         raise typer.Exit(code=1)
 
@@ -109,6 +112,7 @@ def update_invoice_item(
                 cursor,
                 invoice_item_id,
                 quantity=quantity,
+                unit_cost_cents=to_cents(unit_cost) if unit_cost is not None else None,
                 unit_price_cents=to_cents(unit_price) if unit_price is not None else None,
             )
         except (

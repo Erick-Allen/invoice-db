@@ -86,6 +86,8 @@ describe("InvoicesPage", () => {
                         invoice_id: 1,
                         product_id: 1,
                         quantity: 2,
+                        unit_cost_cents: 900,
+                        cost_total_cents: 1800,
                         unit_price_cents: 1234,
                         line_total_cents: 2468,
                     },
@@ -106,6 +108,8 @@ describe("InvoicesPage", () => {
             invoice_id: 2,
             product_id: 1,
             quantity: 2,
+            unit_cost_cents: 900,
+            cost_total_cents: 1800,
             unit_price_cents: 1234,
             line_total_cents: 2468,
         });
@@ -166,6 +170,7 @@ describe("InvoicesPage", () => {
         fireEvent.change(within(dialog).getByLabelText("Date Due"), { target: { value: "2026-07-01" } });
         fireEvent.change(within(dialog).getByLabelText("Product for new invoice item 1"), { target: { value: "1" } });
         fireEvent.change(within(dialog).getByLabelText("Quantity for new invoice item 1"), { target: { value: "2" } });
+        fireEvent.change(within(dialog).getByLabelText("Unit cost override for new invoice item 1"), { target: { value: "9" } });
         await waitFor(() => {
             expect(within(dialog).getByLabelText("Customer")).toHaveValue("1");
         });
@@ -182,6 +187,7 @@ describe("InvoicesPage", () => {
             expect(mockedCreateInvoiceItem).toHaveBeenCalledWith(2, {
                 product_id: 1,
                 quantity: 2,
+                unit_cost_cents: 900,
                 unit_price_cents: null,
             });
         });

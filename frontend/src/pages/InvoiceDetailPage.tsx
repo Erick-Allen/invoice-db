@@ -32,6 +32,7 @@ export function InvoiceDetailPage() {
     const [invoiceTags, setInvoiceTags] = useState<Tag[]>([]);
     const [newItemProductId, setNewItemProductId] = useState("");
     const [newItemQuantity, setNewItemQuantity] = useState("1");
+    const [newItemUnitCostDollars, setNewItemUnitCostDollars] = useState("");
     const [newItemUnitPriceDollars, setNewItemUnitPriceDollars] = useState("");
     const [newTagId, setNewTagId] = useState("");
     const [isItemSubmitting, setIsItemSubmitting] = useState(false);
@@ -117,6 +118,16 @@ export function InvoiceDetailPage() {
             return;
         }
 
+        let unitCostCents: number | null = null;
+        if (newItemUnitCostDollars.trim()) {
+            try {
+                unitCostCents = dollarsToCents(newItemUnitCostDollars);
+            } catch (err) {
+                setActionError(err instanceof Error ? err.message : "Enter a valid unit cost.");
+                return;
+            }
+        }
+
         let unitPriceCents: number | null = null;
         if (newItemUnitPriceDollars.trim()) {
             try {
@@ -133,10 +144,12 @@ export function InvoiceDetailPage() {
             await createInvoiceItem(invoice.id, {
                 product_id: Number(newItemProductId),
                 quantity,
+                unit_cost_cents: unitCostCents,
                 unit_price_cents: unitPriceCents,
             });
             setNewItemProductId("");
             setNewItemQuantity("1");
+            setNewItemUnitCostDollars("");
             setNewItemUnitPriceDollars("");
             await loadInvoiceDetail();
         } catch (err) {
@@ -398,6 +411,13 @@ export function InvoiceDetailPage() {
                                     onChange={(event) => setNewItemQuantity(event.target.value)}
                                 />
                                 <input
+                                    aria-label="Unit cost override for new invoice detail item"
+                                    type="text"
+                                    value={newItemUnitCostDollars}
+                                    onChange={(event) => setNewItemUnitCostDollars(event.target.value)}
+                                    placeholder="Cost"
+                                />
+                                <input
                                     aria-label="Unit price override for new invoice detail item"
                                     type="text"
                                     value={newItemUnitPriceDollars}
@@ -425,6 +445,8 @@ export function InvoiceDetailPage() {
                                             <th>Product</th>
                                             <th>Category</th>
                                             <th>Quantity</th>
+                                            <th>Unit Cost</th>
+                                            <th>Cost Total</th>
                                             <th>Unit Price</th>
                                             <th>Line Total</th>
                                         </tr>
@@ -435,6 +457,8 @@ export function InvoiceDetailPage() {
                                                 <td>{productLabel(productsById[item.product_id], item.product_id)}</td>
                                                 <td>{categoryLabel(productsById[item.product_id])}</td>
                                                 <td>{item.quantity}</td>
+                                                <td>${centsToDollars(item.unit_cost_cents)}</td>
+                                                <td>${centsToDollars(item.cost_total_cents)}</td>
                                                 <td>${centsToDollars(item.unit_price_cents)}</td>
                                                 <td>${centsToDollars(item.line_total_cents)}</td>
                                             </tr>
