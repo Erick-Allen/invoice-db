@@ -3,7 +3,7 @@ from sqlite3 import Row
 
 from .invoices import get_invoice_by_id
 from .products import get_product_by_id
-from .validators import validate_quantity, validate_unit_price_cents
+from .validators import validate_quantity, validate_unit_cost_cents, validate_unit_price_cents
 
 
 @dataclass
@@ -11,6 +11,7 @@ class InvoiceItemCreate:
     invoice_id: int
     product_id: int
     quantity: int = 1
+    unit_cost_cents: int | None = None
     unit_price_cents: int | None = None
 
 
@@ -20,6 +21,7 @@ class InvoiceItem:
     invoice_id: int
     product_id: int
     quantity: int
+    unit_cost_cents: int
     unit_price_cents: int
     created_at: str
     updated_at: str
@@ -27,6 +29,10 @@ class InvoiceItem:
     @property
     def line_total_cents(self) -> int:
         return self.quantity * self.unit_price_cents
+
+    @property
+    def cost_total_cents(self) -> int:
+        return self.quantity * self.unit_cost_cents
 
 
 class InvoiceItemRepository:
@@ -38,6 +44,11 @@ class InvoiceItemRepository:
         product = self._require_active_product(item.product_id)
 
         quantity = validate_quantity(item.quantity)
+        unit_cost_cents = (
+            product.cost_cents
+            if item.unit_cost_cents is None
+            else validate_unit_cost_cents(item.unit_cost_cents)
+        )
         unit_price_cents = (
             product.unit_price_cents
             if item.unit_price_cents is None
@@ -45,9 +56,9 @@ class InvoiceItemRepository:
         )
 
         self.cursor.execute("""
-            INSERT INTO invoice_items (invoice_id, product_id, quantity, unit_price)
-            VALUES (?, ?, ?, ?)
-        """, (item.invoice_id, item.product_id, quantity, unit_price_cents))
+            INSERT INTO invoice_items (invoice_id, product_id, quantity, unit_cost, unit_price)
+            VALUES (?, ?, ?, ?, ?)
+        """, (item.invoice_id, item.product_id, quantity, unit_cost_cents, unit_price_cents))
 
         created_item = self.get_by_id(self.cursor.lastrowid)
         if created_item is None:
@@ -76,6 +87,7 @@ class InvoiceItemRepository:
         *,
         product_id: int | None = None,
         quantity: int | None = None,
+        unit_cost_cents: int | None = None,
         unit_price_cents: int | None = None,
     ) -> InvoiceItem | None:
         item = self.get_by_id(invoice_item_id)
@@ -88,12 +100,18 @@ class InvoiceItemRepository:
             product = self._require_active_product(product_id)
             updates.append("product_id = ?")
             params.append(product.id)
+            if unit_cost_cents is None:
+                updates.append("unit_cost = ?")
+                params.append(product.cost_cents)
             if unit_price_cents is None:
                 updates.append("unit_price = ?")
                 params.append(product.unit_price_cents)
         if quantity is not None:
             updates.append("quantity = ?")
             params.append(validate_quantity(quantity))
+        if unit_cost_cents is not None:
+            updates.append("unit_cost = ?")
+            params.append(validate_unit_cost_cents(unit_cost_cents))
         if unit_price_cents is not None:
             updates.append("unit_price = ?")
             params.append(validate_unit_price_cents(unit_price_cents))
@@ -156,6 +174,7 @@ class InvoiceItemRepository:
             invoice_id=row["invoice_id"],
             product_id=row["product_id"],
             quantity=row["quantity"],
+            unit_cost_cents=row["unit_cost"],
             unit_price_cents=row["unit_price"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],

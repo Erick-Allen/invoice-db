@@ -24,6 +24,7 @@ def product_widget(cursor):
         ProductCreate(
             name="Widget",
             description="A test widget",
+            cost_cents=1000,
             unit_price_cents=2500,
         ),
     )
@@ -36,6 +37,7 @@ def product_service(cursor):
         ProductCreate(
             name="Service",
             description="A test service",
+            cost_cents=1500,
             unit_price_cents=4000,
         ),
     )
@@ -52,6 +54,8 @@ def test_create_invoice_item_recalculates_invoice_total(cursor, invoice_john, pr
     invoice = invoices.get_invoice_by_id(cursor, invoice_john)
 
     assert item["line_total_cents"] == 5000
+    assert item["unit_cost_cents"] == 1000
+    assert item["cost_total_cents"] == 2000
     assert invoice["total"] == 5000
 
 
@@ -138,6 +142,8 @@ def test_update_invoice_item_product_resets_unit_price(
     )
 
     assert updated["product_id"] == product_service.id
+    assert updated["unit_cost_cents"] == 1500
+    assert updated["cost_total_cents"] == 3000
     assert updated["unit_price_cents"] == 4000
     assert updated["line_total_cents"] == 8000
 
@@ -165,6 +171,31 @@ def test_update_invoice_item_product_allows_unit_price_override(
     assert updated["product_id"] == product_service.id
     assert updated["unit_price_cents"] == 4500
     assert updated["line_total_cents"] == 9000
+
+
+def test_update_invoice_item_product_allows_unit_cost_override(
+    cursor,
+    invoice_john,
+    product_widget,
+    product_service,
+):
+    item = invoice_item_services.create_invoice_item(
+        cursor,
+        invoice_id=invoice_john,
+        product_id=product_widget.id,
+        quantity=2,
+    )
+
+    updated = invoice_item_services.update_invoice_item_by_id(
+        cursor,
+        item["id"],
+        product_id=product_service.id,
+        unit_cost_cents=1800,
+    )
+
+    assert updated["product_id"] == product_service.id
+    assert updated["unit_cost_cents"] == 1800
+    assert updated["cost_total_cents"] == 3600
 
 
 def test_update_invoice_item_rejects_inactive_replacement_product(

@@ -37,6 +37,8 @@ def print_invoice_line_items(items: list[dict]) -> None:
     table.add_column("ID", justify="right")
     table.add_column("Product", justify="right")
     table.add_column("Qty", justify="right")
+    table.add_column("Unit Cost", justify="right")
+    table.add_column("Cost Total", justify="right")
     table.add_column("Unit Price", justify="right")
     table.add_column("Line Total", justify="right")
 
@@ -45,6 +47,8 @@ def print_invoice_line_items(items: list[dict]) -> None:
             str(item["id"]),
             str(item["product_id"]),
             str(item["quantity"]),
+            utils.fmt_dollars(item["unit_cost_cents"]),
+            utils.fmt_dollars(item["cost_total_cents"]),
             utils.fmt_dollars(item["unit_price_cents"]),
             utils.fmt_dollars(item["line_total_cents"]),
         )
@@ -60,6 +64,8 @@ def print_invoice_items_by_invoice(invoice_id: int, items: list[dict]) -> None:
     table.add_column("ID", justify="right")
     table.add_column("Product", justify="right")
     table.add_column("Qty", justify="right")
+    table.add_column("Unit Cost", justify="right")
+    table.add_column("Cost Total", justify="right")
     table.add_column("Unit Price", justify="right")
     table.add_column("Line Total", justify="right")
 
@@ -68,6 +74,8 @@ def print_invoice_items_by_invoice(invoice_id: int, items: list[dict]) -> None:
             str(item["id"]),
             str(item["product_id"]),
             str(item["quantity"]),
+            utils.fmt_dollars(item["unit_cost_cents"]),
+            utils.fmt_dollars(item["cost_total_cents"]),
             utils.fmt_dollars(item["unit_price_cents"]),
             utils.fmt_dollars(item["line_total_cents"]),
         )
