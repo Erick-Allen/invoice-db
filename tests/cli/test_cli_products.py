@@ -4,7 +4,17 @@ from invoice_db.cli.app import app
 def test_products_help_commands(runner):
     result = runner.invoke(app, ["products", "--help"])
     assert result.exit_code == 0
-    expected_commands = ["add", "delete", "deactivate", "get", "list", "update"]
+    expected_commands = [
+        "add",
+        "add-supplier",
+        "delete",
+        "deactivate",
+        "get",
+        "list",
+        "list-suppliers",
+        "remove-supplier",
+        "update",
+    ]
     for cmd in expected_commands:
         assert cmd in result.stdout
 

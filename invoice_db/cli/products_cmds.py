@@ -6,8 +6,9 @@ import typer
 from invoice_db.db import connection
 from invoice_db.services import exceptions as service_exceptions
 from invoice_db.services import products as products_services
+from invoice_db.services import suppliers as supplier_services
 from invoice_db.utils import to_cents
-from . import render_products, ui
+from . import render_products, render_suppliers, ui
 
 
 products_app = typer.Typer(help="Product commands.")
@@ -16,7 +17,9 @@ products_app = typer.Typer(help="Product commands.")
 def _handle_service_error(error: Exception) -> None:
     style = "warning" if isinstance(
         error,
-        service_exceptions.NotFoundError | service_exceptions.ValidationError
+        service_exceptions.NotFoundError
+        | service_exceptions.ValidationError
+        | service_exceptions.ConflictError
     ) else "error"
     ui.console.print(str(error), style=style)
     raise typer.Exit(code=1)
@@ -158,3 +161,84 @@ def delete_product(
             ui.db_error(e)
 
     ui.console.print(f"Deleted product (id={product_id})", style="success")
+
+
+@products_app.command("add-supplier", help="Attach a supplier to a product.")
+def add_supplier_to_product(
+    product_id: int = typer.Option(..., "--product-id", help="ID of product."),
+    supplier_id: int = typer.Option(..., "--supplier-id", help="ID of supplier."),
+    note: Optional[str] = typer.Option(None, "--note", help="Optional product sourcing note."),
+    db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
+):
+    with connection.db_session(db_path) as (connect, cursor):
+        try:
+            product_supplier = supplier_services.add_supplier_to_product(
+                cursor,
+                product_id=product_id,
+                supplier_id=supplier_id,
+                note=note,
+            )
+        except (
+            service_exceptions.ValidationError,
+            service_exceptions.NotFoundError,
+            service_exceptions.ConflictError,
+        ) as e:
+            _handle_service_error(e)
+        except sqlite3.Error as e:
+            ui.db_error(e)
+
+    ui.console.print(
+        f"Attached supplier (id={supplier_id}) to product (id={product_id})",
+        style="success",
+    )
+    render_suppliers.print_product_supplier_table(product_supplier)
+
+
+@products_app.command("list-suppliers", help="List suppliers attached to a product.")
+def list_product_suppliers(
+    product_id: int = typer.Option(..., "--product-id", help="ID of product."),
+    db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
+):
+    with connection.db_session(db_path) as (connect, cursor):
+        try:
+            suppliers = supplier_services.list_product_suppliers(cursor, product_id=product_id)
+        except (service_exceptions.ValidationError, service_exceptions.NotFoundError) as e:
+            _handle_service_error(e)
+        except sqlite3.Error as e:
+            ui.db_error(e)
+
+    if suppliers:
+        render_suppliers.print_suppliers_table(
+            suppliers,
+            title=f"[title]Suppliers for Product {product_id}[/title]",
+        )
+    else:
+        render_suppliers.no_suppliers_found()
+
+
+@products_app.command("remove-supplier", help="Remove a supplier from a product.")
+def remove_supplier_from_product(
+    product_id: int = typer.Option(..., "--product-id", help="ID of product."),
+    supplier_id: int = typer.Option(..., "--supplier-id", help="ID of supplier."),
+    db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB."),
+):
+    with connection.db_session(db_path) as (connect, cursor):
+        try:
+            supplier_services.remove_supplier_from_product(
+                cursor,
+                product_id=product_id,
+                supplier_id=supplier_id,
+            )
+        except (
+            service_exceptions.ValidationError,
+            service_exceptions.NotFoundError,
+            service_exceptions.ConflictError,
+        ) as e:
+            _handle_service_error(e)
+        except sqlite3.Error as e:
+            ui.db_error(e)
+
+    ui.console.print(
+        f"Removed supplier (id={supplier_id}) from product (id={product_id})",
+        style="success",
+    )

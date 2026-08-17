@@ -494,6 +494,49 @@
   flex-wrap: wrap;
 }
 
+.supplier-cell {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 240px;
+}
+
+.supplier-chip-list,
+.supplier-add {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.supplier-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #312e81;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.supplier-chip button {
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #c7d2fe;
+  color: #312e81;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.supplier-add select {
+  min-width: 9rem;
+}
+
 .line-items-cell {
   display: grid;
   gap: 0.75rem;

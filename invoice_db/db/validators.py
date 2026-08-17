@@ -117,6 +117,14 @@ def normalize_tag_name(name: str) -> str:
         raise ValueError("Tag name cannot be empty.")
     return name
 
+def normalize_supplier_name(name: str) -> str:
+    if not name or not isinstance(name, str):
+        raise ValueError("Supplier name cannot be empty.")
+    name = " ".join(name.strip().split())
+    if not name:
+        raise ValueError("Supplier name cannot be empty.")
+    return name
+
 def normalize_product_name(name: str) -> str:
     if not name or not isinstance(name, str):
         raise ValueError("Product name cannot be empty.")

@@ -17,14 +17,14 @@
 - `v0.13.0` - Invoice preview/detail page and printable invoice view
 - `v0.14.0` - Product categories
 - `v0.15.0` - Invoice tags
+- `v0.16.0` - Product costs and reporting foundation
 
 ## Current
 
-- `v0.16.0` - Product costs and reporting foundation
+- `v0.17.0` - Product suppliers
 
 ## Planned
 
-- `v0.17.0` - Catalog sourcing improvements
 - `v0.18.0` - Customer record improvements
 - `v0.19.0` - User accounts
 - `v0.20.0` - Business profile
