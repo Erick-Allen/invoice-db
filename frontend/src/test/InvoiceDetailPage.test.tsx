@@ -286,6 +286,10 @@ describe("InvoiceDetailPage", () => {
                 unit_price_cents: null,
             });
         });
+        expect(mockedGetInvoice).toHaveBeenCalledTimes(2);
+        expect(mockedGetCustomer).toHaveBeenCalledTimes(1);
+        expect(mockedListProducts).toHaveBeenCalledTimes(1);
+        expect(mockedListTags).toHaveBeenCalledTimes(1);
     });
 
     it("merges matching line items by increasing quantity", async () => {
@@ -463,5 +467,8 @@ describe("InvoiceDetailPage", () => {
         await waitFor(() => {
             expect(mockedRemoveInvoiceTag).toHaveBeenCalledWith(7, 2);
         });
+        expect(mockedGetInvoice).toHaveBeenCalledTimes(1);
+        expect(mockedGetCustomer).toHaveBeenCalledTimes(1);
+        expect(mockedListInvoiceTags).toHaveBeenCalledTimes(3);
     });
 });
