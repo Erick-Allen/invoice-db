@@ -24,11 +24,13 @@
 
 ## Planned
 
-- `v0.17.0` - User accounts
-- `v0.18.0` - Business profile
-- `v0.19.0` - Invoice settings
-- `v0.20.0` - Exports
-- `v0.21.0` - Audit history
-- `v0.22.0` - Recurring invoices
-- `v0.23.0` - Team support
+- `v0.17.0` - Catalog sourcing improvements
+- `v0.18.0` - Customer record improvements
+- `v0.19.0` - User accounts
+- `v0.20.0` - Business profile
+- `v0.21.0` - Invoice settings
+- `v0.22.0` - Exports
+- `v0.23.0` - Audit history
+- `v0.24.0` - Recurring invoices
+- `v0.25.0` - Team support
 - `v1.0.0` - Stable deployable release

@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.0] - 2026-08-17
+
+### Added
+
+* Product costs and invoice item cost snapshots across DB, services, CLI, API, and React frontend.
+* Invoice profit calculations with internal cost, profit, and line item controls.
+* Reporting foundation with revenue, outstanding due, cost, profit, status, and tag performance views.
+
 ## [0.15.0] - 2026-08-17
 
 ### Added

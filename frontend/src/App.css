@@ -933,6 +933,81 @@
   color: #cbd5e1;
 }
 
+.reporting-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.reporting-filters {
+  align-items: end;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 12rem)) auto auto;
+  padding: 1rem;
+}
+
+.reporting-filters label {
+  color: #374151;
+  display: grid;
+  font-size: 0.85rem;
+  font-weight: 700;
+  gap: 0.4rem;
+}
+
+.reporting-summary-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.reporting-summary-grid div {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-left: 4px solid #2563eb;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+}
+
+.reporting-summary-grid span {
+  color: #4b5563;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.reporting-summary-grid strong {
+  color: #111827;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.reporting-summary-grid .reporting-summary-revenue {
+  border-left-color: #2563eb;
+}
+
+.reporting-summary-grid .reporting-summary-outstanding {
+  border-left-color: #d97706;
+}
+
+.reporting-summary-grid .reporting-summary-cost {
+  border-left-color: #dc2626;
+}
+
+.reporting-summary-grid .reporting-summary-profit {
+  border-left-color: #16a34a;
+}
+
+@media (max-width: 800px) {
+  .reporting-filters,
+  .reporting-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 .detail-stack {
   display: grid;
