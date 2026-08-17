@@ -4,12 +4,13 @@ A relational database, CLI, API, React UI, and AI assistant application built wi
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.14.0**, the project includes support for:
+As of **v0.15.0**, the project includes support for:
 
-- Customer, invoice, product, product category, line-item, and payment workflows
+- Customer, invoice, invoice tag, product, product category, line-item, and payment workflows
 - Derived invoice totals, payment summaries, and invoice status rules
 - Customer and invoice detail previews with printable invoice output
 - Product catalog browsing, category filtering, and catalog-driven invoice item selection
+- Invoice tagging for job/context reporting
 - Typer CLI, Django REST API, and React + TypeScript frontend
 - Shared service layer used by CLI and API
 - Guarded natural-language invoice assistant
@@ -138,6 +139,9 @@ qwen3:0.6b
 - `invoicedb invoices list`
 - `invoicedb invoices list --include-items`
 - `invoicedb invoices get`
+- `invoicedb invoices tags`
+- `invoicedb invoices add-tag`
+- `invoicedb invoices remove-tag`
 - `invoicedb invoices count`
 - `invoicedb invoices update`
 - `invoicedb invoices set-status`
@@ -172,6 +176,14 @@ qwen3:0.6b
 - `invoicedb product-categories deactivate`
 - `invoicedb product-categories delete`
 
+### Tag commands
+- `invoicedb tags add`
+- `invoicedb tags list`
+- `invoicedb tags get`
+- `invoicedb tags update`
+- `invoicedb tags deactivate`
+- `invoicedb tags delete`
+
 ### Assistant command
 - `invoicedb assistant ask`
 - `invoicedb assistant ask --use-qwen`
@@ -199,6 +211,9 @@ qwen3:0.6b
 - `PATCH /api/invoices/{id}/status/`
 - `GET /api/invoices/{id}/items/`
 - `POST /api/invoices/{id}/items/`
+- `GET /api/invoices/{id}/tags/`
+- `POST /api/invoices/{id}/tags/`
+- `DELETE /api/invoices/{id}/tags/{tag_id}/`
 
 ### Invoice Items
 - `GET /api/invoice-items/{id}/`
@@ -228,6 +243,15 @@ qwen3:0.6b
 - `DELETE /api/product-categories/{id}/`
 - `PATCH /api/product-categories/{id}/deactivate/`
 
+### Tags
+- `GET /api/tags/`
+- `GET /api/tags/?active_only=true`
+- `POST /api/tags/`
+- `GET /api/tags/{id}/`
+- `PATCH /api/tags/{id}/`
+- `DELETE /api/tags/{id}/`
+- `PATCH /api/tags/{id}/deactivate/`
+
 ### Assistant
 
 - `POST /api/assistant/query/`
@@ -255,6 +279,12 @@ npm run test:run
 ```
 
 ## Version History
+
+### [v0.15.0]
+#### Added
+- Invoice tags across DB, services, CLI, API, and React frontend
+- Tag management under invoices with create, edit, deactivate, and delete workflows
+- Invoice detail tag assignment for existing active tags
 
 ### [v0.14.0]
 #### Added
@@ -371,10 +401,7 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.15.0] (Planned)
-- Invoice tags for job/context reporting
-
 ### [v0.16.0] (Planned)
-- Expanded reporting dashboard
+- Reporting foundation
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).

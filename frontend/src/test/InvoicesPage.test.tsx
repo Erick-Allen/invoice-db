@@ -6,6 +6,7 @@ import { InvoicesPage } from "../pages/InvoicesPage";
 import { createInvoice, listInvoices, updateInvoiceStatus } from "../api/invoices";
 import { createInvoiceItem } from "../api/invoiceItems";
 import { listProducts } from "../api/products";
+import { listTags } from "../api/tags";
 
 vi.mock("../api/customers", () => ({
     listCustomers: vi.fn(),
@@ -29,12 +30,21 @@ vi.mock("../api/invoiceItems", () => ({
     deleteInvoiceItem: vi.fn(),
 }));
 
+vi.mock("../api/tags", () => ({
+    createTag: vi.fn(),
+    deactivateTag: vi.fn(),
+    deleteTag: vi.fn(),
+    listTags: vi.fn(),
+    updateTag: vi.fn(),
+}));
+
 const mockedListCustomers = vi.mocked(listCustomers);
 const mockedCreateInvoice = vi.mocked(createInvoice);
 const mockedListInvoices = vi.mocked(listInvoices);
 const mockedCreateInvoiceItem = vi.mocked(createInvoiceItem);
 const mockedListProducts = vi.mocked(listProducts);
 const mockedUpdateInvoiceStatus = vi.mocked(updateInvoiceStatus);
+const mockedListTags = vi.mocked(listTags);
 
 function LocationDisplay() {
     const location = useLocation();
@@ -111,6 +121,7 @@ describe("InvoicesPage", () => {
                 is_active: true,
             },
         ]);
+        mockedListTags.mockResolvedValue([]);
 
     });
 

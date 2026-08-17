@@ -41,6 +41,17 @@ def create_triggers(cursor):
         WHERE id = NEW.id;
     END;
 
+    CREATE TRIGGER IF NOT EXISTS trigger_tags_updated
+    AFTER UPDATE ON
+        tags
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE tags
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
+
     CREATE TRIGGER IF NOT EXISTS trigger_products_updated
     AFTER UPDATE ON
         products
@@ -125,6 +136,40 @@ def create_invoice_schema(cursor):
         idx_invoices_date_due ON invoices(date_due);
     CREATE INDEX IF NOT EXISTS 
         idx_invoices_customer_date ON invoices(customer_id, date_issued);
+    """)
+
+def create_tag_schema(cursor):
+    cursor.executescript("""
+    -- Tags table: reusable invoice context labels for reporting and filtering.
+    CREATE TABLE IF NOT EXISTS tags (
+        id              INTEGER PRIMARY KEY,
+        name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
+        description     TEXT,
+        is_active       INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_tags_name_nocase ON tags(lower(name));
+    CREATE INDEX IF NOT EXISTS
+        idx_tags_is_active ON tags(is_active);
+
+    -- Invoice tags table: many-to-many assignments between invoices and reusable tags.
+    CREATE TABLE IF NOT EXISTS invoice_tags (
+        invoice_id      INTEGER NOT NULL,
+        tag_id          INTEGER NOT NULL,
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        PRIMARY KEY (invoice_id, tag_id),
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE RESTRICT
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_invoice_tags_invoice_id ON invoice_tags(invoice_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_invoice_tags_tag_id ON invoice_tags(tag_id);
     """)
 
 def create_product_category_schema(cursor):
@@ -255,6 +300,7 @@ def create_customer_summary_view(cursor):
 def create_schema(cursor):
     create_customer_schema(cursor)
     create_invoice_schema(cursor)
+    create_tag_schema(cursor)
     create_product_category_schema(cursor)
     create_product_schema(cursor)
     create_invoice_item_schema(cursor)

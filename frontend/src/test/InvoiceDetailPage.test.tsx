@@ -6,6 +6,7 @@ import { createInvoiceItem } from "../api/invoiceItems";
 import { getInvoice } from "../api/invoices";
 import { getPaymentSummary, listPayments } from "../api/payments";
 import { listProducts } from "../api/products";
+import { addInvoiceTag, listInvoiceTags, listTags, removeInvoiceTag } from "../api/tags";
 import { InvoiceDetailPage } from "../pages/InvoiceDetailPage";
 
 vi.mock("../api/customers", () => ({
@@ -29,12 +30,23 @@ vi.mock("../api/products", () => ({
     listProducts: vi.fn(),
 }));
 
+vi.mock("../api/tags", () => ({
+    addInvoiceTag: vi.fn(),
+    listInvoiceTags: vi.fn(),
+    listTags: vi.fn(),
+    removeInvoiceTag: vi.fn(),
+}));
+
 const mockedGetCustomer = vi.mocked(getCustomer);
 const mockedCreateInvoiceItem = vi.mocked(createInvoiceItem);
 const mockedGetInvoice = vi.mocked(getInvoice);
 const mockedGetPaymentSummary = vi.mocked(getPaymentSummary);
 const mockedListPayments = vi.mocked(listPayments);
 const mockedListProducts = vi.mocked(listProducts);
+const mockedAddInvoiceTag = vi.mocked(addInvoiceTag);
+const mockedListInvoiceTags = vi.mocked(listInvoiceTags);
+const mockedListTags = vi.mocked(listTags);
+const mockedRemoveInvoiceTag = vi.mocked(removeInvoiceTag);
 
 describe("InvoiceDetailPage", () => {
     beforeEach(() => {
@@ -100,6 +112,28 @@ describe("InvoiceDetailPage", () => {
                 is_active: true,
             },
         ]);
+        mockedListTags.mockResolvedValue([
+            {
+                id: 1,
+                name: "Commercial",
+                description: null,
+                is_active: true,
+            },
+        ]);
+        mockedListInvoiceTags.mockResolvedValue([
+            {
+                id: 2,
+                name: "Repair",
+                description: null,
+                is_active: true,
+            },
+        ]);
+        mockedAddInvoiceTag.mockResolvedValue({
+            invoice_id: 7,
+            tag_id: 1,
+            created_at: "2026-08-17T00:00:00",
+        });
+        mockedRemoveInvoiceTag.mockResolvedValue(undefined);
         mockedCreateInvoiceItem.mockResolvedValue({
             id: 12,
             invoice_id: 7,
@@ -124,6 +158,8 @@ describe("InvoiceDetailPage", () => {
         expect(mockedGetCustomer).toHaveBeenCalledWith(1);
         expect(mockedListPayments).toHaveBeenCalledWith(7);
         expect(mockedGetPaymentSummary).toHaveBeenCalledWith(7);
+        expect(mockedListTags).toHaveBeenCalledWith(true);
+        expect(mockedListInvoiceTags).toHaveBeenCalledWith(7);
 
         const summary = screen.getByLabelText("Invoice payment summary");
         expect(within(summary).getByText("$75.00")).toBeInTheDocument();
@@ -133,6 +169,7 @@ describe("InvoiceDetailPage", () => {
         expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
         expect(screen.getAllByText("Consulting").length).toBeGreaterThan(0);
         expect(screen.getAllByText("Labor").length).toBeGreaterThan(0);
+        expect(screen.getByText("Repair")).toBeInTheDocument();
         expect(screen.getByText("Deposit")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Back to invoices" })).toHaveAttribute("href", "/invoices");
     });
@@ -215,6 +252,30 @@ describe("InvoiceDetailPage", () => {
                 quantity: 3,
                 unit_price_cents: null,
             });
+        });
+    });
+
+    it("adds and removes invoice tags from detail", async () => {
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await screen.findByRole("heading", { name: "Invoice #7", level: 2 });
+        fireEvent.change(screen.getByLabelText("Tag for invoice"), { target: { value: "1" } });
+        fireEvent.click(screen.getByRole("button", { name: "Add Tag" }));
+
+        await waitFor(() => {
+            expect(mockedAddInvoiceTag).toHaveBeenCalledWith(7, { tag_id: 1 });
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: "Remove Repair tag" }));
+
+        await waitFor(() => {
+            expect(mockedRemoveInvoiceTag).toHaveBeenCalledWith(7, 2);
         });
     });
 });

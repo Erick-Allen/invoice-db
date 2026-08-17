@@ -5,6 +5,7 @@ import { createInvoiceItem } from "../api/invoiceItems";
 import { getInvoice, type Invoice } from "../api/invoices";
 import { listPayments, getPaymentSummary, type Payment, type PaymentSummary } from "../api/payments";
 import { listProducts, type Product } from "../api/products";
+import { addInvoiceTag, listInvoiceTags, listTags, removeInvoiceTag, type Tag } from "../api/tags";
 import { centsToDollars, dollarsToCents } from "../utils/money";
 
 function productLabel(product: Product | undefined, productId: number) {
@@ -27,10 +28,14 @@ export function InvoiceDetailPage() {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [paymentSummary, setPaymentSummary] = useState<PaymentSummary | null>(null);
     const [products, setProducts] = useState<Product[]>([]);
+    const [tags, setTags] = useState<Tag[]>([]);
+    const [invoiceTags, setInvoiceTags] = useState<Tag[]>([]);
     const [newItemProductId, setNewItemProductId] = useState("");
     const [newItemQuantity, setNewItemQuantity] = useState("1");
     const [newItemUnitPriceDollars, setNewItemUnitPriceDollars] = useState("");
+    const [newTagId, setNewTagId] = useState("");
     const [isItemSubmitting, setIsItemSubmitting] = useState(false);
+    const [isTagSubmitting, setIsTagSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
@@ -56,11 +61,13 @@ export function InvoiceDetailPage() {
             setError(null);
 
             const invoiceData = await getInvoice(parsedInvoiceId, true);
-            const [customerData, paymentData, summaryData, productData] = await Promise.all([
+            const [customerData, paymentData, summaryData, productData, tagData, invoiceTagData] = await Promise.all([
                 getCustomer(invoiceData.customer_id),
                 listPayments(invoiceData.id),
                 getPaymentSummary(invoiceData.id),
                 listProducts(),
+                listTags(true),
+                listInvoiceTags(invoiceData.id),
             ]);
 
             setInvoice(invoiceData);
@@ -68,6 +75,8 @@ export function InvoiceDetailPage() {
             setPayments(paymentData);
             setPaymentSummary(summaryData);
             setProducts(productData);
+            setTags(tagData);
+            setInvoiceTags(invoiceTagData);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load invoice detail.");
         } finally {
@@ -86,6 +95,11 @@ export function InvoiceDetailPage() {
     const activeProducts = useMemo(() => {
         return products.filter((product) => product.is_active);
     }, [products]);
+
+    const availableTags = useMemo(() => {
+        const attachedTagIds = new Set(invoiceTags.map((tag) => tag.id));
+        return tags.filter((tag) => !attachedTagIds.has(tag.id));
+    }, [tags, invoiceTags]);
 
     async function handleAddInvoiceItem() {
         if (!invoice) {
@@ -129,6 +143,43 @@ export function InvoiceDetailPage() {
             setActionError(err instanceof Error ? err.message : "Failed to add line item.");
         } finally {
             setIsItemSubmitting(false);
+        }
+    }
+
+    async function handleAddInvoiceTag() {
+        if (!invoice) {
+            return;
+        }
+
+        if (!newTagId) {
+            setActionError("Tag is required.");
+            return;
+        }
+
+        try {
+            setIsTagSubmitting(true);
+            setActionError(null);
+            await addInvoiceTag(invoice.id, { tag_id: Number(newTagId) });
+            setNewTagId("");
+            await loadInvoiceDetail();
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : "Failed to add tag.");
+        } finally {
+            setIsTagSubmitting(false);
+        }
+    }
+
+    async function handleRemoveInvoiceTag(tagId: number) {
+        if (!invoice) {
+            return;
+        }
+
+        try {
+            setActionError(null);
+            await removeInvoiceTag(invoice.id, tagId);
+            await loadInvoiceDetail();
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : "Failed to remove tag.");
         }
     }
 
@@ -270,12 +321,60 @@ export function InvoiceDetailPage() {
                         </div>
                     </section>
 
+                    {actionError && <p className="error-message">{actionError}</p>}
+
+                    <section className="detail-panel">
+                        <div className="section-header">
+                            <h3>Tags</h3>
+                        </div>
+
+                        {invoiceTags.length === 0 ? (
+                            <p className="empty-state">No tags assigned to this invoice.</p>
+                        ) : (
+                            <div className="tag-list" aria-label="Invoice tags">
+                                {invoiceTags.map((tag) => (
+                                    <span className="tag-chip" key={tag.id}>
+                                        {tag.name}
+                                        <button
+                                            type="button"
+                                            aria-label={`Remove ${tag.name} tag`}
+                                            onClick={() => handleRemoveInvoiceTag(tag.id)}
+                                        >
+                                            x
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="line-item-add detail-add-row">
+                            <select
+                                aria-label="Tag for invoice"
+                                value={newTagId}
+                                onChange={(event) => setNewTagId(event.target.value)}
+                            >
+                                <option value="">Select tag</option>
+                                {availableTags.map((tag) => (
+                                    <option key={tag.id} value={tag.id}>
+                                        {tag.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                className="small-action-button"
+                                type="button"
+                                onClick={handleAddInvoiceTag}
+                                disabled={isTagSubmitting || availableTags.length === 0}
+                            >
+                                {isTagSubmitting ? "Adding..." : "Add Tag"}
+                            </button>
+                        </div>
+                    </section>
+
                     <section className="detail-panel">
                         <div className="section-header">
                             <h3>Line Items</h3>
                         </div>
-
-                        {actionError && <p className="error-message">{actionError}</p>}
 
                         {invoice.status === "draft" && (
                             <div className="line-item-add detail-add-row">
