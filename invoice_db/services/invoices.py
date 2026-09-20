@@ -276,7 +276,11 @@ def count_invoices(
     customer = None
     if customer_id is not None:
        customer_row = _require_customer(cursor, customer_id)
-       customer = dict(customer_row)
+       customer = {
+           "id": customer_row.id,
+           "name": customer_row.name,
+           "email": customer_row.email,
+       }
     
     status = _normalize_invoice_status(status)
     try:

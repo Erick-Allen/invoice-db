@@ -6,7 +6,6 @@ venv/
 *.egg-info/
 dist/
 build/
-uv.lock
 
 # Python cache files
 **pycache**/
@@ -43,6 +42,7 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+frontend/.npm-cache/
 
 # OS files
 .DS_Store
