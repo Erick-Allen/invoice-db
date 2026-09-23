@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from invoice_db.db import connection
 from invoice_db.services import customers as customer_services
+from invoice_db.services import customer_locations as customer_location_services
 from invoice_db.services import invoices as invoice_services
 from invoice_db.services import invoice_items as invoice_item_services
 from invoice_db.services import payments as payment_services
@@ -25,11 +26,17 @@ from scripts.seed import get_connection
 
 from .serializers import (
     CustomerSerializer,
+    CustomerLocationSerializer,
+    CustomerLocationUpdateSerializer,
     CustomerUpdateSerializer,
+    LocationCreateSerializer,
+    LocationUpdateSerializer,
+    LocationSerializer,
     InvoiceCreateSerializer,
     InvoiceSerializer,
     InvoiceUpdateSerializer,
     InvoiceStatusUpdateSerializer,
+    LocationDetailSerializer,
     InvoiceItemSerializer,
     InvoiceItemCreateSerializer,
     InvoiceItemUpdateSerializer,
@@ -37,6 +44,7 @@ from .serializers import (
     PaymentCreateSerializer,
     PaymentSummarySerializer,
     ProductCategorySerializer,
+    ProductCategoryDetailSerializer,
     ProductCategoryUpdateSerializer,
     ProductSupplierCreateSerializer,
     ProductSupplierSerializer,
@@ -44,7 +52,10 @@ from .serializers import (
     ProductSerializer,
     ProductUpdateSerializer,
     SupplierSerializer,
+    SupplierLocationSerializer,
+    SupplierLocationUpdateSerializer,
     SupplierUpdateSerializer,
+    TagDetailSerializer,
     TagSerializer,
     TagUpdateSerializer,
     InvoiceTagSerializer,
@@ -55,6 +66,20 @@ router = AssistantRouter(use_qwen=True)
 
 def _include_items(request) -> bool:
     return request.query_params.get("include_items", "").lower() in {"1", "true", "yes"}
+
+def _optional_positive_int(value: str | None, label: str) -> int | None:
+    if value in (None, ""):
+        return None
+
+    try:
+        parsed_value = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(f"{label} must be a positive integer.") from exc
+
+    if parsed_value <= 0:
+        raise ValidationError(f"{label} must be a positive integer.")
+
+    return parsed_value
 
 def _with_invoice_items(cursor, invoice: dict) -> dict:
     invoice_data = dict(InvoiceSerializer(invoice).data)
@@ -130,6 +155,10 @@ class CustomerListCreateView(APIView):
                 cursor,
                 customer_name=serializer.validated_data['name'],
                 customer_email=serializer.validated_data['email'],
+                phone=serializer.validated_data.get("phone"),
+                customer_type=serializer.validated_data.get("customer_type", "residential"),
+                company_name=serializer.validated_data.get("company_name"),
+                is_active=serializer.validated_data.get("is_active", True),
                 )
         
         except ValidationError as e:
@@ -194,7 +223,15 @@ class CustomerDetailView(APIView):
                     cursor,
                     customer_id=customer_id,
                     new_name=serializer.validated_data.get("name"),
-                    new_email=serializer.validated_data.get("email")
+                    new_email=serializer.validated_data.get("email"),
+                    new_phone=serializer.validated_data.get("phone"),
+                    new_customer_type=serializer.validated_data.get("customer_type"),
+                    new_company_name=serializer.validated_data.get("company_name"),
+                    new_is_active=(
+                        serializer.validated_data["is_active"]
+                        if "is_active" in request.data
+                        else None
+                    ),
                 )
 
         except ValidationError as e:
@@ -249,17 +286,304 @@ class CustomerDetailView(APIView):
             )
         
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class CustomerLocationListCreateView(APIView):
+    def get(self, request, customer_id):
+        active_only = request.query_params.get("active_only", "").lower() in {"1", "true", "yes"}
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                locations = customer_location_services.list_customer_locations(
+                    cursor,
+                    customer_id=customer_id,
+                    active_only=active_only,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving customer locations."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = CustomerLocationSerializer(locations, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, customer_id):
+        serializer = CustomerLocationSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location = customer_location_services.create_customer_location(
+                    cursor,
+                    customer_id=customer_id,
+                    label=serializer.validated_data["label"],
+                    address_line1=serializer.validated_data["address_line1"],
+                    address_line2=serializer.validated_data.get("address_line2"),
+                    city=serializer.validated_data["city"],
+                    state=serializer.validated_data["state"],
+                    postal_code=serializer.validated_data["postal_code"],
+                    country=serializer.validated_data.get("country", "US"),
+                    is_primary=serializer.validated_data.get("is_primary", False),
+                    is_active=serializer.validated_data.get("is_active", True),
+                    notes=serializer.validated_data.get("notes"),
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the customer location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the customer location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = CustomerLocationSerializer(location)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CustomerLocationDetailView(APIView):
+    def get(self, request, customer_id, location_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location = customer_location_services.get_customer_location_by_id(
+                    cursor,
+                    customer_id=customer_id,
+                    location_id=location_id,
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the customer location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = CustomerLocationSerializer(location)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, customer_id, location_id):
+        serializer = CustomerLocationUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location = customer_location_services.update_customer_location_by_id(
+                    cursor,
+                    customer_id=customer_id,
+                    location_id=location_id,
+                    label=serializer.validated_data.get("label"),
+                    address_line1=serializer.validated_data.get("address_line1"),
+                    address_line2=serializer.validated_data.get("address_line2"),
+                    city=serializer.validated_data.get("city"),
+                    state=serializer.validated_data.get("state"),
+                    postal_code=serializer.validated_data.get("postal_code"),
+                    country=serializer.validated_data.get("country"),
+                    is_primary=serializer.validated_data.get("is_primary"),
+                    is_active=serializer.validated_data.get("is_active"),
+                    notes=serializer.validated_data.get("notes"),
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the customer location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the customer location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = CustomerLocationSerializer(location)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, customer_id, location_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                customer_location_services.delete_customer_location(
+                    cursor,
+                    customer_id=customer_id,
+                    location_id=location_id,
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except ConflictError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deleting the customer location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the customer location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class LocationListView(APIView):
+    def get(self, request):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                locations = customer_location_services.list_locations(cursor)
+
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving locations."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = LocationSerializer(locations, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = LocationCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location = customer_location_services.create_location(
+                    cursor,
+                    address_line1=serializer.validated_data["address_line1"],
+                    address_line2=serializer.validated_data.get("address_line2"),
+                    city=serializer.validated_data["city"],
+                    state=serializer.validated_data["state"],
+                    postal_code=serializer.validated_data["postal_code"],
+                    country=serializer.validated_data.get("country", "US"),
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = LocationSerializer(location)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class LocationDetailView(APIView):
+    def get(self, request, location_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location_detail = customer_location_services.get_location_detail(
+                    cursor,
+                    location_id=location_id,
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = LocationDetailSerializer(location_detail)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, location_id):
+        serializer = LocationUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location = customer_location_services.update_location_by_id(
+                    cursor,
+                    location_id=location_id,
+                    address_line1=serializer.validated_data.get("address_line1"),
+                    address_line2=serializer.validated_data.get("address_line2"),
+                    city=serializer.validated_data.get("city"),
+                    state=serializer.validated_data.get("state"),
+                    postal_code=serializer.validated_data.get("postal_code"),
+                    country=serializer.validated_data.get("country"),
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = LocationSerializer(location)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 class InvoiceListCreateView(APIView):
     def get(self, request):
         include_items = _include_items(request)
 
         try:
+            customer_id = _optional_positive_int(request.query_params.get("customer_id"), "Customer id")
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                invoices = invoice_services.list_invoices(cursor=cursor)
+                invoices = invoice_services.list_invoices(cursor=cursor, customer_id=customer_id)
                 if include_items:
                     invoices = [_with_invoice_items(cursor, invoice) for invoice in invoices]
 
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
         except sqlite3.Error:
             return Response(
                 {"detail": "A database error occurred while retrieving invoices."},
@@ -286,6 +610,9 @@ class InvoiceListCreateView(APIView):
                 invoice = invoice_services.create_invoice(
                     cursor,
                     customer_id=serializer.validated_data['customer_id'],
+                    location_id=serializer.validated_data.get("location_id"),
+                    title=serializer.validated_data.get("title"),
+                    description=serializer.validated_data.get("description"),
                     date_issued=date_issued.isoformat() if date_issued else None,
                     date_due=date_due.isoformat() if date_due else None,
                 )
@@ -360,9 +687,15 @@ class InvoiceDetailView(APIView):
                 invoice = invoice_services.update_invoice_by_id(
                     cursor,
                     invoice_id=invoice_id,
+                    new_title=serializer.validated_data.get("title"),
+                    update_title="title" in serializer.validated_data,
+                    new_description=serializer.validated_data.get("description"),
+                    update_description="description" in serializer.validated_data,
                     new_date_issued=date_issued.isoformat() if date_issued else None,
                     new_date_due=date_due.isoformat() if date_due else None,
                     new_customer_id=serializer.validated_data.get("customer_id"),
+                    new_location_id=serializer.validated_data.get("location_id"),
+                    update_location="location_id" in serializer.validated_data,
                 )
         
         except ValidationError as e:
@@ -924,6 +1257,11 @@ class ProductDetailView(APIView):
                 {"detail": str(e)},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except ConflictError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
         except sqlite3.Error:
             return Response(
                 {"detail": "A database error occurred while deleting the product."},
@@ -1062,6 +1400,34 @@ class ProductCategoryDetailView(APIView):
             )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class ProductCategoryOverviewView(APIView):
+    def get(self, request, category_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                category_detail = product_category_services.get_product_category_detail(
+                    cursor,
+                    category_id=category_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving product category detail."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = ProductCategoryDetailSerializer(category_detail)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ProductCategoryDeactivateView(APIView):
     def patch(self, request, category_id):
@@ -1366,6 +1732,166 @@ class SupplierRemoveFromProductsView(APIView):
 
         return Response(result, status=status.HTTP_200_OK)
 
+class SupplierLocationListCreateView(APIView):
+    def get(self, request, supplier_id):
+        active_only = request.query_params.get("active_only", "").lower() in {"1", "true", "yes"}
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                locations = customer_location_services.list_supplier_locations(
+                    cursor,
+                    supplier_id=supplier_id,
+                    active_only=active_only,
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving supplier locations."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierLocationSerializer(locations, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, supplier_id):
+        serializer = SupplierLocationSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location = customer_location_services.create_supplier_location(
+                    cursor,
+                    supplier_id=supplier_id,
+                    label=serializer.validated_data["label"],
+                    address_line1=serializer.validated_data["address_line1"],
+                    address_line2=serializer.validated_data.get("address_line2"),
+                    city=serializer.validated_data["city"],
+                    state=serializer.validated_data["state"],
+                    postal_code=serializer.validated_data["postal_code"],
+                    country=serializer.validated_data.get("country", "US"),
+                    is_primary=serializer.validated_data.get("is_primary", False),
+                    is_active=serializer.validated_data.get("is_active", True),
+                    notes=serializer.validated_data.get("notes"),
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while creating the supplier location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the supplier location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierLocationSerializer(location)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class SupplierLocationDetailView(APIView):
+    def get(self, request, supplier_id, location_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location = customer_location_services.get_supplier_location_by_id(
+                    cursor,
+                    supplier_id=supplier_id,
+                    location_id=location_id,
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the supplier location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierLocationSerializer(location)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, supplier_id, location_id):
+        serializer = SupplierLocationUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                location = customer_location_services.update_supplier_location_by_id(
+                    cursor,
+                    supplier_id=supplier_id,
+                    location_id=location_id,
+                    label=serializer.validated_data.get("label"),
+                    address_line1=serializer.validated_data.get("address_line1"),
+                    address_line2=serializer.validated_data.get("address_line2"),
+                    city=serializer.validated_data.get("city"),
+                    state=serializer.validated_data.get("state"),
+                    postal_code=serializer.validated_data.get("postal_code"),
+                    country=serializer.validated_data.get("country"),
+                    is_primary=serializer.validated_data.get("is_primary"),
+                    is_active=serializer.validated_data.get("is_active"),
+                    notes=serializer.validated_data.get("notes"),
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while updating the supplier location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the supplier location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = SupplierLocationSerializer(location)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, supplier_id, location_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                customer_location_services.delete_supplier_location(
+                    cursor,
+                    supplier_id=supplier_id,
+                    location_id=location_id,
+                )
+
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except ConflictError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
+        except ServiceError:
+            return Response(
+                {"detail": "Something went wrong while deleting the supplier location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the supplier location."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 class ProductSupplierListCreateView(APIView):
     def get(self, request, product_id):
         try:
@@ -1655,6 +2181,31 @@ class TagDetailView(APIView):
             )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class TagOverviewView(APIView):
+    def get(self, request, tag_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                tag_detail = tag_services.get_tag_detail(cursor, tag_id=tag_id)
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving tag detail."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = TagDetailSerializer(tag_detail)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class TagDeactivateView(APIView):
     def patch(self, request, tag_id):

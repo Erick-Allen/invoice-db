@@ -2,6 +2,7 @@ import re
 
 EMAIL_RE = re.compile(r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$")
 NAME_RE = re.compile(r"^[A-Za-z][A-Z-a-z' -]*[A-Za-z]$")
+PHONE_RE = re.compile(r"^\d{10}$")
 VALID_CUSTOMER_TYPES = {"residential", "commercial", "property_manager", "other"}
 
 # Customer
@@ -40,6 +41,19 @@ def normalize_optional_customer_text(value: str | None) -> str | None:
         return None
     value = " ".join(value.strip().split())
     return value or None
+
+def normalize_customer_phone(phone: str | None) -> str | None:
+    if phone is None:
+        return None
+
+    phone = phone.strip()
+    if phone == "":
+        return None
+
+    if not PHONE_RE.match(phone):
+        raise ValueError("Customer phone must be exactly 10 digits.")
+
+    return phone
 
 # Invoices
 def validate_total(amount: int | float) -> int:

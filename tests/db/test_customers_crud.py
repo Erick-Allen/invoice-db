@@ -98,16 +98,32 @@ def test_create_commercial_customer_with_company_name(cursor):
         cursor,
         "Tom",
         "tom@test.com",
-        phone="555-0100",
+        phone="4075550100",
         customer_type="commercial",
         company_name="Tom Services",
     )
 
     customer = customers.get_customer_by_id(cursor, customer_id)
 
-    assert customer.phone == "555-0100"
+    assert customer.phone == "4075550100"
     assert customer.customer_type == "commercial"
     assert customer.company_name == "Tom Services"
+
+def test_create_customer_rejects_phone_with_letters(cursor):
+    try:
+        customers.create_customer(cursor, "Tom", "tom@test.com", phone="555CALLNOW")
+    except ValueError as exc:
+        assert "Customer phone must be exactly 10 digits" in str(exc)
+    else:
+        raise AssertionError("Expected invalid phone to raise ValueError.")
+
+def test_update_customer_rejects_phone_with_letters(cursor, customer_john):
+    try:
+        customers.update_customer(cursor, customer_john, phone="555CALLNOW")
+    except ValueError as exc:
+        assert "Customer phone must be exactly 10 digits" in str(exc)
+    else:
+        raise AssertionError("Expected invalid phone to raise ValueError.")
 
 def test_residential_customer_clears_company_name(cursor):
     customer_id = customers.create_customer(

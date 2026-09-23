@@ -6,7 +6,18 @@ CUSTOMER_JOHN_EMAIL = "john@test.com"
 def test_customers_help_commands(runner):
     result = runner.invoke(app, ["customers", "--help"])
     assert result.exit_code == 0
-    expected_commands = ["create", "delete", "get", "list", "update"]
+    expected_commands = [
+        "add-location",
+        "create",
+        "deactivate-location",
+        "delete",
+        "delete-location",
+        "get",
+        "list",
+        "list-locations",
+        "update",
+        "update-location",
+    ]
     for cmd in expected_commands:
         assert cmd in result.stdout
 
@@ -36,6 +47,42 @@ def test_customer_delete(customer_john, runner, temp_db):
     assert result.exit_code == 0, result.stdout
     result = runner.invoke(app, ["customers", "get", "--email", CUSTOMER_JOHN_EMAIL, "--db", temp_db])
     assert "Customer not found" in result.stdout
+
+def test_customer_location_commands(customer_john, runner, temp_db):
+    result = runner.invoke(app, [
+        "customers", "add-location",
+        "--customer-id", str(customer_john),
+        "--label", "Home",
+        "--address-line1", "123 Main St",
+        "--city", "Orlando",
+        "--state", "FL",
+        "--postal-code", "32801",
+        "--db", temp_db,
+    ])
+    assert result.exit_code == 0, result.stdout
+    assert "Created customer location" in result.stdout
+    assert "Home" in result.stdout
+
+    result = runner.invoke(app, ["customers", "list-locations", "--customer-id", str(customer_john), "--db", temp_db])
+    assert result.exit_code == 0, result.stdout
+    assert "123 Main St" in result.stdout
+
+    result = runner.invoke(app, [
+        "customers", "update-location",
+        "--customer-id", str(customer_john),
+        "--location-id", "1",
+        "--label", "Main Office",
+        "--db", temp_db,
+    ])
+    assert result.exit_code == 0, result.stdout
+    assert "Main Office" in result.stdout
+
+    result = runner.invoke(app, ["customers", "deactivate-location", "--customer-id", str(customer_john), "--location-id", "1", "--db", temp_db])
+    assert result.exit_code == 0, result.stdout
+
+    result = runner.invoke(app, ["customers", "delete-location", "--customer-id", str(customer_john), "--location-id", "1", "--db", temp_db])
+    assert result.exit_code == 0, result.stdout
+    assert "Deleted customer location" in result.stdout
 
 
 # Negative Tests

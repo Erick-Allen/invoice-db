@@ -79,6 +79,30 @@ def test_create_customer_with_invalid_email_returns_400(api_client, test_db):
     response = post_customer(api_client, name="John", email="not-an-email")
     assert response.status_code == 400
 
+def test_create_customer_with_invalid_phone_returns_400(api_client, test_db):
+    response = api_client.post(
+        "/api/customers/",
+        {
+            "name": "John",
+            "email": "john@example.com",
+            "phone": "555CALLNOW",
+        },
+        format="json",
+    )
+    assert response.status_code == 400
+
+def test_create_customer_with_short_phone_returns_400(api_client, test_db):
+    response = api_client.post(
+        "/api/customers/",
+        {
+            "name": "John",
+            "email": "john@example.com",
+            "phone": "5550100",
+        },
+        format="json",
+    )
+    assert response.status_code == 400
+
 def test_create_customer_with_duplicate_email_returns_400(api_client, test_db):
     create_response = post_customer(api_client, name="John", email="john@example.com")
     response = post_customer(api_client, name="John Duplicate", email="john@example.com")
@@ -107,6 +131,16 @@ def test_patch_customer_with_duplicate_email_returns_400(api_client, test_db):
         f"/api/customers/{customer_id}/",
         {"email": "john@example.com"},
         fomrat="json"
+    )
+    assert response.status_code == 400
+
+def test_patch_customer_with_invalid_phone_returns_400(api_client, test_db):
+    create_response = post_customer(api_client, name="John", email="john@example.com")
+    customer_id = create_response.json()['id']
+    response = api_client.patch(
+        f"/api/customers/{customer_id}/",
+        {"phone": "555CALLNOW"},
+        format="json",
     )
     assert response.status_code == 400
 

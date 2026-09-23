@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from sqlite3 import Row
 
 from .validators import (
+    normalize_customer_phone,
     normalize_customer_type,
     normalize_email,
     normalize_is_active,
@@ -75,7 +76,7 @@ def create_customer(
     )
     name = normalize_name(customer.name)
     email = normalize_email(customer.email)
-    phone = normalize_optional_customer_text(customer.phone)
+    phone = normalize_customer_phone(customer.phone)
     customer_type = normalize_customer_type(customer.customer_type)
     company_name = _normalize_company_name(customer.company_name, customer_type)
     is_active = normalize_is_active(customer.is_active)
@@ -177,7 +178,7 @@ def update_customer(
         params.append(normalize_email(email))
     if phone is not None:
         updates.append("phone = ?")
-        params.append(normalize_optional_customer_text(phone))
+        params.append(normalize_customer_phone(phone))
     if customer_type is not None:
         next_customer_type = normalize_customer_type(customer_type)
         updates.append("customer_type = ?")

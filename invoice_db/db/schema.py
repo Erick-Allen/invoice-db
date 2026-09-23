@@ -29,6 +29,39 @@ def create_triggers(cursor):
         SET updated_at = datetime('now', 'localtime')
         WHERE id = NEW.id;
     END;
+
+    CREATE TRIGGER IF NOT EXISTS trigger_customer_locations_updated
+    AFTER UPDATE ON
+        customer_locations
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE customer_locations
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trigger_supplier_locations_updated
+    AFTER UPDATE ON
+        supplier_locations
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE supplier_locations
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trigger_locations_updated
+    AFTER UPDATE ON
+        locations
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE locations
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
                          
     CREATE TRIGGER IF NOT EXISTS trigger_invoices_updated
     AFTER UPDATE ON
@@ -142,6 +175,9 @@ def create_invoice_schema(cursor):
     CREATE TABLE IF NOT EXISTS invoices (
         id              INTEGER PRIMARY KEY,
         customer_id     INTEGER NOT NULL,
+        location_id     INTEGER,
+        title           TEXT,
+        description     TEXT,
         date_issued     TEXT,
         date_due        TEXT,
         total           INTEGER NOT NULL DEFAULT 0 
@@ -154,19 +190,93 @@ def create_invoice_schema(cursor):
         date_issued IS NULL
         OR date_due IS NULL
         OR date_issued <= date_due                     
-    )
-    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE -- deletes invoices when customer removed
+    ),
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    FOREIGN KEY (location_id) REFERENCES customer_locations(id) ON DELETE SET NULL
     );
                          
     -- Index frequent queries and filtering patterns.
     CREATE INDEX IF NOT EXISTS 
         idx_invoices_customer_id ON invoices(customer_id);                         
+    CREATE INDEX IF NOT EXISTS
+        idx_invoices_location_id ON invoices(location_id);
     CREATE INDEX IF NOT EXISTS 
         idx_invoices_date_issued ON invoices(date_issued);
     CREATE INDEX IF NOT EXISTS 
         idx_invoices_date_due ON invoices(date_due);
     CREATE INDEX IF NOT EXISTS 
         idx_invoices_customer_date ON invoices(customer_id, date_issued);
+    """)
+    cursor.execute("PRAGMA table_info(invoices)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "title" not in columns:
+        cursor.execute("ALTER TABLE invoices ADD COLUMN title TEXT")
+    if "description" not in columns:
+        cursor.execute("ALTER TABLE invoices ADD COLUMN description TEXT")
+
+def create_location_schema(cursor):
+    cursor.executescript("""
+    -- Locations table: stores globally unique physical addresses.
+    CREATE TABLE IF NOT EXISTS locations (
+        id              INTEGER PRIMARY KEY,
+        address_line1   TEXT    NOT NULL CHECK (length(trim(address_line1)) > 0),
+        address_line2   TEXT,
+        city            TEXT    NOT NULL CHECK (length(trim(city)) > 0),
+        state           TEXT    NOT NULL CHECK (length(trim(state)) > 0),
+        postal_code     TEXT    NOT NULL CHECK (length(trim(postal_code)) > 0),
+        country         TEXT    NOT NULL DEFAULT 'US' CHECK (length(trim(country)) > 0),
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_locations_unique_address
+        ON locations(
+            lower(trim(address_line1)),
+            lower(trim(COALESCE(address_line2, ''))),
+            lower(trim(city)),
+            lower(trim(state)),
+            lower(trim(postal_code)),
+            lower(trim(country))
+        );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_locations_postal_code ON locations(postal_code);
+    """)
+
+
+def create_customer_location_schema(cursor):
+    cursor.executescript("""
+    -- Customer locations table: links customers to reusable service/billing/job addresses.
+    CREATE TABLE IF NOT EXISTS customer_locations (
+        id              INTEGER PRIMARY KEY,
+        customer_id     INTEGER NOT NULL,
+        location_id     INTEGER NOT NULL,
+        label           TEXT    NOT NULL CHECK (length(trim(label)) > 0),
+        is_primary      INTEGER NOT NULL DEFAULT 0
+                                CHECK (is_primary IN (0, 1)),
+        is_active       INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+        notes           TEXT,
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+        FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_customer_locations_customer_id ON customer_locations(customer_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_customer_locations_location_id ON customer_locations(location_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_customer_locations_is_active ON customer_locations(is_active);
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_customer_locations_customer_location
+        ON customer_locations(customer_id, location_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_customer_locations_one_primary
+        ON customer_locations(customer_id)
+        WHERE is_primary = 1 AND is_active = 1;
     """)
 
 def create_tag_schema(cursor):
@@ -288,6 +398,42 @@ def create_supplier_schema(cursor):
         idx_suppliers_is_active ON suppliers(is_active);
     """)
 
+
+def create_supplier_location_schema(cursor):
+    cursor.executescript("""
+    -- Supplier locations table: links suppliers to reusable physical addresses.
+    CREATE TABLE IF NOT EXISTS supplier_locations (
+        id              INTEGER PRIMARY KEY,
+        supplier_id     INTEGER NOT NULL,
+        location_id     INTEGER NOT NULL,
+        label           TEXT    NOT NULL CHECK (length(trim(label)) > 0),
+        is_primary      INTEGER NOT NULL DEFAULT 0
+                                CHECK (is_primary IN (0, 1)),
+        is_active       INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+        notes           TEXT,
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE,
+        FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_supplier_locations_supplier_id ON supplier_locations(supplier_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_supplier_locations_location_id ON supplier_locations(location_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_supplier_locations_is_active ON supplier_locations(is_active);
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_supplier_locations_supplier_location
+        ON supplier_locations(supplier_id, location_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_supplier_locations_one_primary
+        ON supplier_locations(supplier_id)
+        WHERE is_primary = 1 AND is_active = 1;
+    """)
+
+
 def create_product_supplier_schema(cursor):
     cursor.executescript("""
     -- Product suppliers table: many-to-many product source assignments.
@@ -380,6 +526,10 @@ def create_customer_summary_view(cursor):
         c.id AS customer_id,
         c.name, 
         c.email,
+        c.phone,
+        c.customer_type,
+        c.company_name,
+        c.is_active,
         COUNT(i.id) AS invoice_count,
         COALESCE(SUM(i.total), 0) AS total_cents
     FROM 
@@ -387,16 +537,19 @@ def create_customer_summary_view(cursor):
     LEFT JOIN 
         invoices i ON i.customer_id = c.id
     GROUP BY 
-        c.id, c.name, c.email;
+        c.id, c.name, c.email, c.phone, c.customer_type, c.company_name, c.is_active;
     """)
 
 def create_schema(cursor):
     create_customer_schema(cursor)
+    create_location_schema(cursor)
+    create_customer_location_schema(cursor)
     create_invoice_schema(cursor)
     create_tag_schema(cursor)
     create_product_category_schema(cursor)
     create_product_schema(cursor)
     create_supplier_schema(cursor)
+    create_supplier_location_schema(cursor)
     create_product_supplier_schema(cursor)
     create_invoice_item_schema(cursor)
     create_payment_schema(cursor)
