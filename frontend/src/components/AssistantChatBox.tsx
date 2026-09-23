@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { askAssistant } from "../api/assistant";
+import { formatDisplayDate } from "../utils/date";
 
 type AssistantInvoice = {
   id: number;
@@ -26,10 +27,6 @@ const suggestedPrompts = [
 
 function formatMoney(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
-}
-
-function formatDate(date?: string) {
-  return date || "—";
 }
 
 export function AssistantChatBox() {
@@ -137,7 +134,7 @@ export function AssistantChatBox() {
                           <span className="status-badge">{invoice.status}</span>
                         </td>
                         <td>{formatMoney(invoice.total)}</td>
-                        <td>{formatDate(invoice.date_due)}</td>
+                        <td>{formatDisplayDate(invoice.date_due)}</td>
                       </tr>
                     ))}
                   </tbody>

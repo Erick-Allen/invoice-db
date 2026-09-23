@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 INVALID_ID = 9999
 
 def test_list_invoices_returns_200(api_client, test_db):
@@ -6,11 +8,32 @@ def test_list_invoices_returns_200(api_client, test_db):
     assert response.status_code == 200
     assert response.json() == []
 
+def test_list_invoices_filters_by_customer_id(api_client, test_db, customer_john_id, post_invoice):
+    john_invoice = post_invoice(customer_id=customer_john_id).json()
+    other_customer = api_client.post(
+        "/api/customers/",
+        {"name": "Alice", "email": "alice@test.com"},
+        format="json",
+    ).json()
+    post_invoice(customer_id=other_customer["id"])
+
+    response = api_client.get(f"/api/invoices/?customer_id={customer_john_id}&include_items=true")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [invoice["id"] for invoice in data] == [john_invoice["id"]]
+    assert data[0]["customer_id"] == customer_john_id
+    assert data[0]["items"] == []
+    assert data[0]["cost_total_cents"] == 0
+    assert data[0]["profit_total_cents"] == 0
+
 def test_create_invoice_returns_201(api_client, test_db, customer_john_id):
     response =  api_client.post(
         "/api/invoices/",
         {
             "customer_id": customer_john_id,
+            "title": "Mini split install",
+            "description": "Installed mini split in upstairs bedroom.",
             "date_issued": "2026-05-20",
             "date_due": "2026-06-20",
         },
@@ -21,10 +44,69 @@ def test_create_invoice_returns_201(api_client, test_db, customer_john_id):
     data = response.json()
     assert data["id"] == 1
     assert data["customer_id"] == customer_john_id
+    assert data["title"] == "Mini split install"
+    assert data["description"] == "Installed mini split in upstairs bedroom."
     assert data["date_issued"] == "2026-05-20" 
     assert data["date_due"] == "2026-06-20"
     assert data["total"] == 0
     assert data["status"] == "draft"
+    assert data["location_id"] is None
+
+def test_create_invoice_with_location(api_client, test_db, customer_john_id):
+    location_response = api_client.post(
+        f"/api/customers/{customer_john_id}/locations/",
+        {
+            "label": "Home",
+            "address_line1": "123 Main St",
+            "city": "Orlando",
+            "state": "FL",
+            "postal_code": "32801",
+        },
+        format="json",
+    )
+    location_id = location_response.json()["id"]
+
+    response = api_client.post(
+        "/api/invoices/",
+        {
+            "customer_id": customer_john_id,
+            "location_id": location_id,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["location_id"] == location_id
+
+def test_create_invoice_rejects_other_customer_location(api_client, test_db, customer_john_id):
+    other_customer = api_client.post(
+        "/api/customers/",
+        {"name": "Alice", "email": "alice@test.com"},
+        format="json",
+    ).json()
+    location = api_client.post(
+        f"/api/customers/{other_customer['id']}/locations/",
+        {
+            "label": "Office",
+            "address_line1": "456 Office Rd",
+            "city": "Orlando",
+            "state": "FL",
+            "postal_code": "32801",
+        },
+        format="json",
+    ).json()
+
+    response = api_client.post(
+        "/api/invoices/",
+        {
+            "customer_id": customer_john_id,
+            "location_id": location["id"],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "does not belong" in response.json()["detail"]
 
 def test_get_invoice_returns_200(api_client, test_db, customer_john_id, post_invoice):
     invoice_response = post_invoice(customer_id=customer_john_id)
@@ -129,6 +211,135 @@ def test_patch_invoice_with_single_field_returns_200(api_client, test_db, custom
     assert data['customer_id'] == customer_john_id
     assert data['date_due'] == "2026-07-20"
 
+
+def test_patch_invoice_title_returns_200(api_client, test_db, customer_john_id, post_invoice):
+    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_id = invoice_response.json()['id']
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {
+            "title": "Maintenance visit",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "Maintenance visit"
+
+
+def test_patch_invoice_title_can_clear(api_client, test_db, customer_john_id, post_invoice):
+    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_id = invoice_response.json()['id']
+    api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {
+            "title": "Maintenance visit",
+        },
+        format="json",
+    )
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {
+            "title": None,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["title"] is None
+
+
+def test_patch_invoice_description_returns_200(api_client, test_db, customer_john_id, post_invoice):
+    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_id = invoice_response.json()['id']
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {
+            "description": "Replaced capacitor and verified system pressures.",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["description"] == "Replaced capacitor and verified system pressures."
+
+
+def test_patch_invoice_description_can_clear(api_client, test_db, customer_john_id, post_invoice):
+    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_id = invoice_response.json()['id']
+    api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {
+            "description": "Replaced capacitor and verified system pressures.",
+        },
+        format="json",
+    )
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {
+            "description": None,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["description"] is None
+
+def test_patch_invoice_location(api_client, test_db, customer_john_id, post_invoice):
+    invoice_id = post_invoice(customer_id=customer_john_id).json()["id"]
+    location = api_client.post(
+        f"/api/customers/{customer_john_id}/locations/",
+        {
+            "label": "Home",
+            "address_line1": "123 Main St",
+            "city": "Orlando",
+            "state": "FL",
+            "postal_code": "32801",
+        },
+        format="json",
+    ).json()
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {"location_id": location["id"]},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["location_id"] == location["id"]
+
+def test_patch_invoice_can_clear_location(api_client, test_db, customer_john_id, post_invoice):
+    location = api_client.post(
+        f"/api/customers/{customer_john_id}/locations/",
+        {
+            "label": "Home",
+            "address_line1": "123 Main St",
+            "city": "Orlando",
+            "state": "FL",
+            "postal_code": "32801",
+        },
+        format="json",
+    ).json()
+    invoice_id = post_invoice(customer_id=customer_john_id).json()["id"]
+    api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {"location_id": location["id"]},
+        format="json",
+    )
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice_id}/",
+        {"location_id": None},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["location_id"] is None
+
 def test_patch_invoice_with_multiple_fields_returns_200(api_client, test_db, customer_john_id, post_invoice):
     invoice_response = post_invoice(customer_id=customer_john_id)
     invoice_id = invoice_response.json()['id']
@@ -151,7 +362,7 @@ def test_patch_invoice_with_multiple_fields_returns_200(api_client, test_db, cus
     assert data['date_due'] == "2026-07-20"
 
 def test_patch_invoice_status_returns_200(api_client, test_db, customer_john_id, post_invoice):
-    invoice_response = post_invoice(customer_id=customer_john_id)
+    invoice_response = post_invoice(customer_id=customer_john_id, date_issued=None, date_due=None)
     invoice_id = invoice_response.json()['id']
 
     response = api_client.patch(
@@ -167,6 +378,8 @@ def test_patch_invoice_status_returns_200(api_client, test_db, customer_john_id,
     data = response.json()
     assert data["id"] == invoice_id
     assert data["status"] == "sent"
+    assert data["date_issued"] == date.today().isoformat()
+    assert data["date_due"] == (date.today() + timedelta(days=30)).isoformat()
 
 def test_patch_invoice_status_rejects_manual_sent_to_paid(api_client, test_db, customer_john_id, post_invoice):
     invoice_response = post_invoice(customer_id=customer_john_id)

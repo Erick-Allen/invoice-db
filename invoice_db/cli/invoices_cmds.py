@@ -14,6 +14,9 @@ invoices_app = typer.Typer(help="Invoice commands.")
 @invoices_app.command("create", help="Create an invoice for a customer.")
 def create_invoice(
     customer_id: int = typer.Option(..., "-c", "--customer-id", help="The customer to assign this invoice to."),
+    location_id: Optional[int] = typer.Option(None, "-l", "--location-id", help="Customer location for this invoice."),
+    title: Optional[str] = typer.Option(None, "--title", help="Human-readable invoice title."),
+    description: Optional[str] = typer.Option(None, "--description", help="Description of the work performed."),
     date_issued: Optional[str] = typer.Option(None, "--date-issued", help="Date invoice was issued."),
     date_due: Optional[str] = typer.Option(None, "--date-due", help="Date invoice is due."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
@@ -23,6 +26,9 @@ def create_invoice(
             invoice = invoices_services.create_invoice(
                 cursor,
                 customer_id=customer_id,
+                location_id=location_id,
+                title=title,
+                description=description,
                 date_issued=date_issued,
                 date_due=date_due,
             )
@@ -191,18 +197,40 @@ def overdue_invoices(
         render_invoices.no_invoices_found()    
 
         
-@invoices_app.command("update", help="Update an invoice's date_issued, date_due, or customer.")
+@invoices_app.command("update", help="Update an invoice's title, description, dates, customer, or location.")
 def update_invoice(
     invoice_id: int = typer.Option(..., "-i", "--id", help="Invoice id to select."),
+    new_title: Optional[str] = typer.Option(None, "--title", help="Human-readable invoice title."),
+    clear_title: bool = typer.Option(False, "--clear-title", help="Remove the invoice title."),
+    new_description: Optional[str] = typer.Option(None, "--description", help="Description of the work performed."),
+    clear_description: bool = typer.Option(False, "--clear-description", help="Remove the invoice description."),
     new_date_issued: Optional[str] = typer.Option(None, "--date-issued", help="Date to update date issued."),
     new_date_due: Optional[str] = typer.Option(None, "--date-due", help="Date to update due date."),
     new_customer_id: Optional[int] = typer.Option(None, "--customer", help="customer to append the invoice to."),
+    new_location_id: Optional[int] = typer.Option(None, "--location-id", help="Customer location for this invoice."),
+    clear_location: bool = typer.Option(False, "--clear-location", help="Remove the invoice location."),
     db_path: str = typer.Option(connection.DB_PATH, "--db", help="Path to SQLite DB.")
 ):
+    if new_title is not None and clear_title:
+        ui.console.print("Please provide only one of --title or --clear-title", style="warning")
+        raise typer.Exit(code=1)
+    if new_description is not None and clear_description:
+        ui.console.print("Please provide only one of --description or --clear-description", style="warning")
+        raise typer.Exit(code=1)
+    if new_location_id is not None and clear_location:
+        ui.console.print("Please provide only one of --location-id or --clear-location", style="warning")
+        raise typer.Exit(code=1)
+
     if (
         new_date_issued is None 
         and new_date_due is None 
         and new_customer_id is None
+        and new_title is None
+        and not clear_title
+        and new_description is None
+        and not clear_description
+        and new_location_id is None
+        and not clear_location
     ):
         ui.console.print("Please enter one value to update the invoice with (refer to --help)", style="warning")
         raise typer.Exit(code=1)
@@ -212,9 +240,15 @@ def update_invoice(
             updated_invoice = invoices_services.update_invoice_by_id(
                 cursor=cursor,
                 invoice_id=invoice_id,
+                new_title=None if clear_title else new_title,
+                update_title=new_title is not None or clear_title,
+                new_description=None if clear_description else new_description,
+                update_description=new_description is not None or clear_description,
                 new_date_issued=new_date_issued,
                 new_date_due=new_date_due,
-                new_customer_id=new_customer_id
+                new_customer_id=new_customer_id,
+                new_location_id=new_location_id,
+                update_location=new_location_id is not None or clear_location,
                 )
             
         except service_exceptions.ValidationError as e:
@@ -229,7 +263,14 @@ def update_invoice(
         except sqlite3.Error as e:
             ui.db_error(e)
 
-    fields = render_invoices.build_changed_fields_label(new_customer_id, new_date_issued, new_date_due)
+    fields = render_invoices.build_changed_fields_label(
+        new_customer_id,
+        new_date_issued,
+        new_date_due,
+        title_changed=new_title is not None or clear_title,
+        description_changed=new_description is not None or clear_description,
+        location_changed=new_location_id is not None or clear_location,
+    )
     render_invoices.print_invoice_update(updated_invoice['id'], fields)
     render_invoices.print_invoice_table(updated_invoice)
 

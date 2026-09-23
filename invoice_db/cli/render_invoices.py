@@ -15,9 +15,12 @@ def no_invoices_found() -> None:
 def print_invoice_table(invoice: dict) -> None:
     table = Table(title=f"Invoice (id={invoice['id']})")
     table.add_column("ID", justify="right")
+    table.add_column("Title", justify="left")
+    table.add_column("Description", justify="left")
     table.add_column("Total", justify="right")
     table.add_column("Issued", justify="center")
     table.add_column("Due", justify="center")
+    table.add_column("Location", justify="right")
     table.add_column("Status", justify="left")
 
     due = utils.fmt_optional(invoice["date_due"])
@@ -26,7 +29,10 @@ def print_invoice_table(invoice: dict) -> None:
             due = "[muted]-[/muted]"
     if issued == "-":
             issued = "[muted]-[/muted]"
-    table.add_row(str(invoice['id']), str(utils.fmt_dollars(invoice['total'])), issued, due, invoice['status'])
+    location = str(invoice["location_id"]) if invoice.get("location_id") else "-"
+    title = invoice.get("title") or "-"
+    description = invoice.get("description") or "-"
+    table.add_row(str(invoice['id']), title, description, str(utils.fmt_dollars(invoice['total'])), issued, due, location, invoice['status'])
     ui.console.print(table)
 
 def print_invoice_line_items(items: list[dict]) -> None:
@@ -111,9 +117,11 @@ def print_invoice_profit_summary(items: list[dict]) -> None:
 def print_invoices_table(invoices: list) -> None:
     table = Table(title=f"[title]Invoices[/title]")
     table.add_column("ID", justify="right")
+    table.add_column("Title", justify="left")
     table.add_column("Total", justify="right")
     table.add_column("Issued", justify="center")
     table.add_column("Due", justify="center")
+    table.add_column("Location", justify="right")
     table.add_column("Status", justify="left")
 
     for i in invoices:
@@ -123,7 +131,9 @@ def print_invoices_table(invoices: list) -> None:
             due = "[muted]-[/muted]"
         if issued == "-":
             issued = "[muted]-[/muted]"
-        table.add_row(str(i['id']), str(utils.fmt_dollars(i['total'])), issued, due, i['status'])
+        location = str(i["location_id"]) if i.get("location_id") else "-"
+        title = i.get("title") or "-"
+        table.add_row(str(i['id']), title, str(utils.fmt_dollars(i['total'])), issued, due, location, i['status'])
     ui.console.print(table)
 
 def print_invoices_table_overdue(invoices: list) -> None:
@@ -166,6 +176,9 @@ def build_changed_fields_label(
         date_issued: str | None = None,
         date_due: str | None = None,
         total: int | None = None,
+        title_changed: bool = False,
+        description_changed: bool = False,
+        location_changed: bool = False,
 ) -> str | None:
     changed_fields = []
 
@@ -177,6 +190,12 @@ def build_changed_fields_label(
         changed_fields.append("date_due")
     if total:
         changed_fields.append("total")
+    if title_changed:
+        changed_fields.append("title")
+    if description_changed:
+        changed_fields.append("description")
+    if location_changed:
+        changed_fields.append("location_id")
 
     return " ".join(changed_fields) if changed_fields else None
 

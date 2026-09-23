@@ -5,6 +5,7 @@ from invoice_db.db import customers as customers_db
 from invoice_db.db import invoice_items as invoice_items_db
 from invoice_db.db import invoices as invoices_db
 from invoice_db.db import products as products_db
+from invoice_db.services import customer_locations as location_services
 from invoice_db.db.validators import (
     normalize_sort_by,
     normalize_status,
@@ -29,6 +30,9 @@ MANUAL_STATUS_TRANSITIONS = {
 class InvoiceRecord(TypedDict):
     id: int
     customer_id: int
+    location_id: int | None
+    title: str | None
+    description: str | None
     total: float
     status: str
     date_issued: str | None
@@ -73,6 +77,29 @@ def _normalize_invoice_date(date_value: str | None, label: str) -> str | None:
         return to_iso(date_value)
     except ValueError as e:
         raise exceptions.ValidationError(f"{label}: {e}") from e
+
+def _normalize_invoice_title(title: str | None) -> str | None:
+    if title is None:
+        return None
+
+    normalized = title.strip()
+    if not normalized:
+        return None
+
+    if len(normalized) > 255:
+        raise exceptions.ValidationError("Invoice title must be 255 characters or fewer.")
+
+    return normalized
+
+def _normalize_invoice_description(description: str | None) -> str | None:
+    if description is None:
+        return None
+
+    normalized = description.strip()
+    if not normalized:
+        return None
+
+    return normalized
     
 def _prepare_invoice_dates(
     date_issued: str | None = None,
@@ -114,17 +141,28 @@ def _require_invoice(cursor, invoice_id: int) -> sqlite3.Row:
 def _prepare_invoice_changes(
     cursor,
     invoice: sqlite3.Row,
+    new_title: str | None = None,
+    update_title: bool = False,
+    new_description: str | None = None,
+    update_description: bool = False,
     new_date_issued: str | None = None,
     new_date_due: str | None = None,
     new_customer_id: int | None = None,
-) -> tuple[str | None, str | None, int | None]:
+    new_location_id: int | None = None,
+    update_location: bool = False,
+) -> tuple[str | None, str | None, str | None, str | None, int | None, int | None, bool, bool, bool]:
     if (
         new_date_issued is None
         and new_date_due is None
         and new_customer_id is None
+        and not update_title
+        and not update_description
+        and not update_location
     ):
         raise exceptions.ValidationError("Please provide at least one value to update the invoice.")
     
+    normalized_title = _normalize_invoice_title(new_title) if update_title else None
+    normalized_description = _normalize_invoice_description(new_description) if update_description else None
     normalized_date_issued = None if new_date_issued is None else _normalize_invoice_date(new_date_issued, "Date issued")
     normalized_date_due = None if new_date_due is None else _normalize_invoice_date(new_date_due, "Date due")
    
@@ -132,6 +170,15 @@ def _prepare_invoice_changes(
     if new_customer_id is not None:
         _require_customer(cursor, new_customer_id)
         normalized_customer = new_customer_id
+
+    effective_customer_id = invoice["customer_id"] if normalized_customer is None else normalized_customer
+    normalized_location = None
+    if update_location:
+        normalized_location = location_services.require_location_for_invoice_customer(
+            cursor,
+            customer_id=effective_customer_id,
+            location_id=new_location_id,
+        )
         
     effective_date_issued = invoice['date_issued'] if normalized_date_issued is None else normalized_date_issued
     effective_date_due = invoice['date_due'] if normalized_date_due is None else normalized_date_due
@@ -144,33 +191,74 @@ def _prepare_invoice_changes(
         (normalized_date_issued is None or normalized_date_issued == invoice['date_issued'])
         and (normalized_date_due is None or normalized_date_due == invoice['date_due'])
         and (normalized_customer is None or normalized_customer == invoice['customer_id'])
+        and (not update_title or normalized_title == invoice["title"])
+        and (not update_description or normalized_description == invoice["description"])
+        and (not update_location or normalized_location == invoice["location_id"])
     ):
         raise exceptions.ValidationError("No changes detected.")
     
-    return normalized_date_issued, normalized_date_due, normalized_customer
+    return (
+        normalized_title,
+        normalized_description,
+        normalized_date_issued,
+        normalized_date_due,
+        normalized_customer,
+        normalized_location,
+        update_title,
+        update_description,
+        update_location,
+    )
 
 def _update_invoice(
     cursor,
     invoice: sqlite3.Row,
+    new_title: str | None = None,
+    update_title: bool = False,
+    new_description: str | None = None,
+    update_description: bool = False,
     new_date_issued: str | None = None,
     new_date_due: str | None = None,
     new_customer_id: int | None = None,
+    new_location_id: int | None = None,
+    update_location: bool = False,
 ) -> sqlite3.Row:
-    date_issued, date_due, customer_id = _prepare_invoice_changes(
+    (
+        title,
+        description,
+        date_issued,
+        date_due,
+        customer_id,
+        location_id,
+        should_update_title,
+        should_update_description,
+        should_update_location,
+    ) = _prepare_invoice_changes(
         cursor,
         invoice=invoice,
+        new_title=new_title,
+        update_title=update_title,
+        new_description=new_description,
+        update_description=update_description,
         new_date_issued=new_date_issued,
         new_date_due=new_date_due,
         new_customer_id=new_customer_id,
+        new_location_id=new_location_id,
+        update_location=update_location,
     )
 
     try:
         updated = invoices_db.update_invoice(
             cursor=cursor,
             invoice_id=invoice['id'],
+            title=title,
+            update_title=should_update_title,
+            description=description,
+            update_description=should_update_description,
             date_issued=date_issued,
             date_due=date_due,
             customer_id=customer_id,
+            location_id=location_id,
+            update_location=should_update_location,
         )
     except sqlite3.IntegrityError as e:
         raise exceptions.ValidationError("Invalid invoice update data.") from e
@@ -202,19 +290,32 @@ def create_invoice(
     date_issued: str | None, 
     date_due: str | None,
     total: float | None = None,
+    location_id: int | None = None,
+    title: str | None = None,
+    description: str | None = None,
 ) -> InvoiceRecord:
     _require_customer(cursor, customer_id)
+    location_id = location_services.require_location_for_invoice_customer(
+        cursor,
+        customer_id=customer_id,
+        location_id=location_id,
+    )
     if total not in (None, 0):
         raise exceptions.ValidationError("Invoice totals are calculated from line items.")
+    title = _normalize_invoice_title(title)
+    description = _normalize_invoice_description(description)
     date_issued, date_due = _prepare_invoice_dates(date_issued, date_due)
     
     try:
         invoice_id = invoices_db.add_invoice_to_customer(
             cursor,
             customer_id=customer_id,
+            title=title,
+            description=description,
             total=0,
             date_issued=date_issued,
             date_due=date_due,
+            location_id=location_id,
         )
     except sqlite3.IntegrityError as e:
         raise exceptions.ValidationError("Invalid invoice data.") from e
@@ -346,10 +447,16 @@ def overdue_invoices(
 def update_invoice_by_id(
     cursor,
     invoice_id: int,
+    new_title: str | None = None,
+    update_title: bool = False,
+    new_description: str | None = None,
+    update_description: bool = False,
     new_date_issued: str | None = None,
     new_date_due: str | None = None,
     new_total: float | None = None,
     new_customer_id: int | None = None,
+    new_location_id: int | None = None,
+    update_location: bool = False,
     ) -> InvoiceRecord:
     if new_total is not None:
         raise exceptions.ValidationError("Invoice totals are calculated from line items.")
@@ -359,9 +466,15 @@ def update_invoice_by_id(
     updated_invoice = _update_invoice(
         cursor,
         invoice=invoice,
+        new_title=new_title,
+        update_title=update_title,
+        new_description=new_description,
+        update_description=update_description,
         new_date_issued=new_date_issued,
         new_date_due=new_date_due,
-        new_customer_id=new_customer_id
+        new_customer_id=new_customer_id,
+        new_location_id=new_location_id,
+        update_location=update_location,
     )
 
     return _to_invoice_record(updated_invoice)
@@ -384,13 +497,7 @@ def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecor
                 f"Cannot send invoice with inactive products: {names}."
             )
         date_issued = invoice["date_issued"] or date.today().isoformat()
-        date_due = invoice["date_due"] or (
-            date.fromisoformat(date_issued) + timedelta(days=30)
-        ).isoformat()
-        if date_due < date_issued:
-            raise exceptions.ValidationError(
-                "Date issued and date due must be future dates, and due date must be on or after date issued."
-            )
+        date_due = invoice["date_due"] or (date.today() + timedelta(days=30)).isoformat()
         invoices_db.update_invoice(
             cursor,
             invoice_id=invoice_id,

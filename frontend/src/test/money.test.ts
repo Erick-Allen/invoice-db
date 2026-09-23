@@ -11,7 +11,7 @@ describe("money helpers", () => {
     it("converts cents to dollar display strings", () => {
         expect(centsToDollars(10025)).toBe("100.25");
         expect(centsToDollars(1990)).toBe("19.90")
-        expect(centsToDollars(10000)).toBe("100.00")
+        expect(centsToDollars(10000)).toBe("100")
     });
 
     it("rejects invalid dollar strings", () => {

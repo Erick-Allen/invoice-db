@@ -3,7 +3,17 @@ from .validators import validate_total, validate_status, validate_sort
 from ..utils import to_iso
 
 # Create
-def add_invoice_to_customer(cursor, customer_id: int, date_issued: str = None, total: int = 0, date_due: str = None, status: str = "draft") -> int:
+def add_invoice_to_customer(
+    cursor,
+    customer_id: int,
+    date_issued: str = None,
+    total: int = 0,
+    date_due: str = None,
+    status: str = "draft",
+    location_id: int | None = None,
+    title: str | None = None,
+    description: str | None = None,
+) -> int:
     """Attach a new invoice to an existing customer with customer_id."""
     assert_customer_exists(cursor, customer_id)
     validate_total(total)
@@ -16,9 +26,9 @@ def add_invoice_to_customer(cursor, customer_id: int, date_issued: str = None, t
             raise ValueError("Due date must be later than the date issued.")
 
     cursor.execute("""
-        INSERT INTO invoices (customer_id, date_issued, date_due, total, status)
-        VALUES (?, ?, ?, ?, ?)
-    """, (customer_id, date_issued, date_due, total, status))
+        INSERT INTO invoices (customer_id, location_id, title, description, date_issued, date_due, total, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (customer_id, location_id, title, description, date_issued, date_due, total, status))
     return cursor.lastrowid
 
 # READ
@@ -35,7 +45,7 @@ def get_invoices_by_email(cursor, email: str) -> dict:
 
 def get_invoices_by_customer_id(cursor, customer_id: int) -> list:
     cursor.execute("""
-    SELECT id, customer_id, date_issued, date_due, total, created_at, updated_at, status
+    SELECT id, customer_id, location_id, title, description, date_issued, date_due, total, created_at, updated_at, status
     FROM invoices
     WHERE customer_id = ?
     ORDER BY date_issued DESC, id DESC
@@ -46,7 +56,7 @@ def get_invoices_by_customer_and_range(cursor, customer_id: int, start_date: str
     start_date = to_iso(start_date)
     end_date = to_iso(end_date)
     cursor.execute("""
-    SELECT id, customer_id, date_issued, date_due, total, created_at, updated_at, status
+    SELECT id, customer_id, location_id, title, description, date_issued, date_due, total, created_at, updated_at, status
     FROM invoices
     WHERE customer_id = ? AND date_issued BETWEEN ? AND ?
     ORDER BY date_issued DESC, id DESC
@@ -110,7 +120,10 @@ def list_invoices(
     sql = """
     SELECT 
         i.id,
-        i.customer_id, 
+        i.customer_id,
+        i.location_id,
+        i.title,
+        i.description,
         i.date_issued, 
         i.date_due, 
         i.total, 
@@ -175,6 +188,9 @@ def list_overdue_invoices(
     SELECT
         i.id,
         i.customer_id,
+        i.location_id,
+        i.title,
+        i.description,
         i.date_issued,
         i.date_due,
         i.total,
@@ -230,10 +246,16 @@ def update_invoice(
         cursor,
         invoice_id: int, 
         *, 
+        title: str | None = None,
+        update_title: bool = False,
+        description: str | None = None,
+        update_description: bool = False,
         date_issued: int = None, 
         date_due: int = None, 
         total: int = None, 
-        customer_id: int = None
+        customer_id: int = None,
+        location_id: int | None = None,
+        update_location: bool = False,
 ) -> bool:
     
     invoice = get_invoice_by_id(cursor, invoice_id)
@@ -249,6 +271,12 @@ def update_invoice(
         if new_date_due < new_date_issued:
             raise ValueError("Due date must be later than or equal to date issued.")
 
+    if update_title:
+        updates.append("title = ?")
+        params.append(title)
+    if update_description:
+        updates.append("description = ?")
+        params.append(description)
     if date_issued is not None:
         updates.append("date_issued = ?")
         params.append(new_date_issued)
@@ -263,6 +291,9 @@ def update_invoice(
         assert_customer_exists(cursor, customer_id)
         updates.append("customer_id = ?")
         params.append(customer_id)
+    if update_location:
+        updates.append("location_id = ?")
+        params.append(location_id)
 
     if not updates:
         return False

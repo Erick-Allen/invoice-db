@@ -6,6 +6,9 @@ export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
 export type Invoice = {
     id: number;
     customer_id: number;
+    location_id?: number | null;
+    title?: string | null;
+    description?: string | null;
     date_issued: string | null;
     date_due: string | null;
     total: number;
@@ -18,12 +21,18 @@ export type Invoice = {
 
 export type CreateInvoicePayload = {
     customer_id: number;
+    location_id?: number | null;
+    title?: string | null;
+    description?: string | null;
     date_issued?: string | null;
     date_due?: string | null;
 };
 
 export type UpdateInvoicePayload = {
     customer_id?: number;
+    location_id?: number | null;
+    title?: string | null;
+    description?: string | null;
     date_issued?: string | null;
     date_due?: string | null;
 }

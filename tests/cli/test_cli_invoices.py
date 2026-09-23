@@ -20,6 +20,31 @@ def test_invoice_update(customer_john, invoice_john, runner, temp_db):
     assert f"id={invoice_john}" in result.stdout
     assert "2026-07-20" in result.stdout
 
+def test_invoice_create_with_location(customer_john, runner, temp_db):
+    location_result = runner.invoke(app, [
+        "customers", "add-location",
+        "--customer-id", str(customer_john),
+        "--label", "Home",
+        "--address-line1", "123 Main St",
+        "--city", "Orlando",
+        "--state", "FL",
+        "--postal-code", "32801",
+        "--db", temp_db,
+    ])
+    assert location_result.exit_code == 0, location_result.stdout
+
+    result = runner.invoke(app, [
+        "invoices", "create",
+        "--customer-id", str(customer_john),
+        "--location-id", "1",
+        "--db", temp_db,
+    ])
+    assert result.exit_code == 0, result.stdout
+
+    get_result = runner.invoke(app, ["invoices", "get", "--id", "1", "--db", temp_db])
+    assert get_result.exit_code == 0, get_result.stdout
+    assert "1" in get_result.stdout
+
 def test_invoice_list_all(customer_john, invoice_john, customer_alice, invoice_alice, runner, temp_db):
     result = runner.invoke(app, ["invoices", "list", "--db", temp_db])
     assert result.exit_code == 0, result.stdout

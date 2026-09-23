@@ -12,5 +12,6 @@ export function dollarsToCents(value: string): number {
 }
 
 export function centsToDollars(cents: number): string {
-  return (cents / 100).toFixed(2);
+  const dollars = (cents / 100).toFixed(2);
+  return dollars.endsWith(".00") ? dollars.slice(0, -3) : dollars;
 }

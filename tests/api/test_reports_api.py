@@ -191,6 +191,15 @@ def test_reporting_overview_filters_by_date_range(
         format="json",
     )
     assert sent_response.status_code == 200, sent_response.json()
+    update_response = api_client.patch(
+        f"/api/invoices/{march_invoice_id}/",
+        {
+            "date_issued": "2026-03-15",
+            "date_due": "2026-04-14",
+        },
+        format="json",
+    )
+    assert update_response.status_code == 200, update_response.json()
 
     response = api_client.get(
         "/api/reports/overview/?start_date=2026-03-01&end_date=2026-03-31"

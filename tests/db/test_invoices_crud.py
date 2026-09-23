@@ -1,20 +1,54 @@
 from datetime import date, timedelta
-from invoice_db.db import customers, invoices
+from invoice_db.db import customer_locations, customers, invoices
 import pytest
 
 CUSTOMER_JOHN_EMAIL = "john@test.com"
 
 # ---------- Invoice CRUD Tests ----------
 def test_create_invoice(cursor, customer_john):
-    invoice_id = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
+    invoice_id = invoices.add_invoice_to_customer(
+        cursor,
+        customer_john,
+        "1/20/2025",
+        30025,
+        title="Mini split install",
+        description="Installed mini split in upstairs bedroom.",
+    )
     row = cursor.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
 
     assert row is not None
     assert row['id'] == invoice_id
     assert row['customer_id'] == customer_john
+    assert row["title"] == "Mini split install"
+    assert row["description"] == "Installed mini split in upstairs bedroom."
     assert row['date_issued'] == "2025-01-20"
     assert row['total'] == 30025
     assert row["date_due"] is None
+    assert row["location_id"] is None
+
+def test_create_invoice_with_location(cursor, customer_john):
+    location = customer_locations.create_customer_location(
+        cursor,
+        customer_locations.CustomerLocationCreate(
+            customer_id=customer_john,
+            label="Home",
+            address_line1="123 Main St",
+            city="Orlando",
+            state="FL",
+            postal_code="32801",
+        ),
+    )
+
+    invoice_id = invoices.add_invoice_to_customer(
+        cursor,
+        customer_id=customer_john,
+        total=0,
+        location_id=location.id,
+    )
+
+    invoice = invoices.get_invoice_by_id(cursor, invoice_id)
+
+    assert invoice["location_id"] == location.id
 
 def test_get_invoice_by_id(cursor, invoice_john):
     row = invoices.get_invoice_by_id(cursor, invoice_john)
@@ -112,6 +146,29 @@ def test_update_invoice_date_issued_only(cursor, customer_john):
 
     assert row_1["date_issued"] == new_date_issued
     assert row_2["date_issued"] != new_date_issued
+
+def test_update_invoice_title(cursor, customer_john):
+    invoice_id = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
+
+    updated = invoices.update_invoice(cursor, invoice_id, title="Maintenance visit", update_title=True)
+
+    assert updated
+    row = invoices.get_invoice_by_id(cursor, invoice_id)
+    assert row["title"] == "Maintenance visit"
+
+def test_update_invoice_description(cursor, customer_john):
+    invoice_id = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)
+
+    updated = invoices.update_invoice(
+        cursor,
+        invoice_id,
+        description="Replaced capacitor and verified system pressures.",
+        update_description=True,
+    )
+
+    assert updated
+    row = invoices.get_invoice_by_id(cursor, invoice_id)
+    assert row["description"] == "Replaced capacitor and verified system pressures."
 
 def test_update_invoice_total_and_customer(cursor, customer_john, customer_alice):
     invoice_id_1 = invoices.add_invoice_to_customer(cursor, customer_john, "1/20/2025", 30025)

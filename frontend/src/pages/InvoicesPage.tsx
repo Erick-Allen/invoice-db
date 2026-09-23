@@ -1,15 +1,13 @@
 import { useEffect, useState, type KeyboardEvent, type MouseEvent, type SubmitEventHandler } from "react";
 import { useNavigate } from "react-router-dom";
 import { centsToDollars, dollarsToCents } from "../utils/money";
-import { listCustomers, type Customer } from "../api/customers";
+import { formatDisplayDate } from "../utils/date";
+import { listCustomerLocations, listCustomers, type Customer, type CustomerLocation } from "../api/customers";
 import {
     createInvoice,
     deleteInvoice,
     listInvoices,
-    updateInvoice,
-    updateInvoiceStatus,
     type Invoice,
-    type InvoiceStatus,
 } from "../api/invoices";
 import { createInvoiceItem } from "../api/invoiceItems";
 import { listProducts, type Product } from "../api/products";
@@ -33,23 +31,20 @@ type CreateInvoiceItemForm = {
 export function InvoicesPage() {
     const navigate = useNavigate();
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [customerLocations, setCustomerLocations] = useState<Record<number, CustomerLocation[]>>({});
     const [products, setProducts] = useState<Product[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [tags, setTags] = useState<Tag[]>([]);
     const [activeTab, setActiveTab] = useState<"invoices" | "tags">("invoices");
 
+    const [invoiceTitle, setInvoiceTitle] = useState("");
+    const [invoiceDescription, setInvoiceDescription] = useState("");
     const [customerId, setCustomerId] = useState("");
-    const [dateIssued, setDateIssued] = useState("");
-    const [dateDue, setDateDue] = useState("");
+    const [locationId, setLocationId] = useState("");
     const [createLineItems, setCreateLineItems] = useState<CreateInvoiceItemForm[]>([
         { productId: "", quantity: "1", unitCostDollars: "", unitPriceDollars: "" },
     ]);
     const [isCreateOverlayOpen, setIsCreateOverlayOpen] = useState(false);
-
-    const [editingInvoiceId, setEditingInvoiceId] = useState<number | null>(null);
-    const [editCustomerId, setEditCustomerId] = useState("");
-    const [editDateIssued, setEditDateIssued] = useState("");
-    const [editDateDue, setEditDateDue] = useState("");
 
     const [tagName, setTagName] = useState("");
     const [tagDescription, setTagDescription] = useState("");
@@ -76,8 +71,15 @@ export function InvoicesPage() {
                 listInvoices(true),
                 listTags(),
             ]);
+            const locationEntries = await Promise.all(
+                customerData.map(async (customer) => [
+                    customer.id,
+                    await listCustomerLocations(customer.id, true),
+                ] as const),
+            );
 
             setCustomers(customerData);
+            setCustomerLocations(Object.fromEntries(locationEntries));
             setProducts(productData);
             setInvoices(invoiceData);
             setTags(tagData);
@@ -94,9 +96,10 @@ export function InvoicesPage() {
     }, []);
 
     function resetCreateForm() {
+        setInvoiceTitle("");
+        setInvoiceDescription("");
         setCustomerId("");
-        setDateIssued("");
-        setDateDue("");
+        setLocationId("");
         setCreateLineItems([{ productId: "", quantity: "1", unitCostDollars: "", unitPriceDollars: "" }]);
     }
 
@@ -170,8 +173,11 @@ export function InvoicesPage() {
 
             const invoice = await createInvoice({
                 customer_id: Number(customerId),
-                date_issued: dateIssued || null,
-                date_due: dateDue || null,
+                location_id: locationId ? Number(locationId) : null,
+                title: invoiceTitle.trim() || null,
+                description: invoiceDescription.trim() || null,
+                date_issued: null,
+                date_due: null,
             });
 
             for (const item of preparedLineItems) {
@@ -188,20 +194,6 @@ export function InvoicesPage() {
             setIsSubmitting(false);
         }
     };
-
-    function startEditingInvoice(invoice: Invoice) {
-        setEditingInvoiceId(invoice.id);
-        setEditCustomerId(String(invoice.customer_id));
-        setEditDateIssued(invoice.date_issued ?? "");
-        setEditDateDue(invoice.date_due ?? "");
-    }
-
-    function cancelEditingInvoice() {
-        setEditingInvoiceId(null);
-        setEditCustomerId("");
-        setEditDateIssued("");
-        setEditDateDue("");
-    }
 
     function resetCreateTagForm() {
         setTagName("");
@@ -234,57 +226,6 @@ export function InvoicesPage() {
         setEditTagName("");
         setEditTagDescription("");
         setEditTagIsActive(true);
-    }
-
-    async function handleUpdateInvoice(invoiceId: number) {
-        if (!editCustomerId) {
-            setError("Customer is required.");
-            return;
-        }
-
-        const existingInvoice = invoices.find((invoice) => invoice.id === invoiceId);
-
-        if (!existingInvoice) {
-            setError("Invoice not found.");
-            return;
-        }
-
-        const noChangesDetected =
-            existingInvoice.customer_id === Number(editCustomerId) &&
-            (existingInvoice.date_issued ?? "") === editDateIssued &&
-            (existingInvoice.date_due ?? "") === editDateDue;
-
-        if (noChangesDetected) {
-            setError(null);
-            cancelEditingInvoice();
-            return;
-        }
-
-        try {
-            setError(null);
-
-            await updateInvoice(invoiceId, {
-                customer_id: Number(editCustomerId),
-                date_issued: editDateIssued || null,
-                date_due: editDateDue || null,
-            });
-
-            cancelEditingInvoice();
-            await loadData();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to update invoice.");
-        }
-    }
-
-    async function handleStatusChange(invoiceId: number, nextStatus: InvoiceStatus) {
-        try {
-            setError(null);
-            await updateInvoiceStatus(invoiceId, nextStatus);
-            await loadData();
-        } catch (err) {
-            const message = err instanceof Error ? err.message : "Failed to update status.";
-            setError(`Could not change invoice status. ${message}`);
-        }
     }
 
     async function handleDeleteInvoice(invoiceId: number) {
@@ -351,15 +292,25 @@ export function InvoicesPage() {
         }
     }
 
-    async function handleDeactivateTag(tagId: number) {
-        try {
-            setError(null);
-            await deactivateTag(tagId);
-            await loadData();
+	    async function handleDeactivateTag(tagId: number) {
+	        try {
+	            setError(null);
+	            await deactivateTag(tagId);
+	            await loadData();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to deactivate tag.");
-        }
-    }
+	        }
+	    }
+
+	    async function handleActivateTag(tagId: number) {
+	        try {
+	            setError(null);
+	            await updateTag(tagId, { is_active: true });
+	            await loadData();
+	        } catch (err) {
+	            setError(err instanceof Error ? err.message : "Failed to activate tag.");
+	        }
+	    }
 
     async function handleDeleteTag(tagId: number) {
         const confirmed = window.confirm("Are you sure you want to delete this tag?");
@@ -381,11 +332,54 @@ export function InvoicesPage() {
         return customer ? customer.name : `Customer #${id}`;
     }
 
+    function getLocationsForCustomer(selectedCustomerId: string) {
+        const parsedCustomerId = Number(selectedCustomerId);
+        if (!parsedCustomerId) {
+            return [];
+        }
+        return customerLocations[parsedCustomerId] ?? [];
+    }
+
+    function formatCustomerLocation(location: CustomerLocation) {
+        const addressLine2 = location.address_line2 ? `, ${location.address_line2}` : "";
+        return `${location.address_line1}${addressLine2}, ${location.city}, ${location.state} ${location.postal_code}`;
+    }
+
+    function getLocationLabel(invoice: Invoice) {
+        if (!invoice.location_id) {
+            return "-";
+        }
+
+        const location = (customerLocations[invoice.customer_id] ?? []).find(
+            (customerLocation) => customerLocation.id === invoice.location_id,
+        );
+        return location ? formatCustomerLocation(location) : `Location #${invoice.location_id}`;
+    }
+
     function addCreateLineItem() {
         setCreateLineItems((current) => [
             ...current,
             { productId: "", quantity: "1", unitCostDollars: "", unitPriceDollars: "" },
         ]);
+    }
+
+    function selectCreateLineItemProduct(index: number, productId: string) {
+        const product = products.find((candidate) => candidate.id === Number(productId));
+        updateCreateLineItem(index, {
+            productId,
+            unitCostDollars: product ? centsToDollars(product.cost_cents) : "",
+            unitPriceDollars: product ? centsToDollars(product.unit_price_cents) : "",
+        });
+    }
+
+    function getAvailableProductsForCreateLineItem(index: number) {
+        const selectedProductIds = new Set(
+            createLineItems
+                .map((lineItem, lineItemIndex) => lineItemIndex === index ? "" : lineItem.productId)
+                .filter(Boolean),
+        );
+
+        return products.filter((product) => !selectedProductIds.has(String(product.id)));
     }
 
     function updateCreateLineItem(index: number, changes: Partial<CreateInvoiceItemForm>) {
@@ -412,6 +406,10 @@ export function InvoicesPage() {
         navigate(`/invoices/${invoiceId}`);
     }
 
+    function openTagDetail(tagId: number) {
+        navigate(`/tags/${tagId}`);
+    }
+
     function handleInvoiceRowClick(event: MouseEvent<HTMLTableRowElement>, invoiceId: number) {
         if (isInteractiveTarget(event.target)) {
             return;
@@ -431,22 +429,23 @@ export function InvoicesPage() {
         }
     }
 
-    function getNextStatuses(status: InvoiceStatus): InvoiceStatus[] {
-        switch (status) {
-            case "draft":
-                return ["sent"];
-            case "sent":
-                return ["void"];
-            case "paid":
-            case "void":
-                return [];
-            default:
-                return [];
+    function handleTagRowClick(event: MouseEvent<HTMLTableRowElement>, tagId: number) {
+        if (isInteractiveTarget(event.target)) {
+            return;
         }
+
+        openTagDetail(tagId);
     }
 
-    function getInvoiceItems(invoice: Invoice) {
-        return invoice.items ?? [];
+    function handleTagRowKeyDown(event: KeyboardEvent<HTMLTableRowElement>, tagId: number) {
+        if (isInteractiveTarget(event.target)) {
+            return;
+        }
+
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openTagDetail(tagId);
+        }
     }
 
     return (
@@ -459,8 +458,7 @@ export function InvoicesPage() {
             <section className="invoice-page-stack">
                 {error && <p className="error-message">{error}</p>}
 
-                <AssistantChatBox />
-                <div className="section-header">
+	                <div className="section-header">
                     <div className="segmented-tabs" role="tablist" aria-label="Invoice sections">
                         <button
                             type="button"
@@ -494,7 +492,7 @@ export function InvoicesPage() {
                     <div className="modal-overlay" role="presentation" onMouseDown={closeCreateOverlay}>
                         <form
                             onSubmit={handleSubmit}
-                            className="form-card modal-panel"
+                            className="form-card modal-panel invoice-modal-panel"
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="create-invoice-title"
@@ -509,11 +507,36 @@ export function InvoicesPage() {
 
                             <div className="form-grid modal-form-grid">
                                 <div className="form-field">
+                                    <label htmlFor="invoice-title">Title</label>
+                                    <input
+                                        id="invoice-title"
+                                        type="text"
+                                        value={invoiceTitle}
+                                        onChange={(event) => setInvoiceTitle(event.target.value)}
+                                        placeholder="Mini split install"
+                                    />
+                                </div>
+
+                                <div className="form-field">
+                                    <label htmlFor="invoice-description">Description</label>
+                                    <textarea
+                                        id="invoice-description"
+                                        value={invoiceDescription}
+                                        onChange={(event) => setInvoiceDescription(event.target.value)}
+                                        rows={3}
+                                        placeholder="Describe the work performed"
+                                    />
+                                </div>
+
+                                <div className="form-field">
                                     <label htmlFor="customer">Customer</label>
                                     <select
                                         id="customer"
                                         value={customerId}
-                                        onChange={(event) => setCustomerId(event.target.value)}
+                                        onChange={(event) => {
+                                            setCustomerId(event.target.value);
+                                            setLocationId("");
+                                        }}
                                     >
                                         <option value="">Select a customer</option>
                                         {customers.map((customer) => (
@@ -525,76 +548,104 @@ export function InvoicesPage() {
                                 </div>
 
                                 <div className="form-field">
-                                    <label htmlFor="dateIssued">Date Issued</label>
-                                    <input
-                                        id="dateIssued"
-                                        type="date"
-                                        value={dateIssued}
-                                        onChange={(event) => setDateIssued(event.target.value)}
-                                    />
+                                    <label htmlFor="invoice-location">Location</label>
+                                    <select
+                                        id="invoice-location"
+                                        value={locationId}
+                                        onChange={(event) => setLocationId(event.target.value)}
+                                        disabled={!customerId}
+                                    >
+                                        <option value="">No location</option>
+                                        {getLocationsForCustomer(customerId).map((location) => (
+                                            <option key={location.id} value={location.id}>
+                                                {formatCustomerLocation(location)}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
 
-                                <div className="form-field">
-                                    <label htmlFor="dateDue">Date Due</label>
-                                    <input
-                                        id="dateDue"
-                                        type="date"
-                                        value={dateDue}
-                                        onChange={(event) => setDateDue(event.target.value)}
-                                    />
-                                </div>
-
-                                <div className="form-field">
-                                    <label>Line Items</label>
-                                    <div className="line-item-list">
+                                <div className="form-field invoice-line-items-field">
+                                    <div className="invoice-items-panel">
+                                        <div className="invoice-items-panel-header">
+                                            <label>Line Items</label>
+                                            <span>{createLineItems.length} item{createLineItems.length === 1 ? "" : "s"}</span>
+                                        </div>
+                                        <div className="line-item-list">
                                         {createLineItems.map((item, index) => (
-                                            <div className="line-item-add" key={index}>
-                                                <select
-                                                    aria-label={`Product for new invoice item ${index + 1}`}
-                                                    value={item.productId}
-                                                    onChange={(event) => updateCreateLineItem(index, { productId: event.target.value })}
-                                                >
-                                                    <option value="">Select product</option>
-                                                    {products.map((product) => (
-                                                        <option key={product.id} value={product.id}>
-                                                            {product.name} - ${centsToDollars(product.unit_price_cents)}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <input
-                                                    aria-label={`Quantity for new invoice item ${index + 1}`}
-                                                    type="number"
-                                                    min="1"
-                                                    value={item.quantity}
-                                                    onChange={(event) => updateCreateLineItem(index, { quantity: event.target.value })}
-                                                />
-                                                <input
-                                                    aria-label={`Unit cost override for new invoice item ${index + 1}`}
-                                                    type="text"
-                                                    value={item.unitCostDollars}
-                                                    onChange={(event) => updateCreateLineItem(index, { unitCostDollars: event.target.value })}
-                                                    placeholder="Cost"
-                                                />
-                                                <input
-                                                    aria-label={`Unit price override for new invoice item ${index + 1}`}
-                                                    type="text"
-                                                    value={item.unitPriceDollars}
-                                                    onChange={(event) => updateCreateLineItem(index, { unitPriceDollars: event.target.value })}
-                                                    placeholder="Override"
-                                                />
-                                                <button
-                                                    className="small-danger-button"
-                                                    type="button"
-                                                    onClick={() => removeCreateLineItem(index)}
-                                                >
-                                                    Remove
-                                                </button>
+                                            <div className="invoice-line-item-card" key={index}>
+                                                <div className="line-item-control product-control">
+                                                    <span>Product</span>
+                                                    <select
+                                                        aria-label={`Product for new invoice item ${index + 1}`}
+                                                        value={item.productId}
+                                                        onChange={(event) => selectCreateLineItemProduct(index, event.target.value)}
+                                                    >
+                                                        <option value="">Select product</option>
+                                                        {getAvailableProductsForCreateLineItem(index).map((product) => (
+                                                            <option key={product.id} value={product.id}>
+                                                                {product.name} - ${centsToDollars(product.unit_price_cents)}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="line-item-control quantity-control">
+                                                    <span>Qty</span>
+                                                    <input
+                                                        aria-label={`Quantity for new invoice item ${index + 1}`}
+                                                        type="number"
+                                                        min="1"
+                                                        value={item.quantity}
+                                                        onChange={(event) => updateCreateLineItem(index, { quantity: event.target.value })}
+                                                        disabled={!item.productId}
+                                                    />
+                                                </div>
+                                                <div className="line-item-control money-control">
+                                                    <span>Unit Cost</span>
+                                                    <div className="currency-input">
+                                                        <span aria-hidden="true">$</span>
+                                                        <input
+                                                            aria-label={`Unit cost for new invoice item ${index + 1}`}
+                                                            type="text"
+                                                            value={item.unitCostDollars}
+                                                            onChange={(event) => updateCreateLineItem(index, { unitCostDollars: event.target.value })}
+                                                            placeholder="0"
+                                                            disabled={!item.productId}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="line-item-control money-control">
+                                                    <span>Unit Price</span>
+                                                    <div className="currency-input">
+                                                        <span aria-hidden="true">$</span>
+                                                        <input
+                                                            aria-label={`Unit price for new invoice item ${index + 1}`}
+                                                            type="text"
+                                                            value={item.unitPriceDollars}
+                                                            onChange={(event) => updateCreateLineItem(index, { unitPriceDollars: event.target.value })}
+                                                            placeholder="0"
+                                                            disabled={!item.productId}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="line-item-actions">
+                                                    <button
+                                                        className="small-danger-button"
+                                                        type="button"
+                                                        onClick={() => removeCreateLineItem(index)}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
+                                        </div>
+                                        <div className="additional-items-row">
+                                            <span>Additional Items</span>
+                                            <button className="small-action-button" type="button" onClick={addCreateLineItem}>
+                                                Add Item
+                                            </button>
+                                        </div>
                                     </div>
-                                    <button className="small-action-button" type="button" onClick={addCreateLineItem}>
-                                        Add Item
-                                    </button>
                                 </div>
 
                                 <div className="modal-actions">
@@ -610,164 +661,72 @@ export function InvoicesPage() {
                     </div>
                 )}
 
-                {activeTab === "invoices" && (
-                <div className="table-wrapper">
-                    {isLoading ? (
-                        <p>Loading Invoices...</p>
-                    ) : loadError ? (
-                        <div className="empty-state">
-                            <p>{loadError}</p>
-                            <button className="action-button" type="button" onClick={loadData}>
-                                Retry
-                            </button>
-                        </div>
-                    ) : invoices.length === 0 ? (
-                        <p className="empty-state">No invoices found.</p>
-                    ) : (
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Customer</th>
-                                    <th>Date Issued</th>
-                                    <th>Date Due</th>
-                                    <th>Total</th>
-                                    <th>Status</th>
-                                    <th>Line Items</th>
-                                    <th>Change Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
+	                {activeTab === "invoices" && (
+	                    <>
+	                        <div className="table-wrapper">
+	                            {isLoading ? (
+	                                <p>Loading Invoices...</p>
+	                            ) : loadError ? (
+	                                <div className="empty-state">
+	                                    <p>{loadError}</p>
+	                                    <button className="action-button" type="button" onClick={loadData}>
+	                                        Retry
+	                                    </button>
+	                                </div>
+	                            ) : invoices.length === 0 ? (
+	                                <p className="empty-state">No invoices found.</p>
+	                            ) : (
+	                                <table className="data-table">
+	                                    <thead>
+	                                        <tr>
+	                                            <th>#</th>
+	                                            <th>Customer</th>
+	                                            <th>Primary Location</th>
+	                                            <th>Date Due</th>
+	                                            <th>Total</th>
+	                                            <th>Status</th>
+	                                            <th>Actions</th>
+	                                        </tr>
+	                                    </thead>
 
-                            <tbody>
-                                {invoices.map((invoice, index) => {
-                                    const items = getInvoiceItems(invoice);
-
-                                    return (
-                                        <tr
-                                            key={invoice.id}
-                                            className={editingInvoiceId === invoice.id ? undefined : "clickable-row"}
-                                            tabIndex={editingInvoiceId === invoice.id ? undefined : 0}
-                                            aria-label={editingInvoiceId === invoice.id ? undefined : `View invoice ${invoice.id}`}
-                                            onClick={editingInvoiceId === invoice.id ? undefined : (event) => handleInvoiceRowClick(event, invoice.id)}
-                                            onKeyDown={editingInvoiceId === invoice.id ? undefined : (event) => handleInvoiceRowKeyDown(event, invoice.id)}
-                                        >
-                                            <td>{index + 1}</td>
-
-                                            {editingInvoiceId === invoice.id ? (
-                                                <>
-                                                    <td>
-                                                        <select
-                                                            className="wide-select"
-                                                            value={editCustomerId}
-                                                            onChange={(event) => setEditCustomerId(event.target.value)}
-                                                        >
-                                                            <option value="">Select a customer</option>
-                                                            {customers.map((customer) => (
-                                                                <option key={customer.id} value={customer.id}>
-                                                                    {customer.name} - {customer.email}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </td>
-                                                    <td>
-                                                        <input
-                                                            type="date"
-                                                            value={editDateIssued}
-                                                            onChange={(event) => setEditDateIssued(event.target.value)}
-                                                        />
-                                                    </td>
-                                                    <td>
-                                                        <input
-                                                            type="date"
-                                                            value={editDateDue}
-                                                            onChange={(event) => setEditDateDue(event.target.value)}
-                                                        />
-                                                    </td>
-                                                    <td>${centsToDollars(invoice.total)}</td>
-                                                    <td>
-                                                        <span className="status-badge">{invoice.status}</span>
-                                                    </td>
-                                                    <td>{items.length} item{items.length === 1 ? "" : "s"}</td>
-                                                    <td>
-                                                        <span>Editing</span>
-                                                    </td>
-                                                    <td>
-                                                        <div className="name-actions">
-                                                            <button
-                                                                className="small-action-button"
-                                                                type="button"
-                                                                onClick={() => handleUpdateInvoice(invoice.id)}
-                                                            >
-                                                                Save
-                                                            </button>
-
-                                                            <button
-                                                                className="small-danger-button"
-                                                                type="button"
-                                                                onClick={cancelEditingInvoice}
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <td>{getCustomerName(invoice.customer_id)}</td>
-                                                    <td>{invoice.date_issued ?? "-"}</td>
-                                                    <td>{invoice.date_due ?? "-"}</td>
-                                                    <td>${centsToDollars(invoice.total)}</td>
-                                                    <td>
-                                                        <span className="status-badge">{invoice.status}</span>
-                                                    </td>
-                                                    <td>
-                                                        {items.length} item{items.length === 1 ? "" : "s"}
-                                                    </td>
-                                                    <td>
-                                                        {getNextStatuses(invoice.status).length === 0 ? (
-                                                            <span>No actions</span>
-                                                        ) : (
-                                                            getNextStatuses(invoice.status).map((nextStatus) => (
-                                                                <button
-                                                                    className="action-button"
-                                                                    key={nextStatus}
-                                                                    type="button"
-                                                                    onClick={() => handleStatusChange(invoice.id, nextStatus)}
-                                                                >
-                                                                    {nextStatus}
-                                                                </button>
-                                                            ))
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        <div className="name-actions">
-                                                            <button
-                                                                className="small-action-button"
-                                                                type="button"
-                                                                onClick={() => startEditingInvoice(invoice)}
-                                                            >
-                                                                Edit
-                                                            </button>
-                                                            <button
-                                                                className="small-danger-button"
-                                                                type="button"
-                                                                onClick={() => handleDeleteInvoice(invoice.id)}
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </>
-                                            )}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-                )}
+	                                    <tbody>
+	                                        {invoices.map((invoice) => (
+	                                            <tr
+	                                                key={invoice.id}
+	                                                className="clickable-row"
+	                                                tabIndex={0}
+	                                                aria-label={`View invoice ${invoice.id}`}
+	                                                onClick={(event) => handleInvoiceRowClick(event, invoice.id)}
+	                                                onKeyDown={(event) => handleInvoiceRowKeyDown(event, invoice.id)}
+	                                            >
+	                                                <td>{invoice.id}</td>
+	                                                <td>{getCustomerName(invoice.customer_id)}</td>
+	                                                <td>{getLocationLabel(invoice)}</td>
+	                                                <td>{formatDisplayDate(invoice.date_due)}</td>
+	                                                <td>${centsToDollars(invoice.total)}</td>
+	                                                <td>
+	                                                    <span className="status-badge">{invoice.status}</span>
+	                                                </td>
+	                                                <td>
+	                                                    <button
+	                                                        className="small-danger-button"
+	                                                        type="button"
+	                                                        onClick={() => handleDeleteInvoice(invoice.id)}
+	                                                    >
+	                                                        Delete
+	                                                    </button>
+	                                                </td>
+	                                            </tr>
+	                                        ))}
+	                                    </tbody>
+	                                </table>
+	                            )}
+	                        </div>
+	                        <div className="invoice-assistant-below-list">
+	                            <AssistantChatBox />
+	                        </div>
+	                    </>
+	                )}
 
                 {activeTab === "tags" && (
                     <section className="invoice-page-stack">
@@ -839,7 +798,14 @@ export function InvoicesPage() {
                                     </thead>
                                     <tbody>
                                         {tags.map((tag) => (
-                                            <tr key={tag.id}>
+                                            <tr
+                                                key={tag.id}
+                                                className={editingTagId === tag.id ? undefined : "clickable-row"}
+                                                tabIndex={editingTagId === tag.id ? undefined : 0}
+                                                aria-label={editingTagId === tag.id ? undefined : `View tag ${tag.name}`}
+                                                onClick={editingTagId === tag.id ? undefined : (event) => handleTagRowClick(event, tag.id)}
+                                                onKeyDown={editingTagId === tag.id ? undefined : (event) => handleTagRowKeyDown(event, tag.id)}
+                                            >
                                                 {editingTagId === tag.id ? (
                                                     <>
                                                         <td>
@@ -891,12 +857,17 @@ export function InvoicesPage() {
                                                                 <button className="small-action-button" type="button" onClick={() => startEditingTag(tag)}>
                                                                     Edit
                                                                 </button>
-                                                                {tag.is_active && (
-                                                                    <button className="small-action-button" type="button" onClick={() => handleDeactivateTag(tag.id)}>
-                                                                        Deactivate
-                                                                    </button>
-                                                                )}
-                                                                <button className="small-danger-button" type="button" onClick={() => handleDeleteTag(tag.id)}>
+	                                                                {tag.is_active && (
+	                                                                    <button className="small-action-button" type="button" onClick={() => handleDeactivateTag(tag.id)}>
+	                                                                        Deactivate
+	                                                                    </button>
+	                                                                )}
+	                                                                {!tag.is_active && (
+	                                                                    <button className="small-action-button" type="button" onClick={() => handleActivateTag(tag.id)}>
+	                                                                        Activate
+	                                                                    </button>
+	                                                                )}
+	                                                                <button className="small-danger-button" type="button" onClick={() => handleDeleteTag(tag.id)}>
                                                                     Delete
                                                                 </button>
                                                             </div>
