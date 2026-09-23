@@ -3,6 +3,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.18.0] - 2026-09-23
+
+### Added
+
+* Reusable location records with customer and supplier assignments across DB, services, CLI, API, and React frontend.
+* Location, supplier, product, tag, and category detail pages.
+* Invoice title and work description fields across DB, services, CLI, API, and frontend workflows.
+* Customer-detail invoice creation with routing to the newly created invoice.
+
+### Changed
+
+* Refined invoice detail, invoice print, send drawer, and assignment workflows.
+* Improved customer financial metrics and invoice-history filtering.
+* Simplified invoice, location, supplier, and product list tables.
+* Standardized frontend date and money display formatting.
+* Enforced 10-digit customer phone numbers with formatted display.
+* Added clearer activation paths for inactive records.
+
 ## [0.17.0] - 2026-08-17
 
 ### Added

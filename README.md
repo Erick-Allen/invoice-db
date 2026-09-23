@@ -4,12 +4,13 @@ A relational database, CLI, API, React UI, and AI assistant application built wi
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.17.0**, the project includes support for:
+As of **v0.18.0**, the project includes support for:
 
-- Customer, invoice, invoice tag, product, product category, product supplier, line-item, and payment workflows
+- Customer, customer location, invoice, invoice tag, product, product category, product supplier, supplier, line-item, and payment workflows
 - Derived invoice totals, payment summaries, cost snapshots, profit calculations, and invoice status rules
-- Customer and invoice detail previews with printable invoice output
-- Product catalog browsing, category filtering, supplier tracking, and catalog-driven invoice item selection
+- Customer, location, supplier, product, category, tag, and invoice detail pages
+- Printable customer invoice output with invoice title, work description, issue/due dates, and customer-facing line items
+- Product catalog browsing, category filtering, supplier tracking, activation controls, and catalog-driven invoice item selection
 - Invoice tagging for job/context reporting
 - Reporting foundation for revenue, outstanding due, cost, profit, status, and tag performance
 - Typer CLI, Django REST API, and React + TypeScript frontend
@@ -313,6 +314,21 @@ npm run test:run
 
 ## Version History
 
+### [v0.18.0]
+#### Added
+- Reusable location records with customer and supplier assignments across DB, services, CLI, API, and React frontend
+- Location, supplier, product, tag, and category detail pages
+- Invoice title and work description fields across DB, services, CLI, API, and frontend workflows
+- Customer-detail invoice creation with routing to the newly created invoice
+
+#### Changed
+- Refined invoice detail, invoice print, send drawer, and assignment workflows
+- Improved customer financial metrics and invoice-history filtering
+- Simplified invoice, location, supplier, and product list tables
+- Standardized frontend date and money display formatting
+- Enforced 10-digit customer phone numbers with formatted display
+- Added clearer activation paths for inactive records
+
 ### [v0.17.0]
 #### Added
 - Product suppliers across DB, services, CLI, API, and React frontend
@@ -444,7 +460,7 @@ npm run test:run
 - Initial SQLite schema and core CRUD functionality
 
 ## Roadmap
-### [v0.18.0] (Planned)
-- Customer record improvements
+### [v0.19.0] (Planned)
+- User accounts
 
 For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).

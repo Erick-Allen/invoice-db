@@ -18,25 +18,43 @@ invoice-db/
 |   |   |   `-- tags.ts
 |   |   |
 |   |   |-- pages/               # Page-level React components
+|   |   |   |-- CategoryDetailPage.tsx
 |   |   |   |-- CustomerDetailPage.tsx
 |   |   |   |-- CustomersPage.tsx
 |   |   |   |-- DashboardPage.tsx
 |   |   |   |-- InvoiceDetailPage.tsx
 |   |   |   |-- InvoicesPage.tsx
-|   |   |   `-- ProductsPage.tsx
+|   |   |   |-- LocationDetailPage.tsx
+|   |   |   |-- LocationsPage.tsx
+|   |   |   |-- ProductDetailPage.tsx
+|   |   |   |-- ProductsPage.tsx
+|   |   |   |-- SupplierDetailPage.tsx
+|   |   |   |-- SuppliersPage.tsx
+|   |   |   `-- TagDetailPage.tsx
 |   |   |
 |   |   |-- test/                # Frontend test setup and UI tests
 |   |   |   |-- setup.ts
 |   |   |   |-- App.test.tsx
+|   |   |   |-- CategoryDetailPage.test.tsx
 |   |   |   |-- CustomerDetailPage.test.tsx
 |   |   |   |-- CustomersPage.test.tsx
 |   |   |   |-- InvoiceDetailPage.test.tsx
 |   |   |   |-- InvoicesPage.test.tsx
+|   |   |   |-- LocationDetailPage.test.tsx
+|   |   |   |-- LocationsPage.test.tsx
+|   |   |   |-- ProductDetailPage.test.tsx
 |   |   |   |-- ProductsPage.test.tsx
-|   |   |   `-- money.test.ts
+|   |   |   |-- SupplierDetailPage.test.tsx
+|   |   |   |-- SuppliersPage.test.tsx
+|   |   |   |-- TagDetailPage.test.tsx
+|   |   |   |-- date.test.ts
+|   |   |   |-- money.test.ts
+|   |   |   `-- phone.test.ts
 |   |   |
 |   |   |-- utils/
-|   |   |   `-- money.ts
+|   |   |   |-- date.ts
+|   |   |   |-- money.ts
+|   |   |   `-- phone.ts
 |   |   |
 |   |   |-- App.css
 |   |   |-- App.tsx
@@ -58,6 +76,7 @@ invoice-db/
 |   |   |-- app.py
 |   |   |-- customers_cmds.py
 |   |   |-- db_cmds.py
+|   |   |-- render_customer_locations.py
 |   |   |-- invoice_items_cmds.py
 |   |   |-- invoices_cmds.py
 |   |   |-- payments_cmds.py
@@ -78,6 +97,7 @@ invoice-db/
 |   |-- db/                      # SQLite database layer
 |   |   |-- connection.py
 |   |   |-- customers.py
+|   |   |-- customer_locations.py
 |   |   |-- invoice_items.py
 |   |   |-- invoices.py
 |   |   |-- payments.py
@@ -95,6 +115,7 @@ invoice-db/
 |   |
 |   |-- services/                # Shared business logic for CLI and API
 |   |   |-- customers.py
+|   |   |-- customer_locations.py
 |   |   |-- exceptions.py
 |   |   |-- invoice_items.py
 |   |   |-- invoices.py
@@ -117,6 +138,7 @@ invoice-db/
 |   |-- api/
 |   |   |-- conftest.py
 |   |   |-- test_customers_api.py
+|   |   |-- test_customer_locations_api.py
 |   |   |-- test_invoice_items_api.py
 |   |   |-- test_invoices_api.py
 |   |   |-- test_payments_api.py

@@ -18,19 +18,18 @@
 - `v0.14.0` - Product categories
 - `v0.15.0` - Invoice tags
 - `v0.16.0` - Product costs and reporting foundation
+- `v0.17.0` - Product suppliers
+- `v0.18.0` - Customer records, reusable locations, detail pages, and workflow polish
 
 ## Current
 
-- `v0.17.0` - Product suppliers
+- `v0.19.0` - User accounts
 
 ## Planned
 
-- `v0.18.0` - Customer record improvements
-- `v0.19.0` - User accounts
 - `v0.20.0` - Business profile
 - `v0.21.0` - Invoice settings
 - `v0.22.0` - Exports
 - `v0.23.0` - Audit history
 - `v0.24.0` - Recurring invoices
-- `v0.25.0` - Team support
 - `v1.0.0` - Stable deployable release
