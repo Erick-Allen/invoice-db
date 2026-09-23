@@ -128,6 +128,58 @@ def count_products_for_category(cursor, category_id: int) -> int:
     return row["product_count"] if row else 0
 
 
+def get_products_for_category(cursor, category_id: int) -> list[Row]:
+    cursor.execute(
+        """
+        SELECT
+            products.*,
+            product_categories.name AS category_name,
+            (
+                SELECT COUNT(*)
+                FROM product_suppliers
+                WHERE product_suppliers.product_id = products.id
+            ) AS product_supplier_count,
+            (
+                SELECT COUNT(*)
+                FROM invoice_items
+                WHERE invoice_items.product_id = products.id
+            ) AS invoice_item_count
+        FROM products
+        JOIN product_categories ON product_categories.id = products.category_id
+        WHERE products.category_id = ?
+        ORDER BY products.name
+        """,
+        (category_id,),
+    )
+    return cursor.fetchall()
+
+
+def get_invoice_totals_for_category(cursor, category_id: int) -> list[Row]:
+    cursor.execute(
+        """
+        SELECT
+            i.id,
+            i.customer_id,
+            c.name AS customer_name,
+            i.date_issued,
+            i.date_due,
+            i.status,
+            COALESCE(SUM(ii.quantity * ii.unit_price), 0) AS revenue_total_cents,
+            COALESCE(SUM(ii.quantity * ii.unit_cost), 0) AS cost_total_cents,
+            COALESCE(SUM((ii.quantity * ii.unit_price) - (ii.quantity * ii.unit_cost)), 0) AS profit_total_cents
+        FROM invoice_items ii
+        JOIN products p ON p.id = ii.product_id
+        JOIN invoices i ON i.id = ii.invoice_id
+        JOIN customers c ON c.id = i.customer_id
+        WHERE p.category_id = ?
+        GROUP BY i.id, i.customer_id, c.name, i.date_issued, i.date_due, i.status
+        ORDER BY COALESCE(i.date_issued, '') DESC, i.id DESC
+        """,
+        (category_id,),
+    )
+    return cursor.fetchall()
+
+
 def delete_product_category(cursor, category_id: int) -> bool:
     cursor.execute("DELETE FROM product_categories WHERE id = ?", (category_id,))
     return cursor.rowcount > 0

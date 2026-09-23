@@ -216,7 +216,19 @@ def get_suppliers_for_product(cursor, product_id: int) -> list[Supplier]:
 def get_products_for_supplier(cursor, supplier_id: int) -> list[products_db.Product]:
     cursor.execute(
         """
-        SELECT products.*, product_categories.name AS category_name
+        SELECT
+            products.*,
+            product_categories.name AS category_name,
+            (
+                SELECT COUNT(*)
+                FROM product_suppliers AS linked_suppliers
+                WHERE linked_suppliers.product_id = products.id
+            ) AS product_supplier_count,
+            (
+                SELECT COUNT(*)
+                FROM invoice_items
+                WHERE invoice_items.product_id = products.id
+            ) AS invoice_item_count
         FROM products
         JOIN product_categories ON product_categories.id = products.category_id
         JOIN product_suppliers ON product_suppliers.product_id = products.id

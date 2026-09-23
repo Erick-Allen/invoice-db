@@ -6,10 +6,14 @@ describe("App", () => {
     it("renders the app title and navigation", () => {
         render(<App />)
         expect(screen.getByRole("heading" , { name: "InvoiceDB" })).toBeInTheDocument();
-        expect(screen.getByRole("link" , { name: "Dashboard" })).toBeInTheDocument();
-        expect(screen.getByRole("link" , { name: "Customers" })).toBeInTheDocument();
-        expect(screen.getByRole("link" , { name: "Invoices" })).toBeInTheDocument();
-        expect(screen.getByRole("link" , { name: "Products" })).toBeInTheDocument();
-        expect(screen.getByRole("link" , { name: "Reporting" })).toBeInTheDocument();
+        expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual([
+            "Dashboard",
+            "Customers",
+            "Invoices",
+            "Suppliers",
+            "Products",
+            "Locations",
+            "Reporting",
+        ]);
     })
 })

@@ -15,6 +15,8 @@ class ProductRecord(TypedDict):
     category_id: int
     category_name: str
     is_active: bool
+    product_supplier_count: int
+    invoice_item_count: int
     created_at: str
     updated_at: str
 
@@ -29,6 +31,8 @@ def _to_product_record(product: products_db.Product) -> ProductRecord:
         "category_id": product.category_id,
         "category_name": product.category_name,
         "is_active": product.is_active,
+        "product_supplier_count": product.product_supplier_count,
+        "invoice_item_count": product.invoice_item_count,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
     }
@@ -135,7 +139,14 @@ def deactivate_product(cursor, product_id: int) -> ProductRecord:
 
 
 def delete_product(cursor, product_id: int) -> None:
-    _require_product(cursor, product_id)
+    product = _require_product(cursor, product_id)
+    relationship_count = product.product_supplier_count + product.invoice_item_count
+    if relationship_count > 0:
+        relationship_word = "relationship" if relationship_count == 1 else "relationships"
+        raise exceptions.ConflictError(
+            f'Cannot delete product "{product.name}" because it has {relationship_count} {relationship_word}.'
+        )
+
     deleted = products_db.delete_product(cursor, product_id)
 
     if not deleted:

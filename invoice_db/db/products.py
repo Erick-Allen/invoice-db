@@ -29,6 +29,8 @@ class Product:
     category_id: int
     category_name: str
     is_active: bool
+    product_supplier_count: int
+    invoice_item_count: int
     created_at: str
     updated_at: str
 
@@ -43,6 +45,8 @@ def _to_product(row: Row) -> Product:
         category_id=row["category_id"],
         category_name=row["category_name"],
         is_active=bool(row["is_active"]),
+        product_supplier_count=row["product_supplier_count"],
+        invoice_item_count=row["invoice_item_count"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -71,7 +75,19 @@ def create_product(cursor, product: ProductCreate) -> Product:
 
 def get_product_by_id(cursor, product_id: int) -> Product | None:
     cursor.execute("""
-        SELECT products.*, product_categories.name AS category_name
+        SELECT
+            products.*,
+            product_categories.name AS category_name,
+            (
+                SELECT COUNT(*)
+                FROM product_suppliers
+                WHERE product_suppliers.product_id = products.id
+            ) AS product_supplier_count,
+            (
+                SELECT COUNT(*)
+                FROM invoice_items
+                WHERE invoice_items.product_id = products.id
+            ) AS invoice_item_count
         FROM products
         JOIN product_categories ON product_categories.id = products.category_id
         WHERE products.id = ?
@@ -82,7 +98,19 @@ def get_product_by_id(cursor, product_id: int) -> Product | None:
 
 def get_products(cursor, active_only: bool = False) -> list[Product]:
     sql = """
-        SELECT products.*, product_categories.name AS category_name
+        SELECT
+            products.*,
+            product_categories.name AS category_name,
+            (
+                SELECT COUNT(*)
+                FROM product_suppliers
+                WHERE product_suppliers.product_id = products.id
+            ) AS product_supplier_count,
+            (
+                SELECT COUNT(*)
+                FROM invoice_items
+                WHERE invoice_items.product_id = products.id
+            ) AS invoice_item_count
         FROM products
         JOIN product_categories ON product_categories.id = products.category_id
     """

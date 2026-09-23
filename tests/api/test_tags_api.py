@@ -19,6 +19,41 @@ def create_invoice(api_client, customer_john_id, post_invoice):
     return response.json()
 
 
+def create_tagged_invoice(
+    api_client,
+    post_invoice,
+    post_product,
+    customer_id,
+    tag_id,
+    *,
+    cost_cents=1000,
+    unit_price_cents=2500,
+    quantity=2,
+):
+    invoice = post_invoice(customer_id=customer_id).json()
+    product = post_product(
+        name=f"Tagged Product {invoice['id']}",
+        cost_cents=cost_cents,
+        unit_price_cents=unit_price_cents,
+    ).json()
+    item_response = api_client.post(
+        f"/api/invoices/{invoice['id']}/items/",
+        {
+            "product_id": product["id"],
+            "quantity": quantity,
+        },
+        format="json",
+    )
+    assert item_response.status_code == 201, item_response.json()
+    tag_response = api_client.post(
+        f"/api/invoices/{invoice['id']}/tags/",
+        {"tag_id": tag_id},
+        format="json",
+    )
+    assert tag_response.status_code == 201, tag_response.json()
+    return invoice
+
+
 def test_list_tags_returns_200(api_client, test_db):
     response = api_client.get("/api/tags/")
 
@@ -64,6 +99,73 @@ def test_get_tag_returns_200(api_client, test_db):
 
     assert response.status_code == 200
     assert response.json()["name"] == "Repair"
+
+
+def test_get_tag_detail_returns_metrics_and_invoices(
+    api_client,
+    test_db,
+    customer_john_id,
+    post_invoice,
+    post_product,
+):
+    tag = create_tag(api_client, name="Install")
+    sent_invoice = create_tagged_invoice(
+        api_client,
+        post_invoice,
+        post_product,
+        customer_john_id,
+        tag["id"],
+        cost_cents=1000,
+        unit_price_cents=2500,
+        quantity=2,
+    )
+    draft_invoice = create_tagged_invoice(
+        api_client,
+        post_invoice,
+        post_product,
+        customer_john_id,
+        tag["id"],
+        cost_cents=500,
+        unit_price_cents=3000,
+        quantity=1,
+    )
+    status_response = api_client.patch(
+        f"/api/invoices/{sent_invoice['id']}/status/",
+        {"status": "sent"},
+        format="json",
+    )
+    assert status_response.status_code == 200, status_response.json()
+    payment_response = api_client.post(
+        f"/api/invoices/{sent_invoice['id']}/payments/",
+        {
+            "amount_cents": 1000,
+            "payment_date": "2026-01-20",
+            "method": "cash",
+        },
+        format="json",
+    )
+    assert payment_response.status_code == 201, payment_response.json()
+
+    response = api_client.get(f"/api/tags/{tag['id']}/detail/")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["tag"]["name"] == "Install"
+    assert data["metrics"] == {
+        "invoice_count": 2,
+        "issued_invoice_count": 1,
+        "total_invoiced_cents": 5000,
+        "total_cost_cents": 2000,
+        "total_paid_cents": 1000,
+        "net_profit_cents": -1000,
+        "total_owed_cents": 4000,
+    }
+    assert [invoice["id"] for invoice in data["invoices"]] == [draft_invoice["id"], sent_invoice["id"]]
+    sent_invoice_data = next(invoice for invoice in data["invoices"] if invoice["id"] == sent_invoice["id"])
+    assert sent_invoice_data["customer_name"] == "John"
+    assert sent_invoice_data["cost_total_cents"] == 2000
+    assert sent_invoice_data["amount_paid_cents"] == 1000
+    assert sent_invoice_data["balance_due_cents"] == 4000
 
 
 def test_patch_tag_returns_200(api_client, test_db):

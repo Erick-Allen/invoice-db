@@ -55,10 +55,10 @@ describe("ReportingPage", () => {
         expect(mockedGetReportingOverview).toHaveBeenCalledWith({});
 
         const summary = await screen.findByLabelText("Reporting performance summary");
-        expect(within(summary).getByText("$80.00")).toBeInTheDocument();
-        expect(within(summary).getByText("$30.00")).toBeInTheDocument();
-        expect(within(summary).getByText("$50.00")).toBeInTheDocument();
-        expect(within(summary).getByText("$70.00")).toBeInTheDocument();
+        expect(within(summary).getByText("$80")).toBeInTheDocument();
+        expect(within(summary).getByText("$30")).toBeInTheDocument();
+        expect(within(summary).getByText("$50")).toBeInTheDocument();
+        expect(within(summary).getByText("$70")).toBeInTheDocument();
 
         expect(screen.getByText("draft")).toBeInTheDocument();
         expect(screen.getByText("sent")).toBeInTheDocument();

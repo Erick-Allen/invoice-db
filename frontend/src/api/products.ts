@@ -9,6 +9,8 @@ export type Product = {
     category_id: number;
     category_name: string;
     is_active: boolean;
+    product_supplier_count?: number;
+    invoice_item_count?: number;
     created_at?: string;
     updated_at?: string;
 };
@@ -20,6 +22,34 @@ export type ProductCategory = {
     is_active: boolean;
     created_at?: string;
     updated_at?: string;
+};
+
+export type ProductCategoryMetrics = {
+    product_count: number;
+    active_product_count: number;
+    invoice_count: number;
+    revenue_total_cents: number;
+    cost_total_cents: number;
+    profit_total_cents: number;
+};
+
+export type ProductCategoryInvoice = {
+    id: number;
+    customer_id: number;
+    customer_name: string;
+    date_issued: string | null;
+    date_due: string | null;
+    status: "draft" | "sent" | "paid" | "void";
+    revenue_total_cents: number;
+    cost_total_cents: number;
+    profit_total_cents: number;
+};
+
+export type ProductCategoryDetail = {
+    category: ProductCategory;
+    metrics: ProductCategoryMetrics;
+    products: Product[];
+    invoices: ProductCategoryInvoice[];
 };
 
 export type CreateProductPayload = {
@@ -46,9 +76,17 @@ export function listProducts(activeOnly = false) {
     return apiRequest<Product[]>(`/products/${query}`);
 }
 
+export function getProduct(id: number) {
+    return apiRequest<Product>(`/products/${id}/`);
+}
+
 export function listProductCategories(activeOnly = false) {
     const query = activeOnly ? "?active_only=true" : "";
     return apiRequest<ProductCategory[]>(`/product-categories/${query}`);
+}
+
+export function getProductCategoryDetail(id: number) {
+    return apiRequest<ProductCategoryDetail>(`/product-categories/${id}/detail/`);
 }
 
 export function createProduct(payload: CreateProductPayload) {

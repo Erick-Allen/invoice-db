@@ -22,6 +22,36 @@ class InvoiceTagRecord(TypedDict):
     created_at: str
 
 
+class TagInvoiceRecord(TypedDict):
+    id: int
+    customer_id: int
+    customer_name: str
+    location_id: int | None
+    date_issued: str | None
+    date_due: str | None
+    total: int
+    status: str
+    cost_total_cents: int
+    amount_paid_cents: int
+    balance_due_cents: int
+
+
+class TagMetricsRecord(TypedDict):
+    invoice_count: int
+    issued_invoice_count: int
+    total_invoiced_cents: int
+    total_cost_cents: int
+    total_paid_cents: int
+    net_profit_cents: int
+    total_owed_cents: int
+
+
+class TagDetailRecord(TypedDict):
+    tag: TagRecord
+    metrics: TagMetricsRecord
+    invoices: list[TagInvoiceRecord]
+
+
 def _to_tag_record(tag: tags_db.Tag) -> TagRecord:
     return {
         "id": tag.id,
@@ -112,6 +142,35 @@ def list_tags(cursor, active_only: bool = False) -> list[TagRecord]:
 
 def get_tag_by_id(cursor, tag_id: int) -> TagRecord:
     return _to_tag_record(_require_tag(cursor, tag_id))
+
+
+def get_tag_detail(cursor, tag_id: int) -> TagDetailRecord:
+    tag = _require_tag(cursor, tag_id)
+    invoices = [dict(row) for row in tags_db.get_invoices_for_tag(cursor, tag_id)]
+    issued_invoices = [
+        invoice for invoice in invoices
+        if invoice["status"] in {"sent", "paid"}
+    ]
+    total_paid_cents = sum(invoice["amount_paid_cents"] for invoice in invoices)
+    total_cost_cents = sum(invoice["cost_total_cents"] for invoice in issued_invoices)
+
+    return {
+        "tag": _to_tag_record(tag),
+        "metrics": {
+            "invoice_count": len(invoices),
+            "issued_invoice_count": len(issued_invoices),
+            "total_invoiced_cents": sum(invoice["total"] for invoice in issued_invoices),
+            "total_cost_cents": total_cost_cents,
+            "total_paid_cents": total_paid_cents,
+            "net_profit_cents": total_paid_cents - total_cost_cents,
+            "total_owed_cents": sum(
+                invoice["balance_due_cents"]
+                for invoice in invoices
+                if invoice["status"] == "sent"
+            ),
+        },
+        "invoices": invoices,
+    }
 
 
 def update_tag_by_id(

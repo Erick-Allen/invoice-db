@@ -15,6 +15,49 @@ class ProductCategoryRecord(TypedDict):
     updated_at: str
 
 
+class CategoryProductRecord(TypedDict):
+    id: int
+    name: str
+    description: str | None
+    cost_cents: int
+    unit_price_cents: int
+    category_id: int
+    category_name: str
+    is_active: bool
+    product_supplier_count: int
+    invoice_item_count: int
+    created_at: str
+    updated_at: str
+
+
+class CategoryInvoiceRecord(TypedDict):
+    id: int
+    customer_id: int
+    customer_name: str
+    date_issued: str | None
+    date_due: str | None
+    status: str
+    revenue_total_cents: int
+    cost_total_cents: int
+    profit_total_cents: int
+
+
+class ProductCategoryMetricsRecord(TypedDict):
+    product_count: int
+    active_product_count: int
+    invoice_count: int
+    revenue_total_cents: int
+    cost_total_cents: int
+    profit_total_cents: int
+
+
+class ProductCategoryDetailRecord(TypedDict):
+    category: ProductCategoryRecord
+    metrics: ProductCategoryMetricsRecord
+    products: list[CategoryProductRecord]
+    invoices: list[CategoryInvoiceRecord]
+
+
 def _to_category_record(category: categories_db.ProductCategory) -> ProductCategoryRecord:
     return {
         "id": category.id,
@@ -23,6 +66,23 @@ def _to_category_record(category: categories_db.ProductCategory) -> ProductCateg
         "is_active": category.is_active,
         "created_at": category.created_at,
         "updated_at": category.updated_at,
+    }
+
+
+def _to_category_product_record(row) -> CategoryProductRecord:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "cost_cents": row["cost"],
+        "unit_price_cents": row["unit_price"],
+        "category_id": row["category_id"],
+        "category_name": row["category_name"],
+        "is_active": bool(row["is_active"]),
+        "product_supplier_count": row["product_supplier_count"],
+        "invoice_item_count": row["invoice_item_count"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
     }
 
 
@@ -87,6 +147,33 @@ def list_product_categories(cursor, active_only: bool = False) -> list[ProductCa
     ]
 
 
+def get_product_category_detail(cursor, category_id: int) -> ProductCategoryDetailRecord:
+    category = _require_category(cursor, category_id)
+    products = [
+        _to_category_product_record(row)
+        for row in categories_db.get_products_for_category(cursor, category_id)
+    ]
+    invoices = [dict(row) for row in categories_db.get_invoice_totals_for_category(cursor, category_id)]
+    issued_invoices = [
+        invoice for invoice in invoices
+        if invoice["status"] in {"sent", "paid"}
+    ]
+
+    return {
+        "category": _to_category_record(category),
+        "metrics": {
+            "product_count": len(products),
+            "active_product_count": sum(1 for product in products if product["is_active"]),
+            "invoice_count": len(invoices),
+            "revenue_total_cents": sum(invoice["revenue_total_cents"] for invoice in issued_invoices),
+            "cost_total_cents": sum(invoice["cost_total_cents"] for invoice in issued_invoices),
+            "profit_total_cents": sum(invoice["profit_total_cents"] for invoice in issued_invoices),
+        },
+        "products": products,
+        "invoices": invoices,
+    }
+
+
 def update_product_category_by_id(
     cursor,
     category_id: int,
@@ -95,7 +182,10 @@ def update_product_category_by_id(
     description: str | None = None,
     is_active: bool | None = None,
 ) -> ProductCategoryRecord:
-    _require_category(cursor, category_id)
+    category = _require_category(cursor, category_id)
+
+    if category.id == categories_db.DEFAULT_CATEGORY_ID:
+        raise exceptions.ValidationError("The default product category cannot be edited.")
 
     if name is None and description is None and is_active is None:
         raise exceptions.ValidationError("Please provide at least one value to update the product category.")
@@ -124,6 +214,9 @@ def update_product_category_by_id(
 
 def deactivate_product_category(cursor, category_id: int) -> ProductCategoryRecord:
     category = _require_category(cursor, category_id)
+    if category.id == categories_db.DEFAULT_CATEGORY_ID:
+        raise exceptions.ValidationError("The default product category cannot be deactivated.")
+
     if not category.is_active:
         raise exceptions.ValidationError("Product category is already inactive.")
 

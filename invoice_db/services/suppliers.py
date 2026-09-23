@@ -241,6 +241,8 @@ def list_supplier_products(cursor, supplier_id: int) -> list[dict]:
             "category_id": product.category_id,
             "category_name": product.category_name,
             "is_active": product.is_active,
+            "product_supplier_count": product.product_supplier_count,
+            "invoice_item_count": product.invoice_item_count,
             "created_at": product.created_at,
             "updated_at": product.updated_at,
         }

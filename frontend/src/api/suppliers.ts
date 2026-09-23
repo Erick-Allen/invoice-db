@@ -18,6 +18,24 @@ export type ProductSupplier = {
     updated_at: string;
 };
 
+export type SupplierLocation = {
+    id: number;
+    supplier_id: number;
+    location_id: number;
+    label: string;
+    address_line1: string;
+    address_line2: string | null;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+    is_primary: boolean;
+    is_active: boolean;
+    notes: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
 export type CreateSupplierPayload = {
     name: string;
     phone?: string | null;
@@ -32,6 +50,21 @@ export type CreateProductSupplierPayload = {
     supplier_id: number;
     note?: string | null;
 };
+
+export type CreateSupplierLocationPayload = {
+    label: string;
+    address_line1: string;
+    address_line2?: string | null;
+    city: string;
+    state: string;
+    postal_code: string;
+    country?: string;
+    is_primary?: boolean;
+    is_active?: boolean;
+    notes?: string | null;
+};
+
+export type UpdateSupplierLocationPayload = Partial<CreateSupplierLocationPayload>;
 
 export type UpdateProductSupplierPayload = {
     note?: string | null;
@@ -78,6 +111,35 @@ export function deactivateSupplier(id: number) {
 
 export function deleteSupplier(id: number) {
     return apiRequest<void>(`/suppliers/${id}/`, {
+        method: "DELETE",
+    });
+}
+
+export function listSupplierLocations(supplierId: number, activeOnly = false) {
+    const query = activeOnly ? "?active_only=true" : "";
+    return apiRequest<SupplierLocation[]>(`/suppliers/${supplierId}/locations/${query}`);
+}
+
+export function createSupplierLocation(supplierId: number, payload: CreateSupplierLocationPayload) {
+    return apiRequest<SupplierLocation>(`/suppliers/${supplierId}/locations/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export function updateSupplierLocation(
+    supplierId: number,
+    locationId: number,
+    payload: UpdateSupplierLocationPayload,
+) {
+    return apiRequest<SupplierLocation>(`/suppliers/${supplierId}/locations/${locationId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export function deleteSupplierLocation(supplierId: number, locationId: number) {
+    return apiRequest<void>(`/suppliers/${supplierId}/locations/${locationId}/`, {
         method: "DELETE",
     });
 }

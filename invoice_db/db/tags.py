@@ -144,6 +144,48 @@ def count_invoices_for_tag(cursor, tag_id: int) -> int:
     return row["invoice_count"] if row else 0
 
 
+def get_invoices_for_tag(cursor, tag_id: int) -> list[Row]:
+    cursor.execute(
+        """
+        WITH invoice_costs AS (
+            SELECT
+                invoice_id,
+                COALESCE(SUM(quantity * unit_cost), 0) AS cost_total_cents
+            FROM invoice_items
+            GROUP BY invoice_id
+        ),
+        invoice_payments AS (
+            SELECT
+                invoice_id,
+                COALESCE(SUM(amount_cents), 0) AS amount_paid_cents
+            FROM payments
+            GROUP BY invoice_id
+        )
+        SELECT
+            i.id,
+            i.customer_id,
+            c.name AS customer_name,
+            i.location_id,
+            i.date_issued,
+            i.date_due,
+            i.total,
+            i.status,
+            COALESCE(ic.cost_total_cents, 0) AS cost_total_cents,
+            COALESCE(ip.amount_paid_cents, 0) AS amount_paid_cents,
+            MAX(i.total - COALESCE(ip.amount_paid_cents, 0), 0) AS balance_due_cents
+        FROM invoice_tags it
+        JOIN invoices i ON i.id = it.invoice_id
+        JOIN customers c ON c.id = i.customer_id
+        LEFT JOIN invoice_costs ic ON ic.invoice_id = i.id
+        LEFT JOIN invoice_payments ip ON ip.invoice_id = i.id
+        WHERE it.tag_id = ?
+        ORDER BY COALESCE(i.date_issued, '') DESC, i.id DESC
+        """,
+        (tag_id,),
+    )
+    return cursor.fetchall()
+
+
 def add_tag_to_invoice(cursor, invoice_id: int, tag_id: int) -> InvoiceTag:
     cursor.execute(
         """

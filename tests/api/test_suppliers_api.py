@@ -228,6 +228,8 @@ def test_supplier_products_returns_products(api_client, test_db, post_product):
     assert len(data) == 1
     assert data[0]["id"] == product_id
     assert data[0]["name"] == "Widget"
+    assert data[0]["product_supplier_count"] == 1
+    assert data[0]["invoice_item_count"] == 0
 
 
 def test_delete_supplier_with_product_returns_409(api_client, test_db, post_product):

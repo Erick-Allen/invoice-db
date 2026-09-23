@@ -15,6 +15,36 @@ export type InvoiceTag = {
     created_at: string;
 };
 
+export type TagMetrics = {
+    invoice_count: number;
+    issued_invoice_count: number;
+    total_invoiced_cents: number;
+    total_cost_cents: number;
+    total_paid_cents: number;
+    net_profit_cents: number;
+    total_owed_cents: number;
+};
+
+export type TagInvoice = {
+    id: number;
+    customer_id: number;
+    customer_name: string;
+    location_id?: number | null;
+    date_issued: string | null;
+    date_due: string | null;
+    total: number;
+    status: "draft" | "sent" | "paid" | "void";
+    cost_total_cents: number;
+    amount_paid_cents: number;
+    balance_due_cents: number;
+};
+
+export type TagDetail = {
+    tag: Tag;
+    metrics: TagMetrics;
+    invoices: TagInvoice[];
+};
+
 export type CreateTagPayload = {
     name: string;
     description?: string | null;
@@ -34,6 +64,10 @@ export function listTags(activeOnly = false) {
 
 export function getTag(id: number) {
     return apiRequest<Tag>(`/tags/${id}/`);
+}
+
+export function getTagDetail(id: number) {
+    return apiRequest<TagDetail>(`/tags/${id}/detail/`);
 }
 
 export function createTag(payload: CreateTagPayload) {
