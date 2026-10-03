@@ -208,6 +208,8 @@ def create_invoice_schema(cursor):
     -- Invoices table: records all invoices linked to a customer.
     CREATE TABLE IF NOT EXISTS invoices (
         id              INTEGER PRIMARY KEY,
+        workspace_id    INTEGER,
+        invoice_number  INTEGER CHECK (invoice_number IS NULL OR invoice_number > 0),
         customer_id     INTEGER NOT NULL,
         location_id     INTEGER,
         title           TEXT,
@@ -225,6 +227,7 @@ def create_invoice_schema(cursor):
         OR date_due IS NULL
         OR date_issued <= date_due                     
     ),
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
     FOREIGN KEY (location_id) REFERENCES customer_locations(id) ON DELETE SET NULL
     );
@@ -243,10 +246,51 @@ def create_invoice_schema(cursor):
     """)
     cursor.execute("PRAGMA table_info(invoices)")
     columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "workspace_id" not in columns:
+        cursor.execute("ALTER TABLE invoices ADD COLUMN workspace_id INTEGER")
+    if "invoice_number" not in columns:
+        cursor.execute("ALTER TABLE invoices ADD COLUMN invoice_number INTEGER")
     if "title" not in columns:
         cursor.execute("ALTER TABLE invoices ADD COLUMN title TEXT")
     if "description" not in columns:
         cursor.execute("ALTER TABLE invoices ADD COLUMN description TEXT")
+    cursor.execute("PRAGMA index_list(invoices)")
+    indexes = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if (
+        "idx_invoices_unowned_invoice_number" not in indexes
+        or "idx_invoices_workspace_invoice_number" not in indexes
+    ):
+        cursor.executescript("""
+        WITH numbered AS (
+            SELECT
+                id,
+                ROW_NUMBER() OVER (
+                    PARTITION BY workspace_id
+                    ORDER BY id
+                ) AS next_invoice_number
+            FROM invoices
+        )
+        UPDATE invoices
+        SET invoice_number = (
+            SELECT next_invoice_number
+            FROM numbered
+            WHERE numbered.id = invoices.id
+        );
+        """)
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_invoices_workspace_id ON invoices(workspace_id)"
+    )
+    cursor.executescript("""
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_invoices_unowned_invoice_number
+        ON invoices(invoice_number)
+        WHERE workspace_id IS NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_invoices_workspace_invoice_number
+        ON invoices(workspace_id, invoice_number)
+        WHERE workspace_id IS NOT NULL;
+    """)
 
 def create_location_schema(cursor):
     cursor.executescript("""

@@ -2,6 +2,8 @@ import sqlite3
 
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -88,9 +90,17 @@ def _optional_positive_int(value: str | None, label: str) -> int | None:
 
     return parsed_value
 
-def _with_invoice_items(cursor, invoice: dict) -> dict:
+def _with_invoice_items(
+    cursor,
+    invoice: dict,
+    workspace_id: int | None = None,
+) -> dict:
     invoice_data = dict(InvoiceSerializer(invoice).data)
-    invoice_items = invoice_item_services.list_invoice_items(cursor, invoice_id=invoice_data["id"])
+    invoice_items = invoice_item_services.list_invoice_items(
+        cursor,
+        invoice_id=invoice_data["id"],
+        workspace_id=workspace_id,
+    )
     profit_summary = invoice_item_services.summarize_invoice_profit(invoice_items)
     invoice_data["items"] = InvoiceItemSerializer(invoice_items, many=True).data
     invoice_data.update(profit_summary)
@@ -113,6 +123,7 @@ def _request_workspace_id(request, cursor) -> int | None:
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
+    @method_decorator(ensure_csrf_cookie)
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -133,6 +144,7 @@ class RegisterView(APIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
+    @method_decorator(ensure_csrf_cookie)
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -153,6 +165,7 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class CurrentUserView(APIView):
+    @method_decorator(ensure_csrf_cookie)
     def get(self, request):
         if not request.user.is_authenticated:
             return Response(
@@ -385,10 +398,12 @@ class CustomerLocationListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 locations = customer_location_services.list_customer_locations(
                     cursor,
                     customer_id=customer_id,
                     active_only=active_only,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -418,6 +433,7 @@ class CustomerLocationListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location = customer_location_services.create_customer_location(
                     cursor,
                     customer_id=customer_id,
@@ -431,6 +447,7 @@ class CustomerLocationListCreateView(APIView):
                     is_primary=serializer.validated_data.get("is_primary", False),
                     is_active=serializer.validated_data.get("is_active", True),
                     notes=serializer.validated_data.get("notes"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -462,10 +479,12 @@ class CustomerLocationDetailView(APIView):
     def get(self, request, customer_id, location_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location = customer_location_services.get_customer_location_by_id(
                     cursor,
                     customer_id=customer_id,
                     location_id=location_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -489,6 +508,7 @@ class CustomerLocationDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location = customer_location_services.update_customer_location_by_id(
                     cursor,
                     customer_id=customer_id,
@@ -503,6 +523,7 @@ class CustomerLocationDetailView(APIView):
                     is_primary=serializer.validated_data.get("is_primary"),
                     is_active=serializer.validated_data.get("is_active"),
                     notes=serializer.validated_data.get("notes"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -526,10 +547,12 @@ class CustomerLocationDetailView(APIView):
     def delete(self, request, customer_id, location_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 customer_location_services.delete_customer_location(
                     cursor,
                     customer_id=customer_id,
                     location_id=location_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -668,9 +691,17 @@ class InvoiceListCreateView(APIView):
         try:
             customer_id = _optional_positive_int(request.query_params.get("customer_id"), "Customer id")
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                invoices = invoice_services.list_invoices(cursor=cursor, customer_id=customer_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                invoices = invoice_services.list_invoices(
+                    cursor=cursor,
+                    customer_id=customer_id,
+                    workspace_id=workspace_id,
+                )
                 if include_items:
-                    invoices = [_with_invoice_items(cursor, invoice) for invoice in invoices]
+                    invoices = [
+                        _with_invoice_items(cursor, invoice, workspace_id=workspace_id)
+                        for invoice in invoices
+                    ]
 
         except ValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -699,6 +730,7 @@ class InvoiceListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 invoice = invoice_services.create_invoice(
                     cursor,
                     customer_id=serializer.validated_data['customer_id'],
@@ -707,6 +739,7 @@ class InvoiceListCreateView(APIView):
                     description=serializer.validated_data.get("description"),
                     date_issued=date_issued.isoformat() if date_issued else None,
                     date_due=date_due.isoformat() if date_due else None,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -740,12 +773,14 @@ class InvoiceDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 invoice = invoice_services.get_invoice_by_id(
                     cursor=cursor,
-                    invoice_id=invoice_id
+                    invoice_id=invoice_id,
+                    workspace_id=workspace_id,
                 )
                 if include_items:
-                    invoice = _with_invoice_items(cursor, invoice)
+                    invoice = _with_invoice_items(cursor, invoice, workspace_id=workspace_id)
 
         except NotFoundError as e:
             return Response(
@@ -776,6 +811,7 @@ class InvoiceDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 invoice = invoice_services.update_invoice_by_id(
                     cursor,
                     invoice_id=invoice_id,
@@ -788,6 +824,7 @@ class InvoiceDetailView(APIView):
                     new_customer_id=serializer.validated_data.get("customer_id"),
                     new_location_id=serializer.validated_data.get("location_id"),
                     update_location="location_id" in serializer.validated_data,
+                    workspace_id=workspace_id,
                 )
         
         except ValidationError as e:
@@ -818,7 +855,12 @@ class InvoiceDetailView(APIView):
     def delete(self, request, invoice_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                invoice_services.delete_invoice(cursor, invoice_id=invoice_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                invoice_services.delete_invoice(
+                    cursor,
+                    invoice_id=invoice_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -853,10 +895,12 @@ class InvoiceStatusUpdateView(APIView):
         
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 invoice = invoice_services.set_invoice_status(
                     cursor,
                     invoice_id=invoice_id,
                     new_status=serializer.validated_data['status'],
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -887,7 +931,12 @@ class InvoiceItemListCreateView(APIView):
     def get(self, request, invoice_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                invoice_items = invoice_item_services.list_invoice_items(cursor, invoice_id=invoice_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                invoice_items = invoice_item_services.list_invoice_items(
+                    cursor,
+                    invoice_id=invoice_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -916,6 +965,7 @@ class InvoiceItemListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 invoice_item = invoice_item_services.create_invoice_item(
                     cursor,
                     invoice_id=invoice_id,
@@ -923,6 +973,7 @@ class InvoiceItemListCreateView(APIView):
                     quantity=serializer.validated_data.get("quantity", 1),
                     unit_cost_cents=serializer.validated_data.get("unit_cost_cents"),
                     unit_price_cents=serializer.validated_data.get("unit_price_cents"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -958,9 +1009,11 @@ class InvoiceItemDetailView(APIView):
     def get(self, request, invoice_item_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 invoice_item = invoice_item_services.get_invoice_item_by_id(
                     cursor,
                     invoice_item_id=invoice_item_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -990,6 +1043,7 @@ class InvoiceItemDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 invoice_item = invoice_item_services.update_invoice_item_by_id(
                     cursor,
                     invoice_item_id=invoice_item_id,
@@ -997,6 +1051,7 @@ class InvoiceItemDetailView(APIView):
                     quantity=serializer.validated_data.get("quantity"),
                     unit_cost_cents=serializer.validated_data.get("unit_cost_cents"),
                     unit_price_cents=serializer.validated_data.get("unit_price_cents"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1031,7 +1086,12 @@ class InvoiceItemDetailView(APIView):
     def delete(self, request, invoice_item_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                invoice_item_services.delete_invoice_item(cursor, invoice_item_id=invoice_item_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                invoice_item_services.delete_invoice_item(
+                    cursor,
+                    invoice_item_id=invoice_item_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1060,7 +1120,12 @@ class PaymentListCreateView(APIView):
     def get(self, request, invoice_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                payments = payment_services.list_payments(cursor, invoice_id=invoice_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                payments = payment_services.list_payments(
+                    cursor,
+                    invoice_id=invoice_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1091,6 +1156,7 @@ class PaymentListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 payment = payment_services.create_payment(
                     cursor,
                     invoice_id=invoice_id,
@@ -1098,6 +1164,7 @@ class PaymentListCreateView(APIView):
                     payment_date=payment_date.isoformat(),
                     method=serializer.validated_data["method"],
                     note=serializer.validated_data.get("note"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1133,7 +1200,12 @@ class PaymentSummaryView(APIView):
     def get(self, request, invoice_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                summary = payment_services.get_payment_summary(cursor, invoice_id=invoice_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                summary = payment_services.get_payment_summary(
+                    cursor,
+                    invoice_id=invoice_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1158,7 +1230,12 @@ class PaymentDetailView(APIView):
     def get(self, request, payment_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                payment = payment_services.get_payment_by_id(cursor, payment_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                payment = payment_services.get_payment_by_id(
+                    cursor,
+                    payment_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1182,7 +1259,12 @@ class PaymentDetailView(APIView):
     def delete(self, request, payment_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                payment_services.delete_payment(cursor, payment_id=payment_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                payment_services.delete_payment(
+                    cursor,
+                    payment_id=payment_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -2333,7 +2415,12 @@ class InvoiceTagListCreateView(APIView):
     def get(self, request, invoice_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                tags = tag_services.list_invoice_tags(cursor, invoice_id=invoice_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                tags = tag_services.list_invoice_tags(
+                    cursor,
+                    invoice_id=invoice_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -2362,10 +2449,12 @@ class InvoiceTagListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 invoice_tag = tag_services.add_tag_to_invoice(
                     cursor,
                     invoice_id=invoice_id,
                     tag_id=serializer.validated_data["tag_id"],
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2401,10 +2490,12 @@ class InvoiceTagDetailView(APIView):
     def delete(self, request, invoice_id, tag_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 tag_services.remove_tag_from_invoice(
                     cursor,
                     invoice_id=invoice_id,
                     tag_id=tag_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:

@@ -105,6 +105,7 @@ class CustomerUpdateSerializer(StrictSerializer):
     
 class InvoiceSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
+    invoice_number = serializers.IntegerField(read_only=True, allow_null=True)
     customer_id = serializers.IntegerField()
     location_id = serializers.IntegerField(required=False, allow_null=True)
     title = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
@@ -288,6 +289,7 @@ class LocationSupplierAssignmentSerializer(StrictSerializer):
 
 class LocationInvoiceSerializer(StrictSerializer):
     id = serializers.IntegerField(read_only=True)
+    invoice_number = serializers.IntegerField(read_only=True, allow_null=True)
     customer_id = serializers.IntegerField(read_only=True)
     customer_name = serializers.CharField(read_only=True)
     customer_location_id = serializers.IntegerField(read_only=True)
@@ -469,6 +471,7 @@ class ProductCategoryMetricsSerializer(serializers.Serializer):
 
 class ProductCategoryInvoiceSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
+    invoice_number = serializers.IntegerField(read_only=True, allow_null=True)
     customer_id = serializers.IntegerField(read_only=True)
     customer_name = serializers.CharField(read_only=True)
     date_issued = serializers.DateField(required=False, allow_null=True)
@@ -516,6 +519,7 @@ class TagMetricsSerializer(serializers.Serializer):
 
 class TagInvoiceSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
+    invoice_number = serializers.IntegerField(read_only=True, allow_null=True)
     customer_id = serializers.IntegerField(read_only=True)
     customer_name = serializers.CharField(read_only=True)
     location_id = serializers.IntegerField(required=False, allow_null=True)

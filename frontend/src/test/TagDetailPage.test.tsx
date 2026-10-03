@@ -79,7 +79,7 @@ describe("TagDetailPage", () => {
         expect(within(metrics).getByText("-$10")).toBeInTheDocument();
         expect(within(metrics).getByText("$40")).toBeInTheDocument();
 
-        const invoiceRow = screen.getByRole("row", { name: /View invoice 7/i });
+        const invoiceRow = screen.getByRole("row", { name: /View invoice #7/i });
         expect(within(invoiceRow).getByText("#7")).toBeInTheDocument();
         expect(within(invoiceRow).getByText("John Doe")).toBeInTheDocument();
         expect(within(invoiceRow).getByText("Sep-22-2026")).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe("TagDetailPage", () => {
             </MemoryRouter>
         );
 
-        fireEvent.click(await screen.findByRole("row", { name: /View invoice 7/i }));
+        fireEvent.click(await screen.findByRole("row", { name: /View invoice #7/i }));
 
         expect(screen.getByTestId("location-path")).toHaveTextContent("/invoices/7");
     });

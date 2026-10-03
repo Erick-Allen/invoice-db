@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from invoice_db.db import customer_locations, customers, invoices
+from invoice_db.db import customer_locations, customers, invoices, workspaces
 import pytest
 
 CUSTOMER_JOHN_EMAIL = "john@test.com"
@@ -18,6 +18,7 @@ def test_create_invoice(cursor, customer_john):
 
     assert row is not None
     assert row['id'] == invoice_id
+    assert row["invoice_number"] == 1
     assert row['customer_id'] == customer_john
     assert row["title"] == "Mini split install"
     assert row["description"] == "Installed mini split in upstairs bedroom."
@@ -25,6 +26,24 @@ def test_create_invoice(cursor, customer_john):
     assert row['total'] == 30025
     assert row["date_due"] is None
     assert row["location_id"] is None
+
+def test_invoice_number_increments_per_workspace(cursor):
+    workspace_a = workspaces.create_workspace(cursor, owner_user_id=1, name="Workspace A")
+    workspace_b = workspaces.create_workspace(cursor, owner_user_id=2, name="Workspace B")
+    customer_a = customers.create_customer(cursor, "Workspace A", "a@test.com", workspace_id=workspace_a)
+    customer_b = customers.create_customer(cursor, "Workspace B", "b@test.com", workspace_id=workspace_b)
+
+    first_a = invoices.add_invoice_to_customer(cursor, customer_a, workspace_id=workspace_a)
+    second_a = invoices.add_invoice_to_customer(cursor, customer_a, workspace_id=workspace_a)
+    first_b = invoices.add_invoice_to_customer(cursor, customer_b, workspace_id=workspace_b)
+
+    invoice_a_1 = invoices.get_invoice_by_id(cursor, first_a, workspace_id=workspace_a)
+    invoice_a_2 = invoices.get_invoice_by_id(cursor, second_a, workspace_id=workspace_a)
+    invoice_b_1 = invoices.get_invoice_by_id(cursor, first_b, workspace_id=workspace_b)
+
+    assert invoice_a_1["invoice_number"] == 1
+    assert invoice_a_2["invoice_number"] == 2
+    assert invoice_b_1["invoice_number"] == 1
 
 def test_create_invoice_with_location(cursor, customer_john):
     location = customer_locations.create_customer_location(

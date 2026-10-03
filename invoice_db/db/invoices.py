@@ -2,6 +2,27 @@ from .customers import assert_customer_exists, get_customer_id_by_email
 from .validators import validate_total, validate_status, validate_sort
 from ..utils import to_iso
 
+def _next_invoice_number(cursor, workspace_id: int | None = None) -> int:
+    if workspace_id is None:
+        cursor.execute(
+            """
+            SELECT COALESCE(MAX(invoice_number), 0) + 1 AS next_invoice_number
+            FROM invoices
+            WHERE workspace_id IS NULL
+            """
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT COALESCE(MAX(invoice_number), 0) + 1 AS next_invoice_number
+            FROM invoices
+            WHERE workspace_id = ?
+            """,
+            (workspace_id,),
+        )
+
+    return cursor.fetchone()["next_invoice_number"]
+
 # Create
 def add_invoice_to_customer(
     cursor,
@@ -13,9 +34,10 @@ def add_invoice_to_customer(
     location_id: int | None = None,
     title: str | None = None,
     description: str | None = None,
+    workspace_id: int | None = None,
 ) -> int:
     """Attach a new invoice to an existing customer with customer_id."""
-    assert_customer_exists(cursor, customer_id)
+    assert_customer_exists(cursor, customer_id, workspace_id=workspace_id)
     validate_total(total)
     date_issued = to_iso(date_issued)
     date_due = to_iso(date_due)
@@ -25,42 +47,67 @@ def add_invoice_to_customer(
         if (date_issued > date_due):
             raise ValueError("Due date must be later than the date issued.")
 
+    invoice_number = _next_invoice_number(cursor, workspace_id=workspace_id)
+
     cursor.execute("""
-        INSERT INTO invoices (customer_id, location_id, title, description, date_issued, date_due, total, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (customer_id, location_id, title, description, date_issued, date_due, total, status))
+        INSERT INTO invoices (workspace_id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, total, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (workspace_id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, total, status))
     return cursor.lastrowid
 
 # READ
-def get_invoice_by_id(cursor, invoice_id: int) -> dict:
-    cursor.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,))
+def get_invoice_by_id(cursor, invoice_id: int, workspace_id: int | None = None) -> dict:
+    if workspace_id is None:
+        cursor.execute(
+            "SELECT * FROM invoices WHERE id = ? AND workspace_id IS NULL",
+            (invoice_id,),
+        )
+    else:
+        cursor.execute(
+            "SELECT * FROM invoices WHERE id = ? AND workspace_id = ?",
+            (invoice_id, workspace_id),
+        )
     return cursor.fetchone()
 
-def get_invoices_by_email(cursor, email: str) -> dict:
+def get_invoices_by_email(cursor, email: str, workspace_id: int | None = None) -> dict:
     """Fetch all invoices belonging to a customer identified by their email"""
-    customer_id = get_customer_id_by_email(cursor, email)
+    customer_id = get_customer_id_by_email(cursor, email, workspace_id=workspace_id)
     if customer_id is None:
         return []
-    return get_invoices_by_customer_id(cursor, customer_id)
+    return get_invoices_by_customer_id(cursor, customer_id, workspace_id=workspace_id)
 
-def get_invoices_by_customer_id(cursor, customer_id: int) -> list:
+def get_invoices_by_customer_id(cursor, customer_id: int, workspace_id: int | None = None) -> list:
+    workspace_clause = "workspace_id IS NULL" if workspace_id is None else "workspace_id = ?"
+    params = (customer_id,) if workspace_id is None else (customer_id, workspace_id)
     cursor.execute("""
-    SELECT id, customer_id, location_id, title, description, date_issued, date_due, total, created_at, updated_at, status
+    SELECT id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, total, created_at, updated_at, status
     FROM invoices
-    WHERE customer_id = ?
+    WHERE customer_id = ? AND """ + workspace_clause + """
     ORDER BY date_issued DESC, id DESC
-    """, (customer_id,))
+    """, params)
     return cursor.fetchall()
 
-def get_invoices_by_customer_and_range(cursor, customer_id: int, start_date: str, end_date: str) -> list:
+def get_invoices_by_customer_and_range(
+    cursor,
+    customer_id: int,
+    start_date: str,
+    end_date: str,
+    workspace_id: int | None = None,
+) -> list:
     start_date = to_iso(start_date)
     end_date = to_iso(end_date)
+    workspace_clause = "workspace_id IS NULL" if workspace_id is None else "workspace_id = ?"
+    params = (
+        (customer_id, start_date, end_date)
+        if workspace_id is None
+        else (customer_id, start_date, end_date, workspace_id)
+    )
     cursor.execute("""
-    SELECT id, customer_id, location_id, title, description, date_issued, date_due, total, created_at, updated_at, status
+    SELECT id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, total, created_at, updated_at, status
     FROM invoices
-    WHERE customer_id = ? AND date_issued BETWEEN ? AND ?
+    WHERE customer_id = ? AND date_issued BETWEEN ? AND ? AND """ + workspace_clause + """
     ORDER BY date_issued DESC, id DESC
-    """, (customer_id, start_date, end_date,))
+    """, params)
     return cursor.fetchall()
 
 def count_invoices(
@@ -69,6 +116,7 @@ def count_invoices(
     status: str | None = None,
     min_total: int | None = None,
     max_total: int | None = None,
+    workspace_id: int | None = None,
 ) -> int:
     query = ("SELECT COUNT(*) AS invoice_count FROM invoices")
     clauses = []
@@ -77,6 +125,11 @@ def count_invoices(
     if customer_id is not None:
         clauses.append("customer_id = ?")
         params.append(customer_id)
+    if workspace_id is None:
+        clauses.append("workspace_id IS NULL")
+    else:
+        clauses.append("workspace_id = ?")
+        params.append(workspace_id)
     if status is not None:
         status = status.strip().lower()
         clauses.append("status = ?")
@@ -103,7 +156,8 @@ def list_invoices(
     max_total: int | None = None,
     limit: int = 100, offset: int = 0,
     sort_by: str = "created_at",
-    desc: bool = True
+    desc: bool = True,
+    workspace_id: int | None = None,
 ) -> list:
     sort_columns = {
         "id": "i.id",
@@ -120,6 +174,7 @@ def list_invoices(
     sql = """
     SELECT 
         i.id,
+        i.invoice_number,
         i.customer_id,
         i.location_id,
         i.title,
@@ -138,6 +193,11 @@ def list_invoices(
     if customer_id is not None:
         clauses.append("i.customer_id = ?")
         params.append(customer_id)
+    if workspace_id is None:
+        clauses.append("i.workspace_id IS NULL")
+    else:
+        clauses.append("i.workspace_id = ?")
+        params.append(workspace_id)
     if status is not None:
         status = status.strip().lower()
         clauses.append("i.status = ?")
@@ -172,7 +232,8 @@ def list_overdue_invoices(
     limit: int = 100,
     offset: int = 0,
     sort_by: str = "date_due",
-    desc: bool = True
+    desc: bool = True,
+    workspace_id: int | None = None,
 ) -> list:
     allowed_sort = {
         "id": "i.id",
@@ -187,6 +248,7 @@ def list_overdue_invoices(
     sql = """
     SELECT
         i.id,
+        i.invoice_number,
         i.customer_id,
         i.location_id,
         i.title,
@@ -211,6 +273,11 @@ def list_overdue_invoices(
     if customer_id is not None:
         clauses.append("i.customer_id = ?")
         params.append(customer_id)
+    if workspace_id is None:
+        clauses.append("i.workspace_id IS NULL")
+    else:
+        clauses.append("i.workspace_id = ?")
+        params.append(workspace_id)
     if days_overdue is not None:
         clauses.append("julianday(date('now', 'localtime')) - julianday(i.date_due) >= ?")
         params.append(days_overdue)
@@ -232,12 +299,14 @@ def list_overdue_invoices(
     return cursor.fetchall()
 
 
-def sum_invoices_by_customer(cursor, customer_id: int) -> int:
+def sum_invoices_by_customer(cursor, customer_id: int, workspace_id: int | None = None) -> int:
+    workspace_clause = "workspace_id IS NULL" if workspace_id is None else "workspace_id = ?"
+    params = (customer_id,) if workspace_id is None else (customer_id, workspace_id)
     cursor.execute("""
         SELECT COALESCE(SUM(total), 0) AS total_sum
         FROM invoices
-        WHERE customer_id = ?
-    """, (customer_id,))
+        WHERE customer_id = ? AND """ + workspace_clause + """
+    """, params)
     return cursor.fetchone()['total_sum']
 
 
@@ -256,9 +325,10 @@ def update_invoice(
         customer_id: int = None,
         location_id: int | None = None,
         update_location: bool = False,
+        workspace_id: int | None = None,
 ) -> bool:
     
-    invoice = get_invoice_by_id(cursor, invoice_id)
+    invoice = get_invoice_by_id(cursor, invoice_id, workspace_id=workspace_id)
     if not invoice:
         return False
 
@@ -288,7 +358,7 @@ def update_invoice(
         updates.append("total = ?")
         params.append(total)
     if  customer_id is not None:
-        assert_customer_exists(cursor, customer_id)
+        assert_customer_exists(cursor, customer_id, workspace_id=workspace_id)
         updates.append("customer_id = ?")
         params.append(customer_id)
     if update_location:
@@ -303,12 +373,18 @@ def update_invoice(
     cursor.execute(query, tuple(params))
     return cursor.rowcount > 0
 
-def set_invoice_status(cursor, invoice_id: int, status: str) -> bool:
+def set_invoice_status(cursor, invoice_id: int, status: str, workspace_id: int | None = None) -> bool:
     validate_status(status)
-    cursor.execute(
-        "SELECT status FROM invoices WHERE id = ?",
-        (invoice_id,),
-    )
+    if workspace_id is None:
+        cursor.execute(
+            "SELECT status FROM invoices WHERE id = ? AND workspace_id IS NULL",
+            (invoice_id,),
+        )
+    else:
+        cursor.execute(
+            "SELECT status FROM invoices WHERE id = ? AND workspace_id = ?",
+            (invoice_id, workspace_id),
+        )
     row = cursor.fetchone()
 
     if row is None:
@@ -317,20 +393,28 @@ def set_invoice_status(cursor, invoice_id: int, status: str) -> bool:
     if status == row["status"]:
         return True
 
-    cursor.execute(
-        """
-        UPDATE
-            invoices 
-        SET 
-            status = ?
-        WHERE 
-            id = ? 
-        """,
-        (status, invoice_id)
+    if workspace_id is None:
+        cursor.execute(
+            "UPDATE invoices SET status = ? WHERE id = ? AND workspace_id IS NULL",
+            (status, invoice_id),
+        )
+    else:
+        cursor.execute(
+            "UPDATE invoices SET status = ? WHERE id = ? AND workspace_id = ?",
+            (status, invoice_id, workspace_id),
         )
     return cursor.rowcount > 0
 
 # DELETE
-def delete_invoice(cursor, invoice_id: int) -> bool:
-    cursor.execute("DELETE FROM invoices WHERE id = ?", (invoice_id,))
+def delete_invoice(cursor, invoice_id: int, workspace_id: int | None = None) -> bool:
+    if workspace_id is None:
+        cursor.execute(
+            "DELETE FROM invoices WHERE id = ? AND workspace_id IS NULL",
+            (invoice_id,),
+        )
+    else:
+        cursor.execute(
+            "DELETE FROM invoices WHERE id = ? AND workspace_id = ?",
+            (invoice_id, workspace_id),
+        )
     return cursor.rowcount > 0

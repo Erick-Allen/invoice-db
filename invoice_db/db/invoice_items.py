@@ -40,8 +40,9 @@ class InvoiceItem:
 
 
 class InvoiceItemRepository:
-    def __init__(self, cursor):
+    def __init__(self, cursor, workspace_id: int | None = None):
         self.cursor = cursor
+        self.workspace_id = workspace_id
 
     def create(self, item: InvoiceItemCreate) -> InvoiceItem:
         self._require_invoice(item.invoice_id)
@@ -154,14 +155,20 @@ class InvoiceItemRepository:
 
     def recalculate_invoice_total(self, invoice_id: int) -> int:
         total = self.sum_invoice_items(invoice_id)
-        self.cursor.execute(
-            "UPDATE invoices SET total = ? WHERE id = ?",
-            (total, invoice_id),
-        )
+        if self.workspace_id is None:
+            self.cursor.execute(
+                "UPDATE invoices SET total = ? WHERE id = ? AND workspace_id IS NULL",
+                (total, invoice_id),
+            )
+        else:
+            self.cursor.execute(
+                "UPDATE invoices SET total = ? WHERE id = ? AND workspace_id = ?",
+                (total, invoice_id, self.workspace_id),
+            )
         return total
 
     def _require_invoice(self, invoice_id: int) -> None:
-        if get_invoice_by_id(self.cursor, invoice_id) is None:
+        if get_invoice_by_id(self.cursor, invoice_id, workspace_id=self.workspace_id) is None:
             raise ValueError(f"Invoice not found (id={invoice_id})")
 
     def _require_active_product(self, product_id: int):

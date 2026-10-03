@@ -2,6 +2,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getTagDetail, type TagDetail } from "../api/tags";
 import { formatDisplayDate } from "../utils/date";
+import { formatInvoiceNumber } from "../utils/invoices";
 import { centsToDollars } from "../utils/money";
 
 type TagDetailLocationState = {
@@ -155,11 +156,11 @@ export function TagDetailPage() {
                                                 key={invoice.id}
                                                 className="clickable-row"
                                                 tabIndex={0}
-                                                aria-label={`View invoice ${invoice.id}`}
+                                                aria-label={`View invoice ${formatInvoiceNumber(invoice)}`}
                                                 onClick={() => openInvoiceDetail(invoice.id)}
                                                 onKeyDown={(event) => handleInvoiceRowKeyDown(event, invoice.id)}
                                             >
-                                                <td>#{invoice.id}</td>
+                                                <td>{formatInvoiceNumber(invoice)}</td>
                                                 <td>{invoice.customer_name}</td>
                                                 <td>{formatDisplayDate(invoice.date_issued)}</td>
                                                 <td>{formatDisplayDate(invoice.date_due)}</td>

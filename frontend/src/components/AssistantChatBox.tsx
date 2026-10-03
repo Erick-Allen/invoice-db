@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { askAssistant } from "../api/assistant";
 import { formatDisplayDate } from "../utils/date";
+import { formatInvoiceNumber } from "../utils/invoices";
 
 type AssistantInvoice = {
   id: number;
+  invoice_number?: number | null;
   customer_name?: string;
   status: string;
   total: number;
@@ -128,7 +130,7 @@ export function AssistantChatBox() {
                   <tbody>
                     {response.data.map((invoice) => (
                       <tr key={invoice.id}>
-                        <td>#{invoice.id}</td>
+                        <td>{formatInvoiceNumber(invoice)}</td>
                         <td>{invoice.customer_name || "—"}</td>
                         <td>
                           <span className="status-badge">{invoice.status}</span>

@@ -163,6 +163,7 @@ def get_invoices_for_tag(cursor, tag_id: int) -> list[Row]:
         )
         SELECT
             i.id,
+            i.invoice_number,
             i.customer_id,
             c.name AS customer_name,
             i.location_id,

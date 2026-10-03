@@ -91,6 +91,7 @@ class LocationSupplierAssignmentRecord(TypedDict):
 
 class LocationInvoiceRecord(TypedDict):
     id: int
+    invoice_number: int | None
     customer_id: int
     customer_name: str
     customer_location_id: int
@@ -205,6 +206,7 @@ def _to_location_supplier_assignment_record(
 def _to_location_invoice_record(invoice: locations_db.LocationInvoice) -> LocationInvoiceRecord:
     return {
         "id": invoice.id,
+        "invoice_number": invoice.invoice_number,
         "customer_id": invoice.customer_id,
         "customer_name": invoice.customer_name,
         "customer_location_id": invoice.customer_location_id,
@@ -219,13 +221,17 @@ def _as_validation_error(error: ValueError) -> exceptions.ValidationError:
     return exceptions.ValidationError(str(error))
 
 
-def _require_customer(cursor, customer_id: int) -> customers_db.Customer:
+def _require_customer(
+    cursor,
+    customer_id: int,
+    workspace_id: int | None = None,
+) -> customers_db.Customer:
     try:
         validate_positive_id(customer_id, "Customer id")
     except ValueError as e:
         raise _as_validation_error(e) from e
 
-    customer = customers_db.get_customer_by_id(cursor, customer_id)
+    customer = customers_db.get_customer_by_id(cursor, customer_id, workspace_id=workspace_id)
     if customer is None:
         raise exceptions.NotFoundError(f"Customer not found (id={customer_id})")
 
@@ -275,8 +281,9 @@ def _require_customer_location(
     cursor,
     customer_id: int,
     location_id: int,
+    workspace_id: int | None = None,
 ) -> locations_db.CustomerLocation:
-    _require_customer(cursor, customer_id)
+    _require_customer(cursor, customer_id, workspace_id=workspace_id)
     location = _require_location(cursor, location_id)
 
     if location.customer_id != customer_id:
@@ -317,7 +324,9 @@ def create_customer_location(
     is_primary: bool = False,
     is_active: bool = True,
     notes: str | None = None,
+    workspace_id: int | None = None,
 ) -> CustomerLocationRecord:
+    _require_customer(cursor, customer_id, workspace_id=workspace_id)
     try:
         location = locations_db.create_customer_location(
             cursor,
@@ -334,6 +343,7 @@ def create_customer_location(
                 is_active=is_active,
                 notes=notes,
             ),
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -498,8 +508,9 @@ def list_customer_locations(
     *,
     customer_id: int,
     active_only: bool = False,
+    workspace_id: int | None = None,
 ) -> list[CustomerLocationRecord]:
-    _require_customer(cursor, customer_id)
+    _require_customer(cursor, customer_id, workspace_id=workspace_id)
     return [
         _to_location_record(location)
         for location in locations_db.get_customer_locations(cursor, customer_id, active_only=active_only)
@@ -511,8 +522,16 @@ def get_customer_location_by_id(
     *,
     customer_id: int,
     location_id: int,
+    workspace_id: int | None = None,
 ) -> CustomerLocationRecord:
-    return _to_location_record(_require_customer_location(cursor, customer_id, location_id))
+    return _to_location_record(
+        _require_customer_location(
+            cursor,
+            customer_id,
+            location_id,
+            workspace_id=workspace_id,
+        )
+    )
 
 
 def list_supplier_locations(
@@ -552,8 +571,14 @@ def update_customer_location_by_id(
     is_primary: bool | None = None,
     is_active: bool | None = None,
     notes: str | None = None,
+    workspace_id: int | None = None,
 ) -> CustomerLocationRecord:
-    location = _require_customer_location(cursor, customer_id, location_id)
+    location = _require_customer_location(
+        cursor,
+        customer_id,
+        location_id,
+        workspace_id=workspace_id,
+    )
 
     if (
         label is None
@@ -658,6 +683,7 @@ def deactivate_customer_location(
     *,
     customer_id: int,
     location_id: int,
+    workspace_id: int | None = None,
 ) -> CustomerLocationRecord:
     return update_customer_location_by_id(
         cursor,
@@ -665,6 +691,7 @@ def deactivate_customer_location(
         location_id=location_id,
         is_active=False,
         is_primary=False,
+        workspace_id=workspace_id,
     )
 
 
@@ -673,8 +700,14 @@ def delete_customer_location(
     *,
     customer_id: int,
     location_id: int,
+    workspace_id: int | None = None,
 ) -> None:
-    location = _require_customer_location(cursor, customer_id, location_id)
+    location = _require_customer_location(
+        cursor,
+        customer_id,
+        location_id,
+        workspace_id=workspace_id,
+    )
 
     try:
         deleted = locations_db.delete_customer_location(cursor, location.id)

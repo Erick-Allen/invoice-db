@@ -8,6 +8,7 @@ import { createProduct, listProducts, type Product } from "../api/products";
 import { addInvoiceTag, createTag, listInvoiceTags, listTags, removeInvoiceTag, type Tag } from "../api/tags";
 import { formatDisplayDate, getDefaultSentInvoiceDueDate, getDefaultSentInvoiceIssuedDate } from "../utils/date";
 import { centsToDollars, dollarsToCents } from "../utils/money";
+import { formatInvoiceNumber } from "../utils/invoices";
 
 function productLabel(product: Product | undefined, productId: number) {
     return product ? product.name : `Product #${productId}`;
@@ -120,7 +121,7 @@ export function InvoiceDetailPage() {
     }
 
     function getInvoiceTitle(currentInvoice: Invoice) {
-        return currentInvoice.title?.trim() || `Invoice #${currentInvoice.id}`;
+        return currentInvoice.title?.trim() || `Invoice ${formatInvoiceNumber(currentInvoice)}`;
     }
 
     function openSendDrawer() {
@@ -129,7 +130,11 @@ export function InvoiceDetailPage() {
         }
 
         setActionError(null);
-        setSendSubject(invoice.title?.trim() ? `${invoice.title.trim()} - Invoice #${invoice.id}` : `Invoice #${invoice.id}`);
+        setSendSubject(
+            invoice.title?.trim()
+                ? `${invoice.title.trim()} - Invoice ${formatInvoiceNumber(invoice)}`
+                : `Invoice ${formatInvoiceNumber(invoice)}`
+        );
         setSendNote("Thank you for your business. Please review the attached invoice when you have a moment.");
         setSendIssueDate(invoice.date_issued ?? getDefaultSentInvoiceIssuedDate());
         setSendDueDate(invoice.date_due ?? getDefaultSentInvoiceDueDate());
@@ -238,7 +243,12 @@ export function InvoiceDetailPage() {
     }
 
     useEffect(() => {
-        loadInvoiceDetail();
+        const loadTimer = window.setTimeout(() => {
+            void loadInvoiceDetail();
+        }, 0);
+
+        return () => window.clearTimeout(loadTimer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [invoiceId]);
 
     const productsById = useMemo(() => {
@@ -482,7 +492,8 @@ export function InvoiceDetailPage() {
     function toggleSelectedItem(productId: number) {
         setSelectedItemQuantities((currentQuantities) => {
             if (currentQuantities[productId]) {
-                const { [productId]: _removedQuantity, ...nextQuantities } = currentQuantities;
+                const nextQuantities = { ...currentQuantities };
+                delete nextQuantities[productId];
                 return nextQuantities;
             }
 
@@ -943,7 +954,7 @@ export function InvoiceDetailPage() {
                         <dl className="detail-grid">
                             <div>
                                 <dt>Invoice #</dt>
-                                <dd>#{invoice.id}</dd>
+                                <dd>{formatInvoiceNumber(invoice)}</dd>
                             </div>
                             <div>
                                 <dt>Customer</dt>
@@ -1222,7 +1233,7 @@ export function InvoiceDetailPage() {
                                         </div>
                                         <div>
                                             <span>Invoice</span>
-                                            <strong>#{invoice.id}</strong>
+                                            <strong>{formatInvoiceNumber(invoice)}</strong>
                                         </div>
                                         <div>
                                             <span>Due</span>
@@ -1313,7 +1324,7 @@ export function InvoiceDetailPage() {
                                             type="text"
                                             value={editInvoiceTitle}
                                             onChange={(event) => setEditInvoiceTitle(event.target.value)}
-                                            placeholder={`Invoice #${invoice.id}`}
+                                            placeholder={`Invoice ${formatInvoiceNumber(invoice)}`}
                                         />
                                     </div>
                                     <div className="modal-actions">

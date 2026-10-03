@@ -92,7 +92,11 @@ export function InvoicesPage() {
     }
 
     useEffect(() => {
-        loadData();
+        const loadTimer = window.setTimeout(() => {
+            void loadData();
+        }, 0);
+
+        return () => window.clearTimeout(loadTimer);
     }, []);
 
     function resetCreateForm() {
@@ -126,10 +130,6 @@ export function InvoicesPage() {
         }
 
         const selectedLineItems = createLineItems.filter((item) => item.productId);
-        if (selectedLineItems.length === 0) {
-            setError("At least one line item is required.");
-            return;
-        }
 
         const preparedLineItems = [];
         for (const item of selectedLineItems) {
@@ -695,11 +695,11 @@ export function InvoicesPage() {
 	                                                key={invoice.id}
 	                                                className="clickable-row"
 	                                                tabIndex={0}
-	                                                aria-label={`View invoice ${invoice.id}`}
+	                                                aria-label={`View invoice ${invoice.invoice_number ?? invoice.id}`}
 	                                                onClick={(event) => handleInvoiceRowClick(event, invoice.id)}
 	                                                onKeyDown={(event) => handleInvoiceRowKeyDown(event, invoice.id)}
 	                                            >
-	                                                <td>{invoice.id}</td>
+	                                                <td>{invoice.invoice_number ?? invoice.id}</td>
 	                                                <td>{getCustomerName(invoice.customer_id)}</td>
 	                                                <td>{getLocationLabel(invoice)}</td>
 	                                                <td>{formatDisplayDate(invoice.date_due)}</td>

@@ -29,6 +29,7 @@ MANUAL_STATUS_TRANSITIONS = {
 
 class InvoiceRecord(TypedDict):
     id: int
+    invoice_number: int | None
     customer_id: int
     location_id: int | None
     title: str | None
@@ -47,6 +48,7 @@ class InvoiceCountResult(TypedDict):
 
 class OverdueInvoiceRecord(TypedDict):
     id: int
+    invoice_number: int | None
     customer_id: int
     total: float
     status: str
@@ -114,25 +116,33 @@ def _prepare_invoice_dates(
         
     return normalized_issued, normalized_due
     
-def _require_customer(cursor, customer_id: int) -> sqlite3.Row:
+def _require_customer(
+    cursor,
+    customer_id: int,
+    workspace_id: int | None = None,
+) -> sqlite3.Row:
     try:
         validate_positive_id(customer_id, "Customer id")
     except ValueError as e:
         raise _as_validation_error(e) from e
         
-    customer = customers_db.get_customer_by_id(cursor, customer_id)
+    customer = customers_db.get_customer_by_id(cursor, customer_id, workspace_id=workspace_id)
     if customer is None:
         raise exceptions.NotFoundError(f"Customer not found (id={customer_id})")
 
     return customer
 
-def _require_invoice(cursor, invoice_id: int) -> sqlite3.Row:
+def _require_invoice(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> sqlite3.Row:
     try:
         validate_positive_id(invoice_id, "Invoice id")
     except ValueError as e:
         raise _as_validation_error(e) from e
         
-    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id)
+    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id, workspace_id=workspace_id)
     if invoice is None:
         raise exceptions.NotFoundError(f"Invoice not found (id={invoice_id})")
 
@@ -150,6 +160,7 @@ def _prepare_invoice_changes(
     new_customer_id: int | None = None,
     new_location_id: int | None = None,
     update_location: bool = False,
+    workspace_id: int | None = None,
 ) -> tuple[str | None, str | None, str | None, str | None, int | None, int | None, bool, bool, bool]:
     if (
         new_date_issued is None
@@ -168,7 +179,7 @@ def _prepare_invoice_changes(
    
     normalized_customer = None
     if new_customer_id is not None:
-        _require_customer(cursor, new_customer_id)
+        _require_customer(cursor, new_customer_id, workspace_id=workspace_id)
         normalized_customer = new_customer_id
 
     effective_customer_id = invoice["customer_id"] if normalized_customer is None else normalized_customer
@@ -221,6 +232,7 @@ def _update_invoice(
     new_customer_id: int | None = None,
     new_location_id: int | None = None,
     update_location: bool = False,
+    workspace_id: int | None = None,
 ) -> sqlite3.Row:
     (
         title,
@@ -244,6 +256,7 @@ def _update_invoice(
         new_customer_id=new_customer_id,
         new_location_id=new_location_id,
         update_location=update_location,
+        workspace_id=workspace_id,
     )
 
     try:
@@ -259,6 +272,7 @@ def _update_invoice(
             customer_id=customer_id,
             location_id=location_id,
             update_location=should_update_location,
+            workspace_id=workspace_id,
         )
     except sqlite3.IntegrityError as e:
         raise exceptions.ValidationError("Invalid invoice update data.") from e
@@ -266,7 +280,11 @@ def _update_invoice(
     if not updated:
         raise exceptions.ServiceError(f"Failed to update invoice {invoice['id']}")
     
-    updated_invoice = invoices_db.get_invoice_by_id(cursor, invoice['id'])
+    updated_invoice = invoices_db.get_invoice_by_id(
+        cursor,
+        invoice['id'],
+        workspace_id=workspace_id,
+    )
     if updated_invoice is None:
         raise exceptions.ServiceError("Updated invoice, but failed ot reload record.")
     
@@ -293,8 +311,9 @@ def create_invoice(
     location_id: int | None = None,
     title: str | None = None,
     description: str | None = None,
+    workspace_id: int | None = None,
 ) -> InvoiceRecord:
-    _require_customer(cursor, customer_id)
+    _require_customer(cursor, customer_id, workspace_id=workspace_id)
     location_id = location_services.require_location_for_invoice_customer(
         cursor,
         customer_id=customer_id,
@@ -316,6 +335,7 @@ def create_invoice(
             date_issued=date_issued,
             date_due=date_due,
             location_id=location_id,
+            workspace_id=workspace_id,
         )
     except sqlite3.IntegrityError as e:
         raise exceptions.ValidationError("Invalid invoice data.") from e
@@ -323,7 +343,7 @@ def create_invoice(
     if invoice_id is None:
         raise exceptions.ServiceError("Failed to create invoice.")
     
-    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id)
+    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id, workspace_id=workspace_id)
     if invoice is None:
         raise exceptions.ServiceError("Invoice was created but could not be retrieved.")
     
@@ -339,6 +359,7 @@ def list_invoices(
         offset: int = 0,
         sort_by: str = "created_at",
         desc: bool = True,
+        workspace_id: int | None = None,
 ) -> list[InvoiceRecord]:
     try:
         validate_positive_id(customer_id, "Customer id")
@@ -359,12 +380,17 @@ def list_invoices(
                 offset=offset,
                 sort_by=sort_by,
                 desc=desc,
+                workspace_id=workspace_id,
             )
 
     return [_to_invoice_record(invoice) for invoice in invoices]
 
-def get_invoice_by_id(cursor, invoice_id: int) -> InvoiceRecord:
-    invoice = _require_invoice(cursor, invoice_id)
+def get_invoice_by_id(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> InvoiceRecord:
+    invoice = _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
     return _to_invoice_record(invoice)
 
 def count_invoices(
@@ -373,10 +399,11 @@ def count_invoices(
     status: str | None = None,
     min_total: float | None = None,
     max_total: float | None = None,
+    workspace_id: int | None = None,
 ) -> InvoiceCountResult:
     customer = None
     if customer_id is not None:
-       customer_row = _require_customer(cursor, customer_id)
+       customer_row = _require_customer(cursor, customer_id, workspace_id=workspace_id)
        customer = {
            "id": customer_row.id,
            "name": customer_row.name,
@@ -395,6 +422,7 @@ def count_invoices(
         status=status,
         min_total=min_total,
         max_total=max_total,
+        workspace_id=workspace_id,
     )
 
     return {
@@ -415,9 +443,10 @@ def overdue_invoices(
     offset: int = 0,
     sort_by: str = "date_issued",
     desc: bool = True, 
+    workspace_id: int | None = None,
 ) -> list[OverdueInvoiceRecord]:
     if customer_id is not None:
-        _require_customer(cursor, customer_id)
+        _require_customer(cursor, customer_id, workspace_id=workspace_id)
     
     if days_overdue is not None:
         if days_overdue <= 0:
@@ -440,6 +469,7 @@ def overdue_invoices(
                 offset=offset,
                 sort_by=sort_by,
                 desc=desc,
+                workspace_id=workspace_id,
             )
     
     return [dict(invoice) for invoice in invoices]
@@ -457,11 +487,12 @@ def update_invoice_by_id(
     new_customer_id: int | None = None,
     new_location_id: int | None = None,
     update_location: bool = False,
+    workspace_id: int | None = None,
     ) -> InvoiceRecord:
     if new_total is not None:
         raise exceptions.ValidationError("Invoice totals are calculated from line items.")
 
-    invoice = _require_invoice(cursor, invoice_id)
+    invoice = _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
 
     updated_invoice = _update_invoice(
         cursor,
@@ -475,12 +506,18 @@ def update_invoice_by_id(
         new_customer_id=new_customer_id,
         new_location_id=new_location_id,
         update_location=update_location,
+        workspace_id=workspace_id,
     )
 
     return _to_invoice_record(updated_invoice)
     
-def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecord:
-    invoice = _require_invoice(cursor, invoice_id)
+def set_invoice_status(
+    cursor,
+    invoice_id: int,
+    new_status: str,
+    workspace_id: int | None = None,
+) -> InvoiceRecord:
+    invoice = _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
     normalized_status = _normalize_invoice_status(new_status)
 
     if normalized_status == invoice['status']:
@@ -503,6 +540,7 @@ def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecor
             invoice_id=invoice_id,
             date_issued=date_issued,
             date_due=date_due,
+            workspace_id=workspace_id,
         )
     
     try:
@@ -510,6 +548,7 @@ def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecor
             cursor,
             invoice_id=invoice_id,
             status=normalized_status,
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise exceptions.ValidationError(str(e)) from e
@@ -517,18 +556,26 @@ def set_invoice_status(cursor, invoice_id: int, new_status: str) -> InvoiceRecor
     if not updated:
         raise exceptions.ServiceError(f"Failed to update invoice {invoice_id} status.")
     
-    updated_invoice = invoices_db.get_invoice_by_id(cursor, invoice_id=invoice_id)
+    updated_invoice = invoices_db.get_invoice_by_id(
+        cursor,
+        invoice_id=invoice_id,
+        workspace_id=workspace_id,
+    )
     if updated_invoice is None:
         raise exceptions.ServiceError("Updated invoice, but failed to reload record.")
 
     return _to_invoice_record(updated_invoice)
 
-def delete_invoice(cursor, invoice_id: int) -> None:
+def delete_invoice(cursor, invoice_id: int, workspace_id: int | None = None) -> None:
     try:
         validate_positive_id(invoice_id, "Invoice id")
     except ValueError as e:
         raise _as_validation_error(e) from e
-    deleted_invoice = invoices_db.delete_invoice(cursor, invoice_id)
+    deleted_invoice = invoices_db.delete_invoice(
+        cursor,
+        invoice_id,
+        workspace_id=workspace_id,
+    )
 
     if not deleted_invoice:
         raise exceptions.NotFoundError(f"Invoice not found (id={invoice_id})")

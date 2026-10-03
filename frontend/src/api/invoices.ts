@@ -5,6 +5,7 @@ export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
 
 export type Invoice = {
     id: number;
+    invoice_number?: number | null;
     customer_id: number;
     location_id?: number | null;
     title?: string | null;

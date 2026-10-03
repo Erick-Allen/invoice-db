@@ -10,6 +10,7 @@ import {
 } from "../api/customers";
 import { createSupplierLocation, listSuppliers, type Supplier } from "../api/suppliers";
 import { formatDisplayDate } from "../utils/date";
+import { formatInvoiceNumber } from "../utils/invoices";
 import { centsToDollars } from "../utils/money";
 
 type LocationDetailLocationState = {
@@ -85,7 +86,12 @@ export function LocationDetailPage() {
     }
 
     useEffect(() => {
-        loadLocationDetail();
+        const loadTimer = window.setTimeout(() => {
+            void loadLocationDetail();
+        }, 0);
+
+        return () => window.clearTimeout(loadTimer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [locationId]);
 
     function openCustomerDetail(customerId: number) {
@@ -489,11 +495,11 @@ export function LocationDetailPage() {
                                                 key={invoice.id}
                                                 className="clickable-row"
                                                 tabIndex={0}
-                                                aria-label={`View invoice ${invoice.id}`}
+                                                aria-label={`View invoice ${formatInvoiceNumber(invoice)}`}
                                                 onClick={() => openInvoiceDetail(invoice.id)}
                                                 onKeyDown={(event) => handleInvoiceRowKeyDown(event, invoice.id)}
                                             >
-                                                <td>#{invoice.id}</td>
+                                                <td>{formatInvoiceNumber(invoice)}</td>
                                                 <td>{invoice.customer_name}</td>
                                                 <td>{formatDisplayDate(invoice.date_issued)}</td>
                                                 <td>{formatDisplayDate(invoice.date_due)}</td>

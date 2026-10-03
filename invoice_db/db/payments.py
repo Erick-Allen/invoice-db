@@ -82,8 +82,9 @@ def _to_payment(row: Row) -> Payment:
 
 
 class PaymentRepository:
-    def __init__(self, cursor):
+    def __init__(self, cursor, workspace_id: int | None = None):
         self.cursor = cursor
+        self.workspace_id = workspace_id
 
     def create(self, payment: PaymentCreate) -> Payment:
         self._require_invoice(payment.invoice_id)
@@ -144,7 +145,11 @@ class PaymentRepository:
         )
 
     def _require_invoice(self, invoice_id: int) -> Row:
-        invoice = get_invoice_by_id(self.cursor, invoice_id)
+        invoice = get_invoice_by_id(
+            self.cursor,
+            invoice_id,
+            workspace_id=self.workspace_id,
+        )
         if invoice is None:
             raise ValueError(f"Invoice not found (id={invoice_id})")
         return invoice

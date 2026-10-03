@@ -24,6 +24,7 @@ class InvoiceTagRecord(TypedDict):
 
 class TagInvoiceRecord(TypedDict):
     id: int
+    invoice_number: int | None
     customer_id: int
     customer_name: str
     location_id: int | None
@@ -82,9 +83,13 @@ def _validate_id(value: int, label: str) -> None:
         raise _as_validation_error(e) from e
 
 
-def _require_invoice(cursor, invoice_id: int) -> sqlite3.Row:
+def _require_invoice(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> sqlite3.Row:
     _validate_id(invoice_id, "Invoice id")
-    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id)
+    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id, workspace_id=workspace_id)
     if invoice is None:
         raise exceptions.NotFoundError(f"Invoice not found (id={invoice_id})")
     return invoice
@@ -232,8 +237,13 @@ def delete_tag(cursor, tag_id: int) -> None:
         raise exceptions.NotFoundError(f"Tag not found (id={tag_id})")
 
 
-def add_tag_to_invoice(cursor, invoice_id: int, tag_id: int) -> InvoiceTagRecord:
-    _require_invoice(cursor, invoice_id)
+def add_tag_to_invoice(
+    cursor,
+    invoice_id: int,
+    tag_id: int,
+    workspace_id: int | None = None,
+) -> InvoiceTagRecord:
+    _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
     tag = _require_tag(cursor, tag_id)
 
     if not tag.is_active:
@@ -249,16 +259,25 @@ def add_tag_to_invoice(cursor, invoice_id: int, tag_id: int) -> InvoiceTagRecord
     return _to_invoice_tag_record(invoice_tag)
 
 
-def list_invoice_tags(cursor, invoice_id: int) -> list[TagRecord]:
-    _require_invoice(cursor, invoice_id)
+def list_invoice_tags(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> list[TagRecord]:
+    _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
     return [
         _to_tag_record(tag)
         for tag in tags_db.get_tags_for_invoice(cursor, invoice_id)
     ]
 
 
-def remove_tag_from_invoice(cursor, invoice_id: int, tag_id: int) -> None:
-    _require_invoice(cursor, invoice_id)
+def remove_tag_from_invoice(
+    cursor,
+    invoice_id: int,
+    tag_id: int,
+    workspace_id: int | None = None,
+) -> None:
+    _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
     _require_tag(cursor, tag_id)
 
     removed = tags_db.remove_tag_from_invoice(cursor, invoice_id, tag_id)

@@ -1,6 +1,48 @@
 from datetime import date, timedelta
 
+import pytest
+from rest_framework.test import APIClient
+
 INVALID_ID = 9999
+
+
+def signed_in_client(email, test_db):
+    client = APIClient()
+    response = client.post(
+        "/api/auth/signup/",
+        {
+            "email": email,
+            "password": "StrongPass123!",
+            "name": email.split("@")[0],
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+    return client
+
+
+def create_customer(api_client, name, email):
+    response = api_client.post(
+        "/api/customers/",
+        {"name": name, "email": email},
+        format="json",
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def create_invoice(api_client, customer_id):
+    response = api_client.post(
+        "/api/invoices/",
+        {
+            "customer_id": customer_id,
+            "date_issued": "2026-05-20",
+            "date_due": "2026-06-20",
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+    return response.json()
 
 def test_list_invoices_returns_200(api_client, test_db):
     response = api_client.get("/api/invoices/")
@@ -43,6 +85,7 @@ def test_create_invoice_returns_201(api_client, test_db, customer_john_id):
 
     data = response.json()
     assert data["id"] == 1
+    assert data["invoice_number"] == 1
     assert data["customer_id"] == customer_john_id
     assert data["title"] == "Mini split install"
     assert data["description"] == "Installed mini split in upstairs bedroom."
@@ -524,3 +567,86 @@ def test_delete_missing_invoice_returns_404(api_client, test_db, customer_john_i
     response = api_client.delete("/api/invoices/9999/")
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_signed_in_invoices_are_scoped_to_user_workspace(test_db):
+    user_a = signed_in_client("invoice-a@example.com", test_db)
+    user_b = signed_in_client("invoice-b@example.com", test_db)
+    customer_a = create_customer(user_a, "Customer A", "shared@example.com")
+    customer_b = create_customer(user_b, "Customer B", "shared@example.com")
+    invoice_a = create_invoice(user_a, customer_a["id"])
+    invoice_b = create_invoice(user_b, customer_b["id"])
+
+    list_a = user_a.get("/api/invoices/")
+    list_b = user_b.get("/api/invoices/")
+
+    assert list_a.status_code == 200
+    assert list_b.status_code == 200
+    assert [invoice["id"] for invoice in list_a.json()] == [invoice_a["id"]]
+    assert [invoice["id"] for invoice in list_b.json()] == [invoice_b["id"]]
+    assert [invoice["invoice_number"] for invoice in list_a.json()] == [1]
+    assert [invoice["invoice_number"] for invoice in list_b.json()] == [1]
+
+
+@pytest.mark.django_db
+def test_signed_in_invoice_detail_cannot_cross_workspace(test_db):
+    user_a = signed_in_client("invoice-detail-a@example.com", test_db)
+    user_b = signed_in_client("invoice-detail-b@example.com", test_db)
+    customer_a = create_customer(user_a, "Customer A", "customer-a@example.com")
+    invoice_a = create_invoice(user_a, customer_a["id"])
+
+    response = user_b.get(f"/api/invoices/{invoice_a['id']}/")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_signed_in_invoice_is_hidden_from_signed_out_requests(api_client, test_db):
+    signed_in = signed_in_client("invoice-owner@example.com", test_db)
+    customer = create_customer(signed_in, "Private Customer", "private@example.com")
+    invoice = create_invoice(signed_in, customer["id"])
+
+    list_response = api_client.get("/api/invoices/")
+    detail_response = api_client.get(f"/api/invoices/{invoice['id']}/")
+
+    assert list_response.status_code == 200
+    assert list_response.json() == []
+    assert detail_response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_signed_in_user_cannot_create_invoice_for_other_workspace_customer(test_db):
+    user_a = signed_in_client("invoice-customer-a@example.com", test_db)
+    user_b = signed_in_client("invoice-customer-b@example.com", test_db)
+    customer_a = create_customer(user_a, "Customer A", "customer-a@example.com")
+
+    response = user_b.post(
+        "/api/invoices/",
+        {
+            "customer_id": customer_a["id"],
+            "date_issued": "2026-05-20",
+            "date_due": "2026-06-20",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_invoice_child_routes_cannot_cross_workspace(test_db):
+    user_a = signed_in_client("invoice-child-a@example.com", test_db)
+    user_b = signed_in_client("invoice-child-b@example.com", test_db)
+    customer_a = create_customer(user_a, "Customer A", "customer-a@example.com")
+    invoice_a = create_invoice(user_a, customer_a["id"])
+
+    item_response = user_b.get(f"/api/invoices/{invoice_a['id']}/items/")
+    payment_response = user_b.get(f"/api/invoices/{invoice_a['id']}/payments/")
+    payment_summary_response = user_b.get(f"/api/invoices/{invoice_a['id']}/payments/summary/")
+    tag_response = user_b.get(f"/api/invoices/{invoice_a['id']}/tags/")
+
+    assert item_response.status_code == 404
+    assert payment_response.status_code == 404
+    assert payment_summary_response.status_code == 404
+    assert tag_response.status_code == 404

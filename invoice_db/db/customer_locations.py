@@ -135,6 +135,7 @@ class LocationSupplierAssignment:
 @dataclass
 class LocationInvoice:
     id: int
+    invoice_number: int | None
     customer_id: int
     customer_name: str
     customer_location_id: int
@@ -251,6 +252,7 @@ def _to_location_supplier_assignment(row: Row) -> LocationSupplierAssignment:
 def _to_location_invoice(row: Row) -> LocationInvoice:
     return LocationInvoice(
         id=row["id"],
+        invoice_number=row["invoice_number"],
         customer_id=row["customer_id"],
         customer_name=row["customer_name"],
         customer_location_id=row["customer_location_id"],
@@ -717,6 +719,7 @@ def get_location_invoices(cursor, location_id: int) -> list[LocationInvoice]:
         """
         SELECT
             i.id,
+            i.invoice_number,
             i.customer_id,
             c.name AS customer_name,
             i.location_id AS customer_location_id,
@@ -735,9 +738,13 @@ def get_location_invoices(cursor, location_id: int) -> list[LocationInvoice]:
     return [_to_location_invoice(row) for row in cursor.fetchall()]
 
 
-def create_customer_location(cursor, location: CustomerLocationCreate) -> CustomerLocation:
+def create_customer_location(
+    cursor,
+    location: CustomerLocationCreate,
+    workspace_id: int | None = None,
+) -> CustomerLocation:
     validate_positive_id(location.customer_id, "Customer id")
-    assert_customer_exists(cursor, location.customer_id)
+    assert_customer_exists(cursor, location.customer_id, workspace_id=workspace_id)
 
     label = _normalize_required_text(location.label, "Location label")
     address_line1 = _normalize_required_text(location.address_line1, "Address line 1")

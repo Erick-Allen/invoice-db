@@ -198,8 +198,8 @@ describe("CustomerDetailPage", () => {
         expect(within(summary).queryByText("-$30")).not.toBeInTheDocument();
         expect(within(summary).getByText("$35")).toBeInTheDocument();
 
-        const firstInvoiceRow = screen.getByRole("row", { name: /View invoice 1/i });
-        const secondInvoiceRow = screen.getByRole("row", { name: /View invoice 2/i });
+        const firstInvoiceRow = screen.getByRole("row", { name: /View invoice #1/i });
+        const secondInvoiceRow = screen.getByRole("row", { name: /View invoice #2/i });
         expect(within(firstInvoiceRow).getByText("#1")).toBeInTheDocument();
         expect(within(secondInvoiceRow).getByText("#2")).toBeInTheDocument();
         expect(within(firstInvoiceRow).getByText("sent")).toBeInTheDocument();
@@ -265,7 +265,7 @@ describe("CustomerDetailPage", () => {
             </MemoryRouter>
         );
 
-        fireEvent.click(await screen.findByRole("row", { name: /View invoice 1/i }));
+        fireEvent.click(await screen.findByRole("row", { name: /View invoice #1/i }));
 
         expect(screen.getByTestId("location-path")).toHaveTextContent("/invoices/1");
     });
@@ -320,13 +320,13 @@ describe("CustomerDetailPage", () => {
         expect(await screen.findByRole("button", { name: "All (3)" })).toBeInTheDocument();
         fireEvent.click(within(summary).getByRole("button", { name: /Total Paid/i }));
 
-        expect(screen.getByRole("row", { name: /View invoice 2/i })).toBeInTheDocument();
-        expect(screen.queryByRole("row", { name: /View invoice 1/i })).not.toBeInTheDocument();
+        expect(screen.getByRole("row", { name: /View invoice #2/i })).toBeInTheDocument();
+        expect(screen.queryByRole("row", { name: /View invoice #1/i })).not.toBeInTheDocument();
 
         fireEvent.click(within(summary).getByRole("button", { name: /Total Owed/i }));
 
-        expect(screen.getByRole("row", { name: /View invoice 1/i })).toBeInTheDocument();
-        expect(screen.queryByRole("row", { name: /View invoice 2/i })).not.toBeInTheDocument();
+        expect(screen.getByRole("row", { name: /View invoice #1/i })).toBeInTheDocument();
+        expect(screen.queryByRole("row", { name: /View invoice #2/i })).not.toBeInTheDocument();
     });
 
     it("opens an add location dialog from the locations section", async () => {

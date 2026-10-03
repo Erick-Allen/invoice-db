@@ -1,3 +1,22 @@
+import pytest
+from rest_framework.test import APIClient
+
+
+def signed_in_client(email, test_db):
+    client = APIClient()
+    response = client.post(
+        "/api/auth/signup/",
+        {
+            "email": email,
+            "password": "StrongPass123!",
+            "name": email.split("@")[0],
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+    return client
+
+
 def _create_location(api_client, customer_id, **overrides):
     payload = {
         "label": "Home",
@@ -57,6 +76,25 @@ def test_list_customer_locations(api_client, test_db, customer_john_id):
     _create_location(api_client, customer_john_id)
 
     response = api_client.get(f"/api/customers/{customer_john_id}/locations/")
+
+    assert response.status_code == 200
+    assert response.json()[0]["label"] == "Home"
+
+
+@pytest.mark.django_db
+def test_signed_in_customer_locations_use_user_workspace(test_db):
+    client = signed_in_client("locations-owner@example.com", test_db)
+    customer_response = client.post(
+        "/api/customers/",
+        {"name": "Workspace Customer", "email": "workspace@example.com"},
+        format="json",
+    )
+    assert customer_response.status_code == 201, customer_response.json()
+    customer_id = customer_response.json()["id"]
+    create_response = _create_location(client, customer_id)
+    assert create_response.status_code == 201, create_response.json()
+
+    response = client.get(f"/api/customers/{customer_id}/locations/")
 
     assert response.status_code == 200
     assert response.json()[0]["label"] == "Home"

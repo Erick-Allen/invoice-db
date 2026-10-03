@@ -85,6 +85,7 @@ def test_login_returns_user(api_client, django_user_model):
     assert response.status_code == 200
     assert response.json()["user"]["email"] == "login@example.com"
     assert response.json()["user"]["name"] == "Login User"
+    assert "csrftoken" in response.cookies
 
 
 @pytest.mark.django_db

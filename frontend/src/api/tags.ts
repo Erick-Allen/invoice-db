@@ -27,6 +27,7 @@ export type TagMetrics = {
 
 export type TagInvoice = {
     id: number;
+    invoice_number?: number | null;
     customer_id: number;
     customer_name: string;
     location_id?: number | null;

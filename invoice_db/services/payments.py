@@ -75,9 +75,13 @@ def _to_payment_summary_record(summary: payments_db.PaymentSummary) -> PaymentSu
     }
 
 
-def _require_invoice(cursor, invoice_id: int) -> sqlite3.Row:
+def _require_invoice(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> sqlite3.Row:
     _validate_id(invoice_id, "Invoice id")
-    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id)
+    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id, workspace_id=workspace_id)
     if invoice is None:
         raise exceptions.NotFoundError(f"Invoice not found (id={invoice_id})")
     return invoice
@@ -86,11 +90,15 @@ def _require_invoice(cursor, invoice_id: int) -> sqlite3.Row:
 def _require_payment(
     repository: payments_db.PaymentRepository,
     payment_id: int,
+    cursor=None,
+    workspace_id: int | None = None,
 ) -> payments_db.Payment:
     _validate_id(payment_id, "Payment id")
     payment = repository.get_by_id(payment_id)
     if payment is None:
         raise exceptions.NotFoundError(f"Payment not found (id={payment_id})")
+    if cursor is not None:
+        _require_invoice(cursor, payment.invoice_id, workspace_id=workspace_id)
     return payment
 
 
@@ -118,13 +126,14 @@ def create_payment(
     payment_date: str,
     method: str,
     note: str | None = None,
+    workspace_id: int | None = None,
 ) -> PaymentRecord:
     normalized_date = _normalize_payment_date(payment_date)
-    repository = payments_db.PaymentRepository(cursor)
+    repository = payments_db.PaymentRepository(cursor, workspace_id=workspace_id)
 
     try:
         with _payment_transaction(cursor):
-            invoice = _require_invoice(cursor, invoice_id)
+            invoice = _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
             _require_payable_invoice(invoice)
 
             summary = repository.get_payment_summary_for_invoice(invoice_id)
@@ -144,7 +153,12 @@ def create_payment(
 
             updated_summary = repository.get_payment_summary_for_invoice(invoice_id)
             if updated_summary.balance_due_cents == 0:
-                updated = invoices_db.set_invoice_status(cursor, invoice_id, "paid")
+                updated = invoices_db.set_invoice_status(
+                    cursor,
+                    invoice_id,
+                    "paid",
+                    workspace_id=workspace_id,
+                )
                 if not updated:
                     raise exceptions.ServiceError(f"Failed to mark invoice {invoice_id} as paid.")
 
@@ -156,30 +170,49 @@ def create_payment(
     return _to_payment_record(payment)
 
 
-def get_payment_by_id(cursor, payment_id: int) -> PaymentRecord:
-    repository = payments_db.PaymentRepository(cursor)
-    return _to_payment_record(_require_payment(repository, payment_id))
+def get_payment_by_id(
+    cursor,
+    payment_id: int,
+    workspace_id: int | None = None,
+) -> PaymentRecord:
+    repository = payments_db.PaymentRepository(cursor, workspace_id=workspace_id)
+    return _to_payment_record(
+        _require_payment(
+            repository,
+            payment_id,
+            cursor=cursor,
+            workspace_id=workspace_id,
+        )
+    )
 
 
-def list_payments(cursor, invoice_id: int) -> list[PaymentRecord]:
-    _require_invoice(cursor, invoice_id)
-    repository = payments_db.PaymentRepository(cursor)
+def list_payments(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> list[PaymentRecord]:
+    _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
+    repository = payments_db.PaymentRepository(cursor, workspace_id=workspace_id)
     return [
         _to_payment_record(payment)
         for payment in repository.list_by_invoice_id(invoice_id)
     ]
 
 
-def get_payment_summary(cursor, invoice_id: int) -> PaymentSummaryRecord:
-    _require_invoice(cursor, invoice_id)
-    repository = payments_db.PaymentRepository(cursor)
+def get_payment_summary(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> PaymentSummaryRecord:
+    _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
+    repository = payments_db.PaymentRepository(cursor, workspace_id=workspace_id)
     return _to_payment_summary_record(
         repository.get_payment_summary_for_invoice(invoice_id)
     )
 
 
-def delete_payment(cursor, payment_id: int) -> None:
-    repository = payments_db.PaymentRepository(cursor)
+def delete_payment(cursor, payment_id: int, workspace_id: int | None = None) -> None:
+    repository = payments_db.PaymentRepository(cursor, workspace_id=workspace_id)
 
     try:
         with _payment_transaction(cursor):
@@ -187,7 +220,11 @@ def delete_payment(cursor, payment_id: int) -> None:
             if payment is None:
                 raise exceptions.NotFoundError(f"Payment not found (id={payment_id})")
 
-            invoice = invoices_db.get_invoice_by_id(cursor, payment.invoice_id)
+            invoice = invoices_db.get_invoice_by_id(
+                cursor,
+                payment.invoice_id,
+                workspace_id=workspace_id,
+            )
             if invoice is None:
                 raise exceptions.NotFoundError(f"Invoice not found (id={payment.invoice_id})")
 
@@ -201,7 +238,12 @@ def delete_payment(cursor, payment_id: int) -> None:
             updated_summary = repository.get_payment_summary_for_invoice(payment.invoice_id)
 
             if invoice["status"] == "paid" and updated_summary.balance_due_cents > 0:
-                updated = invoices_db.set_invoice_status(cursor, payment.invoice_id, "sent")
+                updated = invoices_db.set_invoice_status(
+                    cursor,
+                    payment.invoice_id,
+                    "sent",
+                    workspace_id=workspace_id,
+                )
                 if not updated:
                     raise exceptions.ServiceError(
                         f"Failed to reopen invoice {payment.invoice_id} after payment deletion."

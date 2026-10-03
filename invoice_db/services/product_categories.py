@@ -32,6 +32,7 @@ class CategoryProductRecord(TypedDict):
 
 class CategoryInvoiceRecord(TypedDict):
     id: int
+    invoice_number: int | None
     customer_id: int
     customer_name: str
     date_issued: str | None

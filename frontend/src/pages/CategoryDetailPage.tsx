@@ -2,6 +2,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getProductCategoryDetail, type ProductCategoryDetail } from "../api/products";
 import { formatDisplayDate } from "../utils/date";
+import { formatInvoiceNumber } from "../utils/invoices";
 import { centsToDollars } from "../utils/money";
 
 function formatCurrency(cents: number) {
@@ -195,11 +196,11 @@ export function CategoryDetailPage() {
                                                 key={invoice.id}
                                                 className="clickable-row"
                                                 tabIndex={0}
-                                                aria-label={`View invoice ${invoice.id}`}
+                                                aria-label={`View invoice ${formatInvoiceNumber(invoice)}`}
                                                 onClick={() => openInvoiceDetail(invoice.id)}
                                                 onKeyDown={(event) => handleInvoiceRowKeyDown(event, invoice.id)}
                                             >
-                                                <td>#{invoice.id}</td>
+                                                <td>{formatInvoiceNumber(invoice)}</td>
                                                 <td>{invoice.customer_name}</td>
                                                 <td>{formatDisplayDate(invoice.date_issued)}</td>
                                                 <td>{formatDisplayDate(invoice.date_due)}</td>

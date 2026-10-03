@@ -254,8 +254,8 @@ def delete_customer(cursor, customer_id: int, workspace_id: int | None = None) -
 
 
 # Assertions
-def assert_customer_exists(cursor, customer_id: int) -> None:
-    if get_customer_by_id(cursor, customer_id) is None:
+def assert_customer_exists(cursor, customer_id: int, workspace_id: int | None = None) -> None:
+    if get_customer_by_id(cursor, customer_id, workspace_id=workspace_id) is None:
         raise ValueError(f"Customer not found (id={customer_id})")
 
 

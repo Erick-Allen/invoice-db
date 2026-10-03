@@ -77,6 +77,7 @@ export type LocationSupplierAssignment = {
 
 export type LocationInvoice = {
     id: number;
+    invoice_number?: number | null;
     customer_id: number;
     customer_name: string;
     customer_location_id: number;

@@ -73,16 +73,24 @@ def _validate_id(value: int, label: str) -> None:
         raise _as_validation_error(e) from e
 
 
-def _require_invoice(cursor, invoice_id: int) -> sqlite3.Row:
+def _require_invoice(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> sqlite3.Row:
     _validate_id(invoice_id, "Invoice id")
-    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id)
+    invoice = invoices_db.get_invoice_by_id(cursor, invoice_id, workspace_id=workspace_id)
     if invoice is None:
         raise exceptions.NotFoundError(f"Invoice not found (id={invoice_id})")
     return invoice
 
 
-def _require_editable_invoice(cursor, invoice_id: int) -> sqlite3.Row:
-    invoice = _require_invoice(cursor, invoice_id)
+def _require_editable_invoice(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> sqlite3.Row:
+    invoice = _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
     if invoice["status"] in LOCKED_INVOICE_STATUSES:
         raise exceptions.ConflictError(
             "Invoice line items cannot be changed after an invoice is sent, paid, or void."
@@ -93,11 +101,15 @@ def _require_editable_invoice(cursor, invoice_id: int) -> sqlite3.Row:
 def _require_invoice_item(
     repository: invoice_items_db.InvoiceItemRepository,
     invoice_item_id: int,
+    cursor=None,
+    workspace_id: int | None = None,
 ) -> invoice_items_db.InvoiceItem:
     _validate_id(invoice_item_id, "Invoice item id")
     item = repository.get_by_id(invoice_item_id)
     if item is None:
         raise exceptions.NotFoundError(f"Invoice item not found (id={invoice_item_id})")
+    if cursor is not None:
+        _require_invoice(cursor, item.invoice_id, workspace_id=workspace_id)
     return item
 
 
@@ -108,10 +120,11 @@ def create_invoice_item(
     quantity: int = 1,
     unit_cost_cents: int | None = None,
     unit_price_cents: int | None = None,
+    workspace_id: int | None = None,
 ) -> InvoiceItemRecord:
-    _require_editable_invoice(cursor, invoice_id)
+    _require_editable_invoice(cursor, invoice_id, workspace_id=workspace_id)
     _validate_id(product_id, "Product id")
-    repository = invoice_items_db.InvoiceItemRepository(cursor)
+    repository = invoice_items_db.InvoiceItemRepository(cursor, workspace_id=workspace_id)
 
     try:
         item = repository.create(
@@ -134,18 +147,33 @@ def create_invoice_item(
     return _to_invoice_item_record(item)
 
 
-def list_invoice_items(cursor, invoice_id: int) -> list[InvoiceItemRecord]:
-    _require_invoice(cursor, invoice_id)
-    repository = invoice_items_db.InvoiceItemRepository(cursor)
+def list_invoice_items(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> list[InvoiceItemRecord]:
+    _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
+    repository = invoice_items_db.InvoiceItemRepository(cursor, workspace_id=workspace_id)
     return [
         _to_invoice_item_record(item)
         for item in repository.list_by_invoice_id(invoice_id)
     ]
 
 
-def get_invoice_item_by_id(cursor, invoice_item_id: int) -> InvoiceItemRecord:
-    repository = invoice_items_db.InvoiceItemRepository(cursor)
-    return _to_invoice_item_record(_require_invoice_item(repository, invoice_item_id))
+def get_invoice_item_by_id(
+    cursor,
+    invoice_item_id: int,
+    workspace_id: int | None = None,
+) -> InvoiceItemRecord:
+    repository = invoice_items_db.InvoiceItemRepository(cursor, workspace_id=workspace_id)
+    return _to_invoice_item_record(
+        _require_invoice_item(
+            repository,
+            invoice_item_id,
+            cursor=cursor,
+            workspace_id=workspace_id,
+        )
+    )
 
 
 def update_invoice_item_by_id(
@@ -156,6 +184,7 @@ def update_invoice_item_by_id(
     quantity: int | None = None,
     unit_cost_cents: int | None = None,
     unit_price_cents: int | None = None,
+    workspace_id: int | None = None,
 ) -> InvoiceItemRecord:
     if product_id is None and quantity is None and unit_cost_cents is None and unit_price_cents is None:
         raise exceptions.ValidationError("Please provide at least one value to update the invoice item.")
@@ -163,9 +192,14 @@ def update_invoice_item_by_id(
     if product_id is not None:
         _validate_id(product_id, "Product id")
 
-    repository = invoice_items_db.InvoiceItemRepository(cursor)
-    item = _require_invoice_item(repository, invoice_item_id)
-    _require_editable_invoice(cursor, item.invoice_id)
+    repository = invoice_items_db.InvoiceItemRepository(cursor, workspace_id=workspace_id)
+    item = _require_invoice_item(
+        repository,
+        invoice_item_id,
+        cursor=cursor,
+        workspace_id=workspace_id,
+    )
+    _require_editable_invoice(cursor, item.invoice_id, workspace_id=workspace_id)
 
     try:
         updated_item = repository.update(
@@ -189,10 +223,19 @@ def update_invoice_item_by_id(
     return _to_invoice_item_record(updated_item)
 
 
-def delete_invoice_item(cursor, invoice_item_id: int) -> None:
-    repository = invoice_items_db.InvoiceItemRepository(cursor)
-    item = _require_invoice_item(repository, invoice_item_id)
-    _require_editable_invoice(cursor, item.invoice_id)
+def delete_invoice_item(
+    cursor,
+    invoice_item_id: int,
+    workspace_id: int | None = None,
+) -> None:
+    repository = invoice_items_db.InvoiceItemRepository(cursor, workspace_id=workspace_id)
+    item = _require_invoice_item(
+        repository,
+        invoice_item_id,
+        cursor=cursor,
+        workspace_id=workspace_id,
+    )
+    _require_editable_invoice(cursor, item.invoice_id, workspace_id=workspace_id)
 
     deleted = repository.delete(invoice_item_id)
     if not deleted:

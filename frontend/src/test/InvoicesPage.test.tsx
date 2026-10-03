@@ -170,7 +170,7 @@ describe("InvoicesPage", () => {
         expect(screen.getAllByText("1 item").length).toBeGreaterThan(0);
 	        expect(screen.getByText("draft")).toBeInTheDocument();
 	        expect(screen.getByRole("columnheader", { name: "#" })).toBeInTheDocument();
-	        expect(screen.getByRole("cell", { name: "1" })).toBeInTheDocument();
+        expect(screen.getByRole("cell", { name: "1" })).toBeInTheDocument();
 	        expect(screen.queryByRole("columnheader", { name: "Title" })).not.toBeInTheDocument();
 	        expect(screen.queryByRole("columnheader", { name: "Line Items" })).not.toBeInTheDocument();
 	        expect(screen.queryByRole("columnheader", { name: "Date Issued" })).not.toBeInTheDocument();
@@ -291,6 +291,29 @@ describe("InvoicesPage", () => {
                 unit_price_cents: 1234,
             });
         });
+    });
+
+    it("creates an invoice without line items", async () => {
+        renderInvoicesPage();
+
+        expect(await screen.findByText("John Doe")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Create Invoice" }));
+        const dialog = screen.getByRole("dialog", { name: "Create Invoice" });
+
+        fireEvent.change(within(dialog).getByLabelText("Customer"), { target: { value: "1" } });
+        fireEvent.click(within(dialog).getByRole("button", { name: "Create Invoice" }));
+
+        await waitFor(() => {
+            expect(mockedCreateInvoice).toHaveBeenCalledWith({
+                customer_id: 1,
+                location_id: null,
+                title: null,
+                description: null,
+                date_issued: null,
+                date_due: null,
+            });
+        });
+        expect(mockedCreateInvoiceItem).not.toHaveBeenCalled();
     });
 
     it("opens invoice detail when an invoice row is clicked", async () => {

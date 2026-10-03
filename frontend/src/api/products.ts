@@ -35,6 +35,7 @@ export type ProductCategoryMetrics = {
 
 export type ProductCategoryInvoice = {
     id: number;
+    invoice_number?: number | null;
     customer_id: number;
     customer_name: string;
     date_issued: string | null;

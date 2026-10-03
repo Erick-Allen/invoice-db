@@ -16,6 +16,7 @@ import { createInvoice, listInvoices, type Invoice, type InvoiceStatus } from ".
 import { getPaymentSummary, type PaymentSummary } from "../api/payments";
 import { formatDisplayDate } from "../utils/date";
 import { centsToDollars } from "../utils/money";
+import { formatInvoiceNumber } from "../utils/invoices";
 import { digitsOnly, formatPhoneNumber, isValidCustomerPhone } from "../utils/phone";
 
 type StatusCounts = Record<InvoiceStatus, number>;
@@ -843,11 +844,11 @@ export function CustomerDetailPage() {
                                                     key={invoice.id}
                                                     className="clickable-row"
                                                     tabIndex={0}
-                                                    aria-label={`View invoice ${invoice.id}`}
+                                                    aria-label={`View invoice ${formatInvoiceNumber(invoice)}`}
                                                     onClick={() => openInvoiceDetail(invoice.id)}
                                                     onKeyDown={(event) => handleInvoiceRowKeyDown(event, invoice.id)}
                                                 >
-                                                    <td>#{invoice.id}</td>
+                                                    <td>{formatInvoiceNumber(invoice)}</td>
                                                     <td>{getInvoiceLocationLabel(invoice)}</td>
                                                     <td>{formatDisplayDate(invoice.date_issued)}</td>
                                                     <td>{formatDisplayDate(invoice.date_due)}</td>

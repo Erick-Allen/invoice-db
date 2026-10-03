@@ -159,6 +159,7 @@ def get_invoice_totals_for_category(cursor, category_id: int) -> list[Row]:
         """
         SELECT
             i.id,
+            i.invoice_number,
             i.customer_id,
             c.name AS customer_name,
             i.date_issued,
@@ -172,7 +173,7 @@ def get_invoice_totals_for_category(cursor, category_id: int) -> list[Row]:
         JOIN invoices i ON i.id = ii.invoice_id
         JOIN customers c ON c.id = i.customer_id
         WHERE p.category_id = ?
-        GROUP BY i.id, i.customer_id, c.name, i.date_issued, i.date_due, i.status
+        GROUP BY i.id, i.invoice_number, i.customer_id, c.name, i.date_issued, i.date_due, i.status
         ORDER BY COALESCE(i.date_issued, '') DESC, i.id DESC
         """,
         (category_id,),
