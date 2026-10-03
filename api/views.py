@@ -27,7 +27,6 @@ from rest_framework.response import Response
 from invoice_db.assistant.router import AssistantRouter
 from invoice_db.assistant.dispatcher import AssistantDispatcher
 from invoice_db.assistant.data_source import ServiceInvoiceAssistantDataSource
-from invoice_db.services.customers import list_customers
 from scripts.seed import get_connection
 
 from .serializers import (
@@ -199,10 +198,12 @@ class ReportingOverviewView(APIView):
     def get(self, request):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 report = report_services.get_reporting_overview(
                     cursor,
                     start_date=request.query_params.get("start_date"),
                     end_date=request.query_params.get("end_date"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -579,7 +580,11 @@ class LocationListView(APIView):
     def get(self, request):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                locations = customer_location_services.list_locations(cursor)
+                workspace_id = _request_workspace_id(request, cursor)
+                locations = customer_location_services.list_locations(
+                    cursor,
+                    workspace_id=workspace_id,
+                )
 
         except sqlite3.Error:
             return Response(
@@ -598,6 +603,7 @@ class LocationListView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location = customer_location_services.create_location(
                     cursor,
                     address_line1=serializer.validated_data["address_line1"],
@@ -606,6 +612,7 @@ class LocationListView(APIView):
                     state=serializer.validated_data["state"],
                     postal_code=serializer.validated_data["postal_code"],
                     country=serializer.validated_data.get("country", "US"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -629,9 +636,11 @@ class LocationDetailView(APIView):
     def get(self, request, location_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location_detail = customer_location_services.get_location_detail(
                     cursor,
                     location_id=location_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -655,6 +664,7 @@ class LocationDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location = customer_location_services.update_location_by_id(
                     cursor,
                     location_id=location_id,
@@ -664,6 +674,7 @@ class LocationDetailView(APIView):
                     state=serializer.validated_data.get("state"),
                     postal_code=serializer.validated_data.get("postal_code"),
                     country=serializer.validated_data.get("country"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1300,7 +1311,12 @@ class ProductListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                products = product_services.list_products(cursor, active_only=active_only)
+                workspace_id = _request_workspace_id(request, cursor)
+                products = product_services.list_products(
+                    cursor,
+                    active_only=active_only,
+                    workspace_id=workspace_id,
+                )
 
         except sqlite3.Error:
             return Response(
@@ -1319,6 +1335,7 @@ class ProductListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 product = product_services.create_product(
                     cursor,
                     name=serializer.validated_data["name"],
@@ -1327,6 +1344,7 @@ class ProductListCreateView(APIView):
                     unit_price_cents=serializer.validated_data["unit_price_cents"],
                     category_id=serializer.validated_data.get("category_id", 1),
                     is_active=serializer.validated_data.get("is_active", True),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1352,7 +1370,12 @@ class ProductDetailView(APIView):
     def get(self, request, product_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                product = product_services.get_product_by_id(cursor, product_id=product_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                product = product_services.get_product_by_id(
+                    cursor,
+                    product_id=product_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1381,6 +1404,7 @@ class ProductDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 product = product_services.update_product_by_id(
                     cursor,
                     product_id=product_id,
@@ -1390,6 +1414,7 @@ class ProductDetailView(APIView):
                     unit_price_cents=serializer.validated_data.get("unit_price_cents"),
                     category_id=serializer.validated_data.get("category_id"),
                     is_active=serializer.validated_data.get("is_active"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1419,7 +1444,12 @@ class ProductDetailView(APIView):
     def delete(self, request, product_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                product_services.delete_product(cursor, product_id=product_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                product_services.delete_product(
+                    cursor,
+                    product_id=product_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1450,9 +1480,11 @@ class ProductCategoryListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 categories = product_category_services.list_product_categories(
                     cursor,
                     active_only=active_only,
+                    workspace_id=workspace_id,
                 )
 
         except sqlite3.Error:
@@ -1472,11 +1504,13 @@ class ProductCategoryListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 category = product_category_services.create_product_category(
                     cursor,
                     name=serializer.validated_data["name"],
                     description=serializer.validated_data.get("description"),
                     is_active=serializer.validated_data.get("is_active", True),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1507,12 +1541,14 @@ class ProductCategoryDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 category = product_category_services.update_product_category_by_id(
                     cursor,
                     category_id=category_id,
                     name=serializer.validated_data.get("name"),
                     description=serializer.validated_data.get("description"),
                     is_active=serializer.validated_data.get("is_active"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1542,9 +1578,11 @@ class ProductCategoryDetailView(APIView):
     def delete(self, request, category_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 product_category_services.delete_product_category(
                     cursor,
                     category_id=category_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1579,9 +1617,11 @@ class ProductCategoryOverviewView(APIView):
     def get(self, request, category_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 category_detail = product_category_services.get_product_category_detail(
                     cursor,
                     category_id=category_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1607,9 +1647,11 @@ class ProductCategoryDeactivateView(APIView):
     def patch(self, request, category_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 category = product_category_services.deactivate_product_category(
                     cursor,
                     category_id=category_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1640,7 +1682,12 @@ class ProductDeactivateView(APIView):
     def patch(self, request, product_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                product = product_services.deactivate_product(cursor, product_id=product_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                product = product_services.deactivate_product(
+                    cursor,
+                    product_id=product_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1672,7 +1719,12 @@ class SupplierListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                suppliers = supplier_services.list_suppliers(cursor, active_only=active_only)
+                workspace_id = _request_workspace_id(request, cursor)
+                suppliers = supplier_services.list_suppliers(
+                    cursor,
+                    active_only=active_only,
+                    workspace_id=workspace_id,
+                )
 
         except sqlite3.Error:
             return Response(
@@ -1691,6 +1743,7 @@ class SupplierListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 supplier = supplier_services.create_supplier(
                     cursor,
                     name=serializer.validated_data["name"],
@@ -1698,6 +1751,7 @@ class SupplierListCreateView(APIView):
                     email=serializer.validated_data.get("email"),
                     website=serializer.validated_data.get("website"),
                     is_active=serializer.validated_data.get("is_active", True),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1723,7 +1777,12 @@ class SupplierDetailView(APIView):
     def get(self, request, supplier_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                supplier = supplier_services.get_supplier_by_id(cursor, supplier_id=supplier_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                supplier = supplier_services.get_supplier_by_id(
+                    cursor,
+                    supplier_id=supplier_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1752,6 +1811,7 @@ class SupplierDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 supplier = supplier_services.update_supplier_by_id(
                     cursor,
                     supplier_id=supplier_id,
@@ -1760,6 +1820,7 @@ class SupplierDetailView(APIView):
                     email=serializer.validated_data.get("email"),
                     website=serializer.validated_data.get("website"),
                     is_active=serializer.validated_data.get("is_active"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1789,7 +1850,12 @@ class SupplierDetailView(APIView):
     def delete(self, request, supplier_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                supplier_services.delete_supplier(cursor, supplier_id=supplier_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                supplier_services.delete_supplier(
+                    cursor,
+                    supplier_id=supplier_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1823,7 +1889,12 @@ class SupplierDeactivateView(APIView):
     def patch(self, request, supplier_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                supplier = supplier_services.deactivate_supplier(cursor, supplier_id=supplier_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                supplier = supplier_services.deactivate_supplier(
+                    cursor,
+                    supplier_id=supplier_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1853,7 +1924,12 @@ class SupplierProductsView(APIView):
     def get(self, request, supplier_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                products = supplier_services.list_supplier_products(cursor, supplier_id=supplier_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                products = supplier_services.list_supplier_products(
+                    cursor,
+                    supplier_id=supplier_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -1878,9 +1954,11 @@ class SupplierRemoveFromProductsView(APIView):
     def post(self, request, supplier_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 result = supplier_services.remove_supplier_from_all_products(
                     cursor,
                     supplier_id=supplier_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1912,10 +1990,12 @@ class SupplierLocationListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 locations = customer_location_services.list_supplier_locations(
                     cursor,
                     supplier_id=supplier_id,
                     active_only=active_only,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1939,6 +2019,7 @@ class SupplierLocationListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location = customer_location_services.create_supplier_location(
                     cursor,
                     supplier_id=supplier_id,
@@ -1952,6 +2033,7 @@ class SupplierLocationListCreateView(APIView):
                     is_primary=serializer.validated_data.get("is_primary", False),
                     is_active=serializer.validated_data.get("is_active", True),
                     notes=serializer.validated_data.get("notes"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -1977,10 +2059,12 @@ class SupplierLocationDetailView(APIView):
     def get(self, request, supplier_id, location_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location = customer_location_services.get_supplier_location_by_id(
                     cursor,
                     supplier_id=supplier_id,
                     location_id=location_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2004,6 +2088,7 @@ class SupplierLocationDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 location = customer_location_services.update_supplier_location_by_id(
                     cursor,
                     supplier_id=supplier_id,
@@ -2018,6 +2103,7 @@ class SupplierLocationDetailView(APIView):
                     is_primary=serializer.validated_data.get("is_primary"),
                     is_active=serializer.validated_data.get("is_active"),
                     notes=serializer.validated_data.get("notes"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2041,10 +2127,12 @@ class SupplierLocationDetailView(APIView):
     def delete(self, request, supplier_id, location_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 customer_location_services.delete_supplier_location(
                     cursor,
                     supplier_id=supplier_id,
                     location_id=location_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2070,7 +2158,12 @@ class ProductSupplierListCreateView(APIView):
     def get(self, request, product_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                suppliers = supplier_services.list_product_suppliers(cursor, product_id=product_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                suppliers = supplier_services.list_product_suppliers(
+                    cursor,
+                    product_id=product_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -2099,11 +2192,13 @@ class ProductSupplierListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 product_supplier = supplier_services.add_supplier_to_product(
                     cursor,
                     product_id=product_id,
                     supplier_id=serializer.validated_data["supplier_id"],
                     note=serializer.validated_data.get("note"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2144,11 +2239,13 @@ class ProductSupplierDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 product_supplier = supplier_services.update_product_supplier_note(
                     cursor,
                     product_id=product_id,
                     supplier_id=supplier_id,
                     note=serializer.validated_data.get("note"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2178,10 +2275,12 @@ class ProductSupplierDetailView(APIView):
     def delete(self, request, product_id, supplier_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 supplier_services.remove_supplier_from_product(
                     cursor,
                     product_id=product_id,
                     supplier_id=supplier_id,
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2213,7 +2312,12 @@ class TagListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                tags = tag_services.list_tags(cursor, active_only=active_only)
+                workspace_id = _request_workspace_id(request, cursor)
+                tags = tag_services.list_tags(
+                    cursor,
+                    active_only=active_only,
+                    workspace_id=workspace_id,
+                )
 
         except sqlite3.Error:
             return Response(
@@ -2232,11 +2336,13 @@ class TagListCreateView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 tag = tag_services.create_tag(
                     cursor,
                     name=serializer.validated_data["name"],
                     description=serializer.validated_data.get("description"),
                     is_active=serializer.validated_data.get("is_active", True),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2262,7 +2368,12 @@ class TagDetailView(APIView):
     def get(self, request, tag_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                tag = tag_services.get_tag_by_id(cursor, tag_id=tag_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                tag = tag_services.get_tag_by_id(
+                    cursor,
+                    tag_id=tag_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -2291,12 +2402,14 @@ class TagDetailView(APIView):
 
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 tag = tag_services.update_tag_by_id(
                     cursor,
                     tag_id=tag_id,
                     name=serializer.validated_data.get("name"),
                     description=serializer.validated_data.get("description"),
                     is_active=serializer.validated_data.get("is_active"),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -2326,7 +2439,12 @@ class TagDetailView(APIView):
     def delete(self, request, tag_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                tag_services.delete_tag(cursor, tag_id=tag_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                tag_services.delete_tag(
+                    cursor,
+                    tag_id=tag_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -2360,7 +2478,12 @@ class TagOverviewView(APIView):
     def get(self, request, tag_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                tag_detail = tag_services.get_tag_detail(cursor, tag_id=tag_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                tag_detail = tag_services.get_tag_detail(
+                    cursor,
+                    tag_id=tag_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -2385,7 +2508,12 @@ class TagDeactivateView(APIView):
     def patch(self, request, tag_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                tag = tag_services.deactivate_tag(cursor, tag_id=tag_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                tag = tag_services.deactivate_tag(
+                    cursor,
+                    tag_id=tag_id,
+                    workspace_id=workspace_id,
+                )
 
         except ValidationError as e:
             return Response(
@@ -2530,7 +2658,11 @@ class AssistantQueryView(APIView):
         with connection.db_session(connection.DB_PATH) as (connect, cursor):
             cursor = connect.cursor()
 
-            customers = list_customers(cursor)
+            workspace_id = _request_workspace_id(request, cursor)
+            customers = customer_services.list_customers(
+                cursor,
+                workspace_id=workspace_id,
+            )
             customer_names = [customer["name"] for customer in customers]
 
             assistant_intent = router.route(
@@ -2538,7 +2670,10 @@ class AssistantQueryView(APIView):
                 customer_names=customer_names,
             )
 
-            data_source = ServiceInvoiceAssistantDataSource(cursor)
+            data_source = ServiceInvoiceAssistantDataSource(
+                cursor,
+                workspace_id=workspace_id,
+            )
             dispatcher = AssistantDispatcher(data_source)
             assistant_response = dispatcher.dispatch(assistant_intent)
 

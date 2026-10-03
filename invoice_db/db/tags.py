@@ -9,11 +9,13 @@ class TagCreate:
     name: str
     description: str | None = None
     is_active: bool = True
+    workspace_id: int | None = None
 
 
 @dataclass
 class Tag:
     id: int
+    workspace_id: int | None
     name: str
     description: str | None
     is_active: bool
@@ -31,6 +33,7 @@ class InvoiceTag:
 def _to_tag(row: Row) -> Tag:
     return Tag(
         id=row["id"],
+        workspace_id=row["workspace_id"],
         name=row["name"],
         description=row["description"],
         is_active=bool(row["is_active"]),
@@ -54,43 +57,69 @@ def create_tag(cursor, tag: TagCreate) -> Tag:
 
     cursor.execute(
         """
-        INSERT INTO tags (name, description, is_active)
-        VALUES (?, ?, ?)
+        INSERT INTO tags (workspace_id, name, description, is_active)
+        VALUES (?, ?, ?, ?)
         """,
-        (name, description, is_active),
+        (tag.workspace_id, name, description, is_active),
     )
 
-    created_tag = get_tag_by_id(cursor, cursor.lastrowid)
+    created_tag = get_tag_by_id(cursor, cursor.lastrowid, workspace_id=tag.workspace_id)
     if created_tag is None:
         raise RuntimeError("Tag was created but could not be retrieved.")
 
     return created_tag
 
 
-def get_tag_by_id(cursor, tag_id: int) -> Tag | None:
-    cursor.execute("SELECT * FROM tags WHERE id = ?", (tag_id,))
-    row = cursor.fetchone()
-    return _to_tag(row) if row else None
+def _workspace_filter(alias: str, workspace_id: int | None) -> tuple[str, list[int]]:
+    if workspace_id is None:
+        return f"{alias}.workspace_id IS NULL", []
+    return f"{alias}.workspace_id = ?", [workspace_id]
 
 
-def get_tag_by_name(cursor, name: str) -> Tag | None:
-    normalized_name = normalize_tag_name(name)
+def get_tag_by_id(
+    cursor,
+    tag_id: int,
+    workspace_id: int | None = None,
+) -> Tag | None:
+    workspace_clause, workspace_params = _workspace_filter("tags", workspace_id)
     cursor.execute(
-        "SELECT * FROM tags WHERE lower(name) = lower(?)",
-        (normalized_name,),
+        f"SELECT * FROM tags WHERE id = ? AND {workspace_clause}",
+        (tag_id, *workspace_params),
     )
     row = cursor.fetchone()
     return _to_tag(row) if row else None
 
 
-def get_tags(cursor, active_only: bool = False) -> list[Tag]:
+def get_tag_by_name(
+    cursor,
+    name: str,
+    workspace_id: int | None = None,
+) -> Tag | None:
+    normalized_name = normalize_tag_name(name)
+    workspace_clause, workspace_params = _workspace_filter("tags", workspace_id)
+    cursor.execute(
+        f"SELECT * FROM tags WHERE lower(name) = lower(?) AND {workspace_clause}",
+        (normalized_name, *workspace_params),
+    )
+    row = cursor.fetchone()
+    return _to_tag(row) if row else None
+
+
+def get_tags(
+    cursor,
+    active_only: bool = False,
+    workspace_id: int | None = None,
+) -> list[Tag]:
+    workspace_clause, workspace_params = _workspace_filter("tags", workspace_id)
     sql = "SELECT * FROM tags"
-    params = []
+    params = [*workspace_params]
+    clauses = [workspace_clause]
 
     if active_only:
-        sql += " WHERE is_active = ?"
+        clauses.append("is_active = ?")
         params.append(1)
 
+    sql += " WHERE " + " AND ".join(clauses)
     sql += " ORDER BY name"
     cursor.execute(sql, params)
     return [_to_tag(row) for row in cursor.fetchall()]
@@ -103,10 +132,11 @@ def update_tag(
     name: str | None = None,
     description: str | None = None,
     is_active: bool | None = None,
+    workspace_id: int | None = None,
 ) -> Tag | None:
     updates, params = [], []
 
-    tag = get_tag_by_id(cursor, tag_id)
+    tag = get_tag_by_id(cursor, tag_id, workspace_id=workspace_id)
     if tag is None:
         return None
 
@@ -127,26 +157,51 @@ def update_tag(
     query = f"UPDATE tags SET {', '.join(updates)} WHERE id = ?"
     cursor.execute(query, tuple(params))
 
-    return get_tag_by_id(cursor, tag_id)
+    return get_tag_by_id(cursor, tag_id, workspace_id=workspace_id)
 
 
-def delete_tag(cursor, tag_id: int) -> bool:
-    cursor.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
+def delete_tag(
+    cursor,
+    tag_id: int,
+    workspace_id: int | None = None,
+) -> bool:
+    if workspace_id is None:
+        cursor.execute("DELETE FROM tags WHERE id = ? AND workspace_id IS NULL", (tag_id,))
+    else:
+        cursor.execute(
+            "DELETE FROM tags WHERE id = ? AND workspace_id = ?",
+            (tag_id, workspace_id),
+        )
     return cursor.rowcount > 0
 
 
-def count_invoices_for_tag(cursor, tag_id: int) -> int:
+def count_invoices_for_tag(
+    cursor,
+    tag_id: int,
+    workspace_id: int | None = None,
+) -> int:
+    workspace_clause, workspace_params = _workspace_filter("i", workspace_id)
     cursor.execute(
-        "SELECT COUNT(*) AS invoice_count FROM invoice_tags WHERE tag_id = ?",
-        (tag_id,),
+        f"""
+        SELECT COUNT(*) AS invoice_count
+        FROM invoice_tags it
+        JOIN invoices i ON i.id = it.invoice_id
+        WHERE it.tag_id = ? AND {workspace_clause}
+        """,
+        (tag_id, *workspace_params),
     )
     row = cursor.fetchone()
     return row["invoice_count"] if row else 0
 
 
-def get_invoices_for_tag(cursor, tag_id: int) -> list[Row]:
+def get_invoices_for_tag(
+    cursor,
+    tag_id: int,
+    workspace_id: int | None = None,
+) -> list[Row]:
+    workspace_clause, workspace_params = _workspace_filter("i", workspace_id)
     cursor.execute(
-        """
+        f"""
         WITH invoice_costs AS (
             SELECT
                 invoice_id,
@@ -179,10 +234,10 @@ def get_invoices_for_tag(cursor, tag_id: int) -> list[Row]:
         JOIN customers c ON c.id = i.customer_id
         LEFT JOIN invoice_costs ic ON ic.invoice_id = i.id
         LEFT JOIN invoice_payments ip ON ip.invoice_id = i.id
-        WHERE it.tag_id = ?
+        WHERE it.tag_id = ? AND {workspace_clause}
         ORDER BY COALESCE(i.date_issued, '') DESC, i.id DESC
         """,
-        (tag_id,),
+        (tag_id, *workspace_params),
     )
     return cursor.fetchall()
 
@@ -216,16 +271,21 @@ def get_invoice_tag(cursor, invoice_id: int, tag_id: int) -> InvoiceTag | None:
     return _to_invoice_tag(row) if row else None
 
 
-def get_tags_for_invoice(cursor, invoice_id: int) -> list[Tag]:
+def get_tags_for_invoice(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> list[Tag]:
+    workspace_clause, workspace_params = _workspace_filter("tags", workspace_id)
     cursor.execute(
-        """
+        f"""
         SELECT tags.*
         FROM tags
         JOIN invoice_tags ON invoice_tags.tag_id = tags.id
-        WHERE invoice_tags.invoice_id = ?
+        WHERE invoice_tags.invoice_id = ? AND {workspace_clause}
         ORDER BY tags.name
         """,
-        (invoice_id,),
+        (invoice_id, *workspace_params),
     )
     return [_to_tag(row) for row in cursor.fetchall()]
 

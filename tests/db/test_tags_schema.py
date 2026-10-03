@@ -19,6 +19,7 @@ def test_tags_columns(cursor):
 
     assert set(columns) == {
         "id",
+        "workspace_id",
         "name",
         "description",
         "is_active",
@@ -34,7 +35,9 @@ def test_tags_indexes(cursor):
         for row in cursor.execute("PRAGMA index_list(tags)").fetchall()
     }
 
-    assert "idx_tags_name_nocase" in indexes
+    assert "idx_tags_unowned_name_nocase" in indexes
+    assert "idx_tags_workspace_name_nocase" in indexes
+    assert "idx_tags_workspace_id" in indexes
     assert "idx_tags_is_active" in indexes
 
 

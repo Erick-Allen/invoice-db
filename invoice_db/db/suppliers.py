@@ -12,11 +12,13 @@ class SupplierCreate:
     email: str | None = None
     website: str | None = None
     is_active: bool = True
+    workspace_id: int | None = None
 
 
 @dataclass
 class Supplier:
     id: int
+    workspace_id: int | None
     name: str
     phone: str | None
     email: str | None
@@ -38,6 +40,7 @@ class ProductSupplier:
 def _to_supplier(row: Row) -> Supplier:
     return Supplier(
         id=row["id"],
+        workspace_id=row["workspace_id"],
         name=row["name"],
         phone=row["phone"],
         email=row["email"],
@@ -67,43 +70,73 @@ def create_supplier(cursor, supplier: SupplierCreate) -> Supplier:
 
     cursor.execute(
         """
-        INSERT INTO suppliers (name, phone, email, website, is_active)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO suppliers (workspace_id, name, phone, email, website, is_active)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (name, phone, email, website, is_active),
+        (supplier.workspace_id, name, phone, email, website, is_active),
     )
 
-    created_supplier = get_supplier_by_id(cursor, cursor.lastrowid)
+    created_supplier = get_supplier_by_id(
+        cursor,
+        cursor.lastrowid,
+        workspace_id=supplier.workspace_id,
+    )
     if created_supplier is None:
         raise RuntimeError("Supplier was created but could not be retrieved.")
 
     return created_supplier
 
 
-def get_supplier_by_id(cursor, supplier_id: int) -> Supplier | None:
-    cursor.execute("SELECT * FROM suppliers WHERE id = ?", (supplier_id,))
-    row = cursor.fetchone()
-    return _to_supplier(row) if row else None
+def _workspace_filter(alias: str, workspace_id: int | None) -> tuple[str, list[int]]:
+    if workspace_id is None:
+        return f"{alias}.workspace_id IS NULL", []
+    return f"{alias}.workspace_id = ?", [workspace_id]
 
 
-def get_supplier_by_name(cursor, name: str) -> Supplier | None:
-    normalized_name = normalize_supplier_name(name)
+def get_supplier_by_id(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> Supplier | None:
+    workspace_clause, workspace_params = _workspace_filter("suppliers", workspace_id)
     cursor.execute(
-        "SELECT * FROM suppliers WHERE lower(name) = lower(?)",
-        (normalized_name,),
+        f"SELECT * FROM suppliers WHERE id = ? AND {workspace_clause}",
+        (supplier_id, *workspace_params),
     )
     row = cursor.fetchone()
     return _to_supplier(row) if row else None
 
 
-def get_suppliers(cursor, active_only: bool = False) -> list[Supplier]:
+def get_supplier_by_name(
+    cursor,
+    name: str,
+    workspace_id: int | None = None,
+) -> Supplier | None:
+    normalized_name = normalize_supplier_name(name)
+    workspace_clause, workspace_params = _workspace_filter("suppliers", workspace_id)
+    cursor.execute(
+        f"SELECT * FROM suppliers WHERE lower(name) = lower(?) AND {workspace_clause}",
+        (normalized_name, *workspace_params),
+    )
+    row = cursor.fetchone()
+    return _to_supplier(row) if row else None
+
+
+def get_suppliers(
+    cursor,
+    active_only: bool = False,
+    workspace_id: int | None = None,
+) -> list[Supplier]:
+    workspace_clause, workspace_params = _workspace_filter("suppliers", workspace_id)
     sql = "SELECT * FROM suppliers"
-    params = []
+    params = [*workspace_params]
+    clauses = [workspace_clause]
 
     if active_only:
-        sql += " WHERE is_active = ?"
+        clauses.append("is_active = ?")
         params.append(1)
 
+    sql += " WHERE " + " AND ".join(clauses)
     sql += " ORDER BY name"
     cursor.execute(sql, params)
     return [_to_supplier(row) for row in cursor.fetchall()]
@@ -118,10 +151,11 @@ def update_supplier(
     email: str | None = None,
     website: str | None = None,
     is_active: bool | None = None,
+    workspace_id: int | None = None,
 ) -> Supplier | None:
     updates, params = [], []
 
-    supplier = get_supplier_by_id(cursor, supplier_id)
+    supplier = get_supplier_by_id(cursor, supplier_id, workspace_id=workspace_id)
     if supplier is None:
         return None
 
@@ -148,18 +182,41 @@ def update_supplier(
     query = f"UPDATE suppliers SET {', '.join(updates)} WHERE id = ?"
     cursor.execute(query, tuple(params))
 
-    return get_supplier_by_id(cursor, supplier_id)
+    return get_supplier_by_id(cursor, supplier_id, workspace_id=workspace_id)
 
 
-def delete_supplier(cursor, supplier_id: int) -> bool:
-    cursor.execute("DELETE FROM suppliers WHERE id = ?", (supplier_id,))
+def delete_supplier(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> bool:
+    if workspace_id is None:
+        cursor.execute(
+            "DELETE FROM suppliers WHERE id = ? AND workspace_id IS NULL",
+            (supplier_id,),
+        )
+    else:
+        cursor.execute(
+            "DELETE FROM suppliers WHERE id = ? AND workspace_id = ?",
+            (supplier_id, workspace_id),
+        )
     return cursor.rowcount > 0
 
 
-def count_products_for_supplier(cursor, supplier_id: int) -> int:
+def count_products_for_supplier(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> int:
+    workspace_clause, workspace_params = _workspace_filter("p", workspace_id)
     cursor.execute(
-        "SELECT COUNT(*) AS product_count FROM product_suppliers WHERE supplier_id = ?",
-        (supplier_id,),
+        f"""
+        SELECT COUNT(*) AS product_count
+        FROM product_suppliers ps
+        JOIN products p ON p.id = ps.product_id
+        WHERE ps.supplier_id = ? AND {workspace_clause}
+        """,
+        (supplier_id, *workspace_params),
     )
     row = cursor.fetchone()
     return row["product_count"] if row else 0
@@ -199,23 +256,33 @@ def get_product_supplier(cursor, product_id: int, supplier_id: int) -> ProductSu
     return _to_product_supplier(row) if row else None
 
 
-def get_suppliers_for_product(cursor, product_id: int) -> list[Supplier]:
+def get_suppliers_for_product(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> list[Supplier]:
+    workspace_clause, workspace_params = _workspace_filter("suppliers", workspace_id)
     cursor.execute(
-        """
+        f"""
         SELECT suppliers.*
         FROM suppliers
         JOIN product_suppliers ON product_suppliers.supplier_id = suppliers.id
-        WHERE product_suppliers.product_id = ?
+        WHERE product_suppliers.product_id = ? AND {workspace_clause}
         ORDER BY suppliers.name
         """,
-        (product_id,),
+        (product_id, *workspace_params),
     )
     return [_to_supplier(row) for row in cursor.fetchall()]
 
 
-def get_products_for_supplier(cursor, supplier_id: int) -> list[products_db.Product]:
+def get_products_for_supplier(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> list[products_db.Product]:
+    workspace_clause, workspace_params = _workspace_filter("products", workspace_id)
     cursor.execute(
-        """
+        f"""
         SELECT
             products.*,
             product_categories.name AS category_name,
@@ -232,10 +299,10 @@ def get_products_for_supplier(cursor, supplier_id: int) -> list[products_db.Prod
         FROM products
         JOIN product_categories ON product_categories.id = products.category_id
         JOIN product_suppliers ON product_suppliers.product_id = products.id
-        WHERE product_suppliers.supplier_id = ?
+        WHERE product_suppliers.supplier_id = ? AND {workspace_clause}
         ORDER BY products.name
         """,
-        (supplier_id,),
+        (supplier_id, *workspace_params),
     )
     return [products_db._to_product(row) for row in cursor.fetchall()]
 
@@ -272,9 +339,20 @@ def remove_supplier_from_product(cursor, product_id: int, supplier_id: int) -> b
     return cursor.rowcount > 0
 
 
-def remove_supplier_from_all_products(cursor, supplier_id: int) -> int:
+def remove_supplier_from_all_products(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> int:
+    workspace_clause, workspace_params = _workspace_filter("products", workspace_id)
     cursor.execute(
-        "DELETE FROM product_suppliers WHERE supplier_id = ?",
-        (supplier_id,),
+        f"""
+        DELETE FROM product_suppliers
+        WHERE supplier_id = ?
+            AND product_id IN (
+                SELECT id FROM products WHERE {workspace_clause}
+            )
+        """,
+        (supplier_id, *workspace_params),
     )
     return cursor.rowcount

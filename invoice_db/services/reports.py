@@ -69,9 +69,12 @@ def get_reporting_overview(
     *,
     start_date: str | None = None,
     end_date: str | None = None,
+    workspace_id: int | None = None,
 ) -> ReportingOverview:
     start_date, end_date = _normalize_report_dates(start_date, end_date)
     invoice_date_clause, invoice_date_params = _date_clause("i", start_date, end_date)
+    workspace_clause = " AND i.workspace_id IS NULL" if workspace_id is None else " AND i.workspace_id = ?"
+    workspace_params = [] if workspace_id is None else [workspace_id]
 
     cursor.execute(
         f"""
@@ -88,7 +91,7 @@ def get_reporting_overview(
                 FROM payments
                 GROUP BY invoice_id
             ) p ON p.invoice_id = i.id
-            WHERE i.status IN ('sent', 'paid'){invoice_date_clause}
+            WHERE i.status IN ('sent', 'paid'){workspace_clause}{invoice_date_clause}
             GROUP BY i.id, i.total, p.amount_paid
         )
         SELECT
@@ -99,7 +102,7 @@ def get_reporting_overview(
             COALESCE(SUM(MAX(revenue_total - amount_paid, 0)), 0) AS outstanding_due_cents
         FROM invoice_costs
         """,
-        invoice_date_params,
+        [*workspace_params, *invoice_date_params],
     )
     summary_row = cursor.fetchone()
 
@@ -110,7 +113,7 @@ def get_reporting_overview(
             COUNT(*) AS invoice_count,
             COALESCE(SUM(i.total), 0) AS revenue_total_cents
         FROM invoices i
-        WHERE 1 = 1{invoice_date_clause}
+        WHERE 1 = 1{workspace_clause}{invoice_date_clause}
         GROUP BY i.status
         ORDER BY
             CASE i.status
@@ -121,7 +124,7 @@ def get_reporting_overview(
                 ELSE 5
             END
         """,
-        invoice_date_params,
+        [*workspace_params, *invoice_date_params],
     )
     status_rows = cursor.fetchall()
 
@@ -134,7 +137,7 @@ def get_reporting_overview(
                 COALESCE(SUM(ii.quantity * ii.unit_cost), 0) AS cost_total
             FROM invoices i
             LEFT JOIN invoice_items ii ON ii.invoice_id = i.id
-            WHERE i.status IN ('sent', 'paid'){invoice_date_clause}
+            WHERE i.status IN ('sent', 'paid'){workspace_clause}{invoice_date_clause}
             GROUP BY i.id, i.total
         )
         SELECT
@@ -150,7 +153,7 @@ def get_reporting_overview(
         GROUP BY t.id, t.name
         ORDER BY profit_total_cents DESC, revenue_total_cents DESC, t.name
         """,
-        invoice_date_params,
+        [*workspace_params, *invoice_date_params],
     )
     tag_rows = cursor.fetchall()
 

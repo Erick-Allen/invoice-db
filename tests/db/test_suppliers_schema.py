@@ -23,6 +23,7 @@ def test_suppliers_columns(cursor):
 
     assert set(columns) == {
         "id",
+        "workspace_id",
         "name",
         "phone",
         "email",
@@ -40,7 +41,9 @@ def test_suppliers_indexes(cursor):
         for row in cursor.execute("PRAGMA index_list(suppliers)").fetchall()
     }
 
-    assert "idx_suppliers_name_nocase" in indexes
+    assert "idx_suppliers_unowned_name_nocase" in indexes
+    assert "idx_suppliers_workspace_name_nocase" in indexes
+    assert "idx_suppliers_workspace_id" in indexes
     assert "idx_suppliers_is_active" in indexes
 
 

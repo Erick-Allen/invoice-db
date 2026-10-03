@@ -9,6 +9,7 @@ from .validators import (
     validate_product_cost_cents,
     validate_unit_price_cents,
 )
+from . import product_categories as categories_db
 
 @dataclass
 class ProductCreate:
@@ -16,12 +17,14 @@ class ProductCreate:
     unit_price_cents: int
     cost_cents: int = 0
     description: str | None = None
-    category_id: int = 1
+    category_id: int | None = None
     is_active: bool = True
+    workspace_id: int | None = None
 
 @dataclass
 class Product:
     id: int
+    workspace_id: int | None
     name: str
     description: str | None
     cost_cents: int
@@ -38,6 +41,7 @@ class Product:
 def _to_product(row: Row) -> Product:
     return Product(
         id=row["id"],
+        workspace_id=row["workspace_id"],
         name=row["name"],
         description=row["description"],
         cost_cents=row["cost"],
@@ -57,15 +61,34 @@ def create_product(cursor, product: ProductCreate) -> Product:
     description = normalize_description(product.description)
     cost_cents = validate_product_cost_cents(product.cost_cents)
     unit_price_cents = validate_unit_price_cents(product.unit_price_cents)
-    validate_positive_id(product.category_id, "Product category id")
+    category_id = product.category_id
+    if category_id is None or (
+        product.workspace_id is not None
+        and category_id == categories_db.DEFAULT_CATEGORY_ID
+    ):
+        category_id = categories_db.get_or_create_default_category(
+            cursor,
+            workspace_id=product.workspace_id,
+        ).id
+    validate_positive_id(category_id, "Product category id")
+    if categories_db.get_product_category_by_id(
+        cursor,
+        category_id,
+        workspace_id=product.workspace_id,
+    ) is None:
+        raise ValueError(f"Product category not found (id={category_id})")
     is_active = normalize_is_active(product.is_active)
 
     cursor.execute("""
-        INSERT INTO products (name, description, cost, unit_price, category_id, is_active)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (name, description, cost_cents, unit_price_cents, product.category_id, is_active))
+        INSERT INTO products (workspace_id, name, description, cost, unit_price, category_id, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (product.workspace_id, name, description, cost_cents, unit_price_cents, category_id, is_active))
 
-    created_product = get_product_by_id(cursor, cursor.lastrowid)
+    created_product = get_product_by_id(
+        cursor,
+        cursor.lastrowid,
+        workspace_id=product.workspace_id,
+    )
 
     if created_product is None:
         raise RuntimeError("Product was created but could not be retrieved.")
@@ -73,7 +96,18 @@ def create_product(cursor, product: ProductCreate) -> Product:
     return created_product
 
 
-def get_product_by_id(cursor, product_id: int) -> Product | None:
+def _workspace_filter(alias: str, workspace_id: int | None) -> tuple[str, list[int]]:
+    if workspace_id is None:
+        return f"{alias}.workspace_id IS NULL", []
+    return f"{alias}.workspace_id = ?", [workspace_id]
+
+
+def get_product_by_id(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> Product | None:
+    workspace_clause, workspace_params = _workspace_filter("products", workspace_id)
     cursor.execute("""
         SELECT
             products.*,
@@ -90,13 +124,17 @@ def get_product_by_id(cursor, product_id: int) -> Product | None:
             ) AS invoice_item_count
         FROM products
         JOIN product_categories ON product_categories.id = products.category_id
-        WHERE products.id = ?
-    """, (product_id,))
+        WHERE products.id = ? AND """ + workspace_clause, (product_id, *workspace_params))
     row = cursor.fetchone()
     return _to_product(row) if row else None
 
 
-def get_products(cursor, active_only: bool = False) -> list[Product]:
+def get_products(
+    cursor,
+    active_only: bool = False,
+    workspace_id: int | None = None,
+) -> list[Product]:
+    workspace_clause, workspace_params = _workspace_filter("products", workspace_id)
     sql = """
         SELECT
             products.*,
@@ -114,12 +152,14 @@ def get_products(cursor, active_only: bool = False) -> list[Product]:
         FROM products
         JOIN product_categories ON product_categories.id = products.category_id
     """
-    params = []
+    params = [*workspace_params]
+    clauses = [workspace_clause]
 
     if active_only:
-        sql += " WHERE products.is_active = ?"
+        clauses.append("products.is_active = ?")
         params.append(1)
 
+    sql += " WHERE " + " AND ".join(clauses)
     sql += " ORDER BY products.id"
     cursor.execute(sql, params)
     return [_to_product(row) for row in cursor.fetchall()]
@@ -135,10 +175,11 @@ def update_product(
     unit_price_cents: int | None = None,
     category_id: int | None = None,
     is_active: bool | None = None,
+    workspace_id: int | None = None,
 ) -> Product | None:
     updates, params = [], []
 
-    product = get_product_by_id(cursor, product_id)
+    product = get_product_by_id(cursor, product_id, workspace_id=workspace_id)
     if product is None:
         return None
 
@@ -156,6 +197,12 @@ def update_product(
         params.append(validate_unit_price_cents(unit_price_cents))
     if category_id is not None:
         validate_positive_id(category_id, "Product category id")
+        if categories_db.get_product_category_by_id(
+            cursor,
+            category_id,
+            workspace_id=workspace_id,
+        ) is None:
+            raise ValueError(f"Product category not found (id={category_id})")
         updates.append("category_id = ?")
         params.append(category_id)
     if is_active is not None:
@@ -169,14 +216,31 @@ def update_product(
     query = f"UPDATE products SET {', '.join(updates)} WHERE id = ?"
     cursor.execute(query, tuple(params))
 
-    return get_product_by_id(cursor, product_id)
+    return get_product_by_id(cursor, product_id, workspace_id=workspace_id)
 
 
-def delete_product(cursor, product_id: int) -> bool:
-    cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+def delete_product(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> bool:
+    if workspace_id is None:
+        cursor.execute(
+            "DELETE FROM products WHERE id = ? AND workspace_id IS NULL",
+            (product_id,),
+        )
+    else:
+        cursor.execute(
+            "DELETE FROM products WHERE id = ? AND workspace_id = ?",
+            (product_id, workspace_id),
+        )
     return cursor.rowcount > 0
 
 
-def assert_product_exists(cursor, product_id: int) -> None:
-    if get_product_by_id(cursor, product_id) is None:
+def assert_product_exists(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> None:
+    if get_product_by_id(cursor, product_id, workspace_id=workspace_id) is None:
         raise ValueError(f"Product not found (id={product_id})")

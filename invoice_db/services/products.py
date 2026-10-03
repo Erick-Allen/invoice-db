@@ -2,6 +2,7 @@ import sqlite3
 from typing import TypedDict
 
 from invoice_db.db import products as products_db
+from invoice_db.db import product_categories as categories_db
 from invoice_db.db.validators import validate_positive_id
 from . import exceptions
 
@@ -42,13 +43,17 @@ def _as_validation_error(error: ValueError) -> exceptions.ValidationError:
     return exceptions.ValidationError(str(error))
 
 
-def _require_product(cursor, product_id: int) -> products_db.Product:
+def _require_product(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> products_db.Product:
     try:
         validate_positive_id(product_id, "Product id")
     except ValueError as e:
         raise _as_validation_error(e) from e
 
-    product = products_db.get_product_by_id(cursor, product_id)
+    product = products_db.get_product_by_id(cursor, product_id, workspace_id=workspace_id)
     if product is None:
         raise exceptions.NotFoundError(f"Product not found (id={product_id})")
 
@@ -63,8 +68,14 @@ def create_product(
     description: str | None = None,
     category_id: int = 1,
     is_active: bool = True,
+    workspace_id: int | None = None,
 ) -> ProductRecord:
     try:
+        if workspace_id is not None and category_id == categories_db.DEFAULT_CATEGORY_ID:
+            category_id = categories_db.get_or_create_default_category(
+                cursor,
+                workspace_id=workspace_id,
+            ).id
         product = products_db.create_product(
             cursor,
             products_db.ProductCreate(
@@ -74,6 +85,7 @@ def create_product(
                 unit_price_cents=unit_price_cents,
                 category_id=category_id,
                 is_active=is_active,
+                workspace_id=workspace_id,
             ),
         )
     except ValueError as e:
@@ -84,12 +96,27 @@ def create_product(
     return _to_product_record(product)
 
 
-def list_products(cursor, active_only: bool = False) -> list[ProductRecord]:
-    return [_to_product_record(product) for product in products_db.get_products(cursor, active_only=active_only)]
+def list_products(
+    cursor,
+    active_only: bool = False,
+    workspace_id: int | None = None,
+) -> list[ProductRecord]:
+    return [
+        _to_product_record(product)
+        for product in products_db.get_products(
+            cursor,
+            active_only=active_only,
+            workspace_id=workspace_id,
+        )
+    ]
 
 
-def get_product_by_id(cursor, product_id: int) -> ProductRecord:
-    return _to_product_record(_require_product(cursor, product_id))
+def get_product_by_id(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> ProductRecord:
+    return _to_product_record(_require_product(cursor, product_id, workspace_id=workspace_id))
 
 
 def update_product_by_id(
@@ -102,8 +129,9 @@ def update_product_by_id(
     unit_price_cents: int | None = None,
     category_id: int | None = None,
     is_active: bool | None = None,
+    workspace_id: int | None = None,
 ) -> ProductRecord:
-    product = _require_product(cursor, product_id)
+    product = _require_product(cursor, product_id, workspace_id=workspace_id)
 
     if name is None and description is None and cost_cents is None and unit_price_cents is None and category_id is None and is_active is None:
         raise exceptions.ValidationError("Please provide at least one value to update the product.")
@@ -118,6 +146,7 @@ def update_product_by_id(
             unit_price_cents=unit_price_cents,
             category_id=category_id,
             is_active=is_active,
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -130,16 +159,29 @@ def update_product_by_id(
     return _to_product_record(updated_product)
 
 
-def deactivate_product(cursor, product_id: int) -> ProductRecord:
-    product = _require_product(cursor, product_id)
+def deactivate_product(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> ProductRecord:
+    product = _require_product(cursor, product_id, workspace_id=workspace_id)
     if not product.is_active:
         raise exceptions.ValidationError("Product is already inactive.")
 
-    return update_product_by_id(cursor, product_id, is_active=False)
+    return update_product_by_id(
+        cursor,
+        product_id,
+        is_active=False,
+        workspace_id=workspace_id,
+    )
 
 
-def delete_product(cursor, product_id: int) -> None:
-    product = _require_product(cursor, product_id)
+def delete_product(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> None:
+    product = _require_product(cursor, product_id, workspace_id=workspace_id)
     relationship_count = product.product_supplier_count + product.invoice_item_count
     if relationship_count > 0:
         relationship_word = "relationship" if relationship_count == 1 else "relationships"
@@ -147,7 +189,7 @@ def delete_product(cursor, product_id: int) -> None:
             f'Cannot delete product "{product.name}" because it has {relationship_count} {relationship_word}.'
         )
 
-    deleted = products_db.delete_product(cursor, product_id)
+    deleted = products_db.delete_product(cursor, product_id, workspace_id=workspace_id)
 
     if not deleted:
         raise exceptions.NotFoundError(f"Product not found (id={product_id})")

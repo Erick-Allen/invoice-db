@@ -172,7 +172,11 @@ class InvoiceItemRepository:
             raise ValueError(f"Invoice not found (id={invoice_id})")
 
     def _require_active_product(self, product_id: int):
-        product = get_product_by_id(self.cursor, product_id)
+        product = get_product_by_id(
+            self.cursor,
+            product_id,
+            workspace_id=self.workspace_id,
+        )
         if product is None:
             raise ValueError(f"Product not found (id={product_id})")
         if not product.is_active:

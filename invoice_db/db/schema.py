@@ -294,9 +294,10 @@ def create_invoice_schema(cursor):
 
 def create_location_schema(cursor):
     cursor.executescript("""
-    -- Locations table: stores globally unique physical addresses.
+    -- Locations table: stores reusable physical addresses scoped to a workspace when signed in.
     CREATE TABLE IF NOT EXISTS locations (
         id              INTEGER PRIMARY KEY,
+        workspace_id    INTEGER,
         address_line1   TEXT    NOT NULL CHECK (length(trim(address_line1)) > 0),
         address_line2   TEXT,
         city            TEXT    NOT NULL CHECK (length(trim(city)) > 0),
@@ -304,11 +305,22 @@ def create_location_schema(cursor):
         postal_code     TEXT    NOT NULL CHECK (length(trim(postal_code)) > 0),
         country         TEXT    NOT NULL DEFAULT 'US' CHECK (length(trim(country)) > 0),
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
     );
 
+    CREATE INDEX IF NOT EXISTS
+        idx_locations_postal_code ON locations(postal_code);
+    """)
+    cursor.execute("PRAGMA table_info(locations)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "workspace_id" not in columns:
+        cursor.execute("ALTER TABLE locations ADD COLUMN workspace_id INTEGER")
+
+    cursor.execute("DROP INDEX IF EXISTS idx_locations_unique_address")
+    cursor.executescript("""
     CREATE UNIQUE INDEX IF NOT EXISTS
-        idx_locations_unique_address
+        idx_locations_unowned_unique_address
         ON locations(
             lower(trim(address_line1)),
             lower(trim(COALESCE(address_line2, ''))),
@@ -316,10 +328,24 @@ def create_location_schema(cursor):
             lower(trim(state)),
             lower(trim(postal_code)),
             lower(trim(country))
-        );
+        )
+        WHERE workspace_id IS NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_locations_workspace_unique_address
+        ON locations(
+            workspace_id,
+            lower(trim(address_line1)),
+            lower(trim(COALESCE(address_line2, ''))),
+            lower(trim(city)),
+            lower(trim(state)),
+            lower(trim(postal_code)),
+            lower(trim(country))
+        )
+        WHERE workspace_id IS NOT NULL;
 
     CREATE INDEX IF NOT EXISTS
-        idx_locations_postal_code ON locations(postal_code);
+        idx_locations_workspace_id ON locations(workspace_id);
     """)
 
 
@@ -362,16 +388,16 @@ def create_tag_schema(cursor):
     -- Tags table: reusable invoice context labels for reporting and filtering.
     CREATE TABLE IF NOT EXISTS tags (
         id              INTEGER PRIMARY KEY,
+        workspace_id    INTEGER,
         name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
         description     TEXT,
         is_active       INTEGER NOT NULL DEFAULT 1
                                 CHECK (is_active IN (0, 1)),
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS
-        idx_tags_name_nocase ON tags(lower(name));
     CREATE INDEX IF NOT EXISTS
         idx_tags_is_active ON tags(is_active);
 
@@ -390,27 +416,70 @@ def create_tag_schema(cursor):
     CREATE INDEX IF NOT EXISTS
         idx_invoice_tags_tag_id ON invoice_tags(tag_id);
     """)
+    cursor.execute("PRAGMA table_info(tags)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "workspace_id" not in columns:
+        cursor.execute("ALTER TABLE tags ADD COLUMN workspace_id INTEGER")
+
+    cursor.execute("DROP INDEX IF EXISTS idx_tags_name_nocase")
+    cursor.executescript("""
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_tags_unowned_name_nocase
+        ON tags(lower(name))
+        WHERE workspace_id IS NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_tags_workspace_name_nocase
+        ON tags(workspace_id, lower(name))
+        WHERE workspace_id IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS
+        idx_tags_workspace_id ON tags(workspace_id);
+    """)
 
 def create_product_category_schema(cursor):
     cursor.executescript("""
     -- Product categories table: reportable catalog buckets for products.
     CREATE TABLE IF NOT EXISTS product_categories (
         id              INTEGER PRIMARY KEY,
+        workspace_id    INTEGER,
         name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
         description     TEXT,
         is_active       INTEGER NOT NULL DEFAULT 1
                                 CHECK (is_active IN (0, 1)),
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS
-        idx_product_categories_name_nocase ON product_categories(lower(name));
     CREATE INDEX IF NOT EXISTS
         idx_product_categories_is_active ON product_categories(is_active);
 
-    INSERT OR IGNORE INTO product_categories (id, name, description, is_active)
-    VALUES (1, 'Uncategorized', 'Default category for uncategorized products.', 1);
+    """)
+    cursor.execute("PRAGMA table_info(product_categories)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "workspace_id" not in columns:
+        cursor.execute("ALTER TABLE product_categories ADD COLUMN workspace_id INTEGER")
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO product_categories (id, workspace_id, name, description, is_active)
+        VALUES (1, NULL, 'Uncategorized', 'Default category for uncategorized products.', 1)
+    """)
+
+    cursor.execute("DROP INDEX IF EXISTS idx_product_categories_name_nocase")
+    cursor.executescript("""
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_product_categories_unowned_name_nocase
+        ON product_categories(lower(name))
+        WHERE workspace_id IS NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_product_categories_workspace_name_nocase
+        ON product_categories(workspace_id, lower(name))
+        WHERE workspace_id IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS
+        idx_product_categories_workspace_id ON product_categories(workspace_id);
     """)
 
 def create_product_schema(cursor):
@@ -418,6 +487,7 @@ def create_product_schema(cursor):
     -- Products table: reusable catalog items that can later be attached to invoice line items.
     CREATE TABLE IF NOT EXISTS products (
         id              INTEGER PRIMARY KEY,
+        workspace_id    INTEGER,
         name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
         description     TEXT,
         cost            INTEGER NOT NULL DEFAULT 0
@@ -429,6 +499,7 @@ def create_product_schema(cursor):
                                 CHECK (is_active IN (0, 1)),
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
         updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
         FOREIGN KEY (category_id) REFERENCES product_categories(id) ON DELETE RESTRICT
     );
 
@@ -442,6 +513,8 @@ def create_product_schema(cursor):
     """)
     cursor.execute("PRAGMA table_info(products)")
     columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "workspace_id" not in columns:
+        cursor.execute("ALTER TABLE products ADD COLUMN workspace_id INTEGER")
     if "category_id" not in columns:
         cursor.execute(
             "ALTER TABLE products ADD COLUMN category_id INTEGER NOT NULL DEFAULT 1"
@@ -454,12 +527,27 @@ def create_product_schema(cursor):
         cursor.execute(
             "ALTER TABLE products ADD COLUMN cost INTEGER NOT NULL DEFAULT 0"
         )
+    cursor.executescript("""
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_products_unowned_name_nocase
+        ON products(lower(name))
+        WHERE workspace_id IS NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_products_workspace_name_nocase
+        ON products(workspace_id, lower(name))
+        WHERE workspace_id IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS
+        idx_products_workspace_id ON products(workspace_id);
+    """)
 
 def create_supplier_schema(cursor):
     cursor.executescript("""
     -- Suppliers table: optional product source labels for catalog sourcing.
     CREATE TABLE IF NOT EXISTS suppliers (
         id              INTEGER PRIMARY KEY,
+        workspace_id    INTEGER,
         name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
         phone           TEXT,
         email           TEXT,
@@ -467,13 +555,32 @@ def create_supplier_schema(cursor):
         is_active       INTEGER NOT NULL DEFAULT 1
                                 CHECK (is_active IN (0, 1)),
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS
-        idx_suppliers_name_nocase ON suppliers(lower(name));
     CREATE INDEX IF NOT EXISTS
         idx_suppliers_is_active ON suppliers(is_active);
+    """)
+    cursor.execute("PRAGMA table_info(suppliers)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "workspace_id" not in columns:
+        cursor.execute("ALTER TABLE suppliers ADD COLUMN workspace_id INTEGER")
+
+    cursor.execute("DROP INDEX IF EXISTS idx_suppliers_name_nocase")
+    cursor.executescript("""
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_suppliers_unowned_name_nocase
+        ON suppliers(lower(name))
+        WHERE workspace_id IS NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_suppliers_workspace_name_nocase
+        ON suppliers(workspace_id, lower(name))
+        WHERE workspace_id IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS
+        idx_suppliers_workspace_id ON suppliers(workspace_id);
     """)
 
 

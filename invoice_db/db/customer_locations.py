@@ -342,9 +342,22 @@ def _get_location_id_by_address(
     state: str,
     postal_code: str,
     country: str,
+    workspace_id: int | None = None,
 ) -> int | None:
+    workspace_clause = "workspace_id IS NULL" if workspace_id is None else "workspace_id = ?"
+    params = [
+        address_line1,
+        address_line2,
+        city,
+        state,
+        postal_code,
+        country,
+    ]
+    if workspace_id is not None:
+        params.append(workspace_id)
+
     row = cursor.execute(
-        """
+        f"""
         SELECT id
         FROM locations
         WHERE lower(trim(address_line1)) = lower(trim(?))
@@ -353,8 +366,9 @@ def _get_location_id_by_address(
             AND lower(trim(state)) = lower(trim(?))
             AND lower(trim(postal_code)) = lower(trim(?))
             AND lower(trim(country)) = lower(trim(?))
+            AND {workspace_clause}
         """,
-        (address_line1, address_line2, city, state, postal_code, country),
+        params,
     ).fetchone()
     return row["id"] if row else None
 
@@ -368,6 +382,7 @@ def _get_or_create_location(
     state: str,
     postal_code: str,
     country: str,
+    workspace_id: int | None = None,
 ) -> int:
     location_id = _get_location_id_by_address(
         cursor,
@@ -377,6 +392,7 @@ def _get_or_create_location(
         state=state,
         postal_code=postal_code,
         country=country,
+        workspace_id=workspace_id,
     )
     if location_id is not None:
         return location_id
@@ -384,6 +400,7 @@ def _get_or_create_location(
     cursor.execute(
         """
         INSERT INTO locations (
+            workspace_id,
             address_line1,
             address_line2,
             city,
@@ -391,9 +408,9 @@ def _get_or_create_location(
             postal_code,
             country
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (address_line1, address_line2, city, state, postal_code, country),
+        (workspace_id, address_line1, address_line2, city, state, postal_code, country),
     )
     return cursor.lastrowid
 
@@ -449,9 +466,58 @@ def assert_supplier_exists(cursor, supplier_id: int) -> None:
         raise ValueError(f"Supplier not found (id={supplier_id}).")
 
 
-def get_locations(cursor) -> list[Location]:
-    cursor.execute(
+def _workspace_filter(alias: str, workspace_id: int | None) -> tuple[str, list[int]]:
+    if workspace_id is None:
+        return f"{alias}.workspace_id IS NULL", []
+    return f"{alias}.workspace_id = ?", [workspace_id]
+
+
+def get_locations(cursor, workspace_id: int | None = None) -> list[Location]:
+    customer_workspace_clause, customer_workspace_params = _workspace_filter("c", workspace_id)
+    supplier_workspace_clause, supplier_workspace_params = _workspace_filter("s", workspace_id)
+    visibility_params: list[int] = []
+    if workspace_id is None:
+        visibility_clause = """
+        WHERE l.workspace_id IS NULL
+        AND (
+            EXISTS (
+            SELECT 1
+            FROM customer_locations cl
+            JOIN customers c ON c.id = cl.customer_id
+            WHERE cl.location_id = l.id AND c.workspace_id IS NULL
+            )
+            OR EXISTS (
+            SELECT 1
+            FROM supplier_locations sl
+            JOIN suppliers s ON s.id = sl.supplier_id
+            WHERE sl.location_id = l.id AND s.workspace_id IS NULL
+            )
+            OR (
+            NOT EXISTS (SELECT 1 FROM customer_locations cl WHERE cl.location_id = l.id)
+            AND NOT EXISTS (SELECT 1 FROM supplier_locations sl WHERE sl.location_id = l.id)
+            )
+        )
         """
+    else:
+        visibility_clause = """
+        WHERE l.workspace_id = ?
+        OR EXISTS (
+            SELECT 1
+            FROM customer_locations cl
+            JOIN customers c ON c.id = cl.customer_id
+            WHERE cl.location_id = l.id AND c.workspace_id = ?
+        )
+        OR EXISTS (
+            SELECT 1
+            FROM supplier_locations sl
+            JOIN suppliers s ON s.id = sl.supplier_id
+            WHERE sl.location_id = l.id AND s.workspace_id = ?
+        )
+        """
+        visibility_params = [workspace_id, workspace_id, workspace_id]
+
+    cursor.execute(
+        f"""
         SELECT
             l.id,
             l.address_line1,
@@ -463,7 +529,8 @@ def get_locations(cursor) -> list[Location]:
             (
                 SELECT COUNT(*)
                 FROM customer_locations cl
-                WHERE cl.location_id = l.id
+                JOIN customers c ON c.id = cl.customer_id
+                WHERE cl.location_id = l.id AND {customer_workspace_clause}
             ) AS assigned_customer_count,
             (
                 SELECT GROUP_CONCAT(name, ', ')
@@ -471,14 +538,15 @@ def get_locations(cursor) -> list[Location]:
                     SELECT c.name AS name
                     FROM customer_locations cl
                     JOIN customers c ON c.id = cl.customer_id
-                    WHERE cl.location_id = l.id
+                    WHERE cl.location_id = l.id AND {customer_workspace_clause}
                     ORDER BY lower(c.name), c.id
                 )
             ) AS assigned_customer_names,
             (
                 SELECT COUNT(*)
                 FROM supplier_locations sl
-                WHERE sl.location_id = l.id
+                JOIN suppliers s ON s.id = sl.supplier_id
+                WHERE sl.location_id = l.id AND {supplier_workspace_clause}
             ) AS assigned_supplier_count,
             (
                 SELECT GROUP_CONCAT(name, ', ')
@@ -486,20 +554,32 @@ def get_locations(cursor) -> list[Location]:
                     SELECT s.name AS name
                     FROM supplier_locations sl
                     JOIN suppliers s ON s.id = sl.supplier_id
-                    WHERE sl.location_id = l.id
+                    WHERE sl.location_id = l.id AND {supplier_workspace_clause}
                     ORDER BY lower(s.name), s.id
                 )
             ) AS assigned_supplier_names,
             l.created_at,
             l.updated_at
         FROM locations l
+        {visibility_clause}
         ORDER BY lower(l.city), lower(l.address_line1), l.id
-        """
+        """,
+        (
+            *customer_workspace_params,
+            *customer_workspace_params,
+            *supplier_workspace_params,
+            *supplier_workspace_params,
+            *visibility_params,
+        ),
     )
     return [_to_location(row) for row in cursor.fetchall()]
 
 
-def create_location(cursor, location: LocationCreate) -> Location:
+def create_location(
+    cursor,
+    location: LocationCreate,
+    workspace_id: int | None = None,
+) -> Location:
     address_line1 = _normalize_required_text(location.address_line1, "Address line 1")
     address_line2 = normalize_optional_customer_text(location.address_line2)
     city = _normalize_required_text(location.city, "City")
@@ -515,6 +595,7 @@ def create_location(cursor, location: LocationCreate) -> Location:
         state=state,
         postal_code=postal_code,
         country=country,
+        workspace_id=workspace_id,
     )
     if existing_location_id is not None:
         raise ValueError("That location already exists.")
@@ -522,6 +603,7 @@ def create_location(cursor, location: LocationCreate) -> Location:
     cursor.execute(
         """
         INSERT INTO locations (
+            workspace_id,
             address_line1,
             address_line2,
             city,
@@ -529,21 +611,75 @@ def create_location(cursor, location: LocationCreate) -> Location:
             postal_code,
             country
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (address_line1, address_line2, city, state, postal_code, country),
+        (workspace_id, address_line1, address_line2, city, state, postal_code, country),
     )
 
-    created_location = get_location_by_id(cursor, cursor.lastrowid)
+    created_location = get_location_by_id(
+        cursor,
+        cursor.lastrowid,
+        workspace_id=workspace_id,
+    )
     if created_location is None:
         raise RuntimeError("Location was created but could not be retrieved.")
 
     return created_location
 
 
-def get_location_by_id(cursor, location_id: int) -> Location | None:
-    cursor.execute(
+def get_location_by_id(
+    cursor,
+    location_id: int,
+    workspace_id: int | None = None,
+) -> Location | None:
+    customer_workspace_clause, customer_workspace_params = _workspace_filter("c", workspace_id)
+    supplier_workspace_clause, supplier_workspace_params = _workspace_filter("s", workspace_id)
+    visibility_params: list[int] = []
+    if workspace_id is None:
+        visibility_clause = """
+        AND l.workspace_id IS NULL
+        AND (
+            EXISTS (
+                SELECT 1
+                FROM customer_locations cl
+                JOIN customers c ON c.id = cl.customer_id
+                WHERE cl.location_id = l.id AND c.workspace_id IS NULL
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM supplier_locations sl
+                JOIN suppliers s ON s.id = sl.supplier_id
+                WHERE sl.location_id = l.id AND s.workspace_id IS NULL
+            )
+            OR (
+                NOT EXISTS (SELECT 1 FROM customer_locations cl WHERE cl.location_id = l.id)
+                AND NOT EXISTS (SELECT 1 FROM supplier_locations sl WHERE sl.location_id = l.id)
+            )
+        )
         """
+    else:
+        visibility_clause = """
+        AND (
+            l.workspace_id = ?
+            OR
+            EXISTS (
+                SELECT 1
+                FROM customer_locations cl
+                JOIN customers c ON c.id = cl.customer_id
+                WHERE cl.location_id = l.id AND c.workspace_id = ?
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM supplier_locations sl
+                JOIN suppliers s ON s.id = sl.supplier_id
+                WHERE sl.location_id = l.id AND s.workspace_id = ?
+            )
+        )
+        """
+        visibility_params = [workspace_id, workspace_id, workspace_id]
+
+    cursor.execute(
+        f"""
         SELECT
             l.id,
             l.address_line1,
@@ -555,7 +691,8 @@ def get_location_by_id(cursor, location_id: int) -> Location | None:
             (
                 SELECT COUNT(*)
                 FROM customer_locations cl
-                WHERE cl.location_id = l.id
+                JOIN customers c ON c.id = cl.customer_id
+                WHERE cl.location_id = l.id AND {customer_workspace_clause}
             ) AS assigned_customer_count,
             (
                 SELECT GROUP_CONCAT(name, ', ')
@@ -563,14 +700,15 @@ def get_location_by_id(cursor, location_id: int) -> Location | None:
                     SELECT c.name AS name
                     FROM customer_locations cl
                     JOIN customers c ON c.id = cl.customer_id
-                    WHERE cl.location_id = l.id
+                    WHERE cl.location_id = l.id AND {customer_workspace_clause}
                     ORDER BY lower(c.name), c.id
                 )
             ) AS assigned_customer_names,
             (
                 SELECT COUNT(*)
                 FROM supplier_locations sl
-                WHERE sl.location_id = l.id
+                JOIN suppliers s ON s.id = sl.supplier_id
+                WHERE sl.location_id = l.id AND {supplier_workspace_clause}
             ) AS assigned_supplier_count,
             (
                 SELECT GROUP_CONCAT(name, ', ')
@@ -578,16 +716,23 @@ def get_location_by_id(cursor, location_id: int) -> Location | None:
                     SELECT s.name AS name
                     FROM supplier_locations sl
                     JOIN suppliers s ON s.id = sl.supplier_id
-                    WHERE sl.location_id = l.id
+                    WHERE sl.location_id = l.id AND {supplier_workspace_clause}
                     ORDER BY lower(s.name), s.id
                 )
             ) AS assigned_supplier_names,
             l.created_at,
             l.updated_at
         FROM locations l
-        WHERE l.id = ?
+        WHERE l.id = ?{visibility_clause}
         """,
-        (location_id,),
+        (
+            *customer_workspace_params,
+            *customer_workspace_params,
+            *supplier_workspace_params,
+            *supplier_workspace_params,
+            location_id,
+            *visibility_params,
+        ),
     )
     row = cursor.fetchone()
     return _to_location(row) if row else None
@@ -603,8 +748,9 @@ def update_location(
     state: str | None = None,
     postal_code: str | None = None,
     country: str | None = None,
+    workspace_id: int | None = None,
 ) -> Location | None:
-    location = get_location_by_id(cursor, location_id)
+    location = get_location_by_id(cursor, location_id, workspace_id=workspace_id)
     if location is None:
         return None
 
@@ -636,6 +782,7 @@ def update_location(
         state=next_state,
         postal_code=next_postal_code,
         country=next_country,
+        workspace_id=workspace_id,
     )
     if existing_location_id is not None and existing_location_id != location_id:
         raise ValueError("That location already exists.")
@@ -662,12 +809,17 @@ def update_location(
             location_id,
         ),
     )
-    return get_location_by_id(cursor, location_id)
+    return get_location_by_id(cursor, location_id, workspace_id=workspace_id)
 
 
-def get_location_customer_assignments(cursor, location_id: int) -> list[LocationCustomerAssignment]:
+def get_location_customer_assignments(
+    cursor,
+    location_id: int,
+    workspace_id: int | None = None,
+) -> list[LocationCustomerAssignment]:
+    workspace_clause, workspace_params = _workspace_filter("c", workspace_id)
     cursor.execute(
-        """
+        f"""
         SELECT
             cl.id,
             cl.customer_id,
@@ -681,17 +833,22 @@ def get_location_customer_assignments(cursor, location_id: int) -> list[Location
             cl.updated_at
         FROM customer_locations cl
         JOIN customers c ON c.id = cl.customer_id
-        WHERE cl.location_id = ?
+        WHERE cl.location_id = ? AND {workspace_clause}
         ORDER BY cl.is_active DESC, cl.is_primary DESC, lower(c.name), cl.id
         """,
-        (location_id,),
+        (location_id, *workspace_params),
     )
     return [_to_location_customer_assignment(row) for row in cursor.fetchall()]
 
 
-def get_location_supplier_assignments(cursor, location_id: int) -> list[LocationSupplierAssignment]:
+def get_location_supplier_assignments(
+    cursor,
+    location_id: int,
+    workspace_id: int | None = None,
+) -> list[LocationSupplierAssignment]:
+    workspace_clause, workspace_params = _workspace_filter("s", workspace_id)
     cursor.execute(
-        """
+        f"""
         SELECT
             sl.id,
             sl.supplier_id,
@@ -706,17 +863,22 @@ def get_location_supplier_assignments(cursor, location_id: int) -> list[Location
             sl.updated_at
         FROM supplier_locations sl
         JOIN suppliers s ON s.id = sl.supplier_id
-        WHERE sl.location_id = ?
+        WHERE sl.location_id = ? AND {workspace_clause}
         ORDER BY sl.is_active DESC, sl.is_primary DESC, lower(s.name), sl.id
         """,
-        (location_id,),
+        (location_id, *workspace_params),
     )
     return [_to_location_supplier_assignment(row) for row in cursor.fetchall()]
 
 
-def get_location_invoices(cursor, location_id: int) -> list[LocationInvoice]:
+def get_location_invoices(
+    cursor,
+    location_id: int,
+    workspace_id: int | None = None,
+) -> list[LocationInvoice]:
+    workspace_clause, workspace_params = _workspace_filter("i", workspace_id)
     cursor.execute(
-        """
+        f"""
         SELECT
             i.id,
             i.invoice_number,
@@ -730,10 +892,10 @@ def get_location_invoices(cursor, location_id: int) -> list[LocationInvoice]:
         FROM invoices i
         JOIN customer_locations cl ON cl.id = i.location_id
         JOIN customers c ON c.id = i.customer_id
-        WHERE cl.location_id = ?
+        WHERE cl.location_id = ? AND {workspace_clause}
         ORDER BY COALESCE(i.date_issued, ''), i.id
         """,
-        (location_id,),
+        (location_id, *workspace_params),
     )
     return [_to_location_invoice(row) for row in cursor.fetchall()]
 
@@ -765,6 +927,7 @@ def create_customer_location(
         state=state,
         postal_code=postal_code,
         country=country,
+        workspace_id=workspace_id,
     )
     if _get_customer_location_id_for_location(cursor, location.customer_id, location_id) is not None:
         raise ValueError("That address is already assigned to this customer.")
@@ -804,7 +967,11 @@ def create_customer_location(
     return created_location
 
 
-def create_supplier_location(cursor, location: SupplierLocationCreate) -> SupplierLocation:
+def create_supplier_location(
+    cursor,
+    location: SupplierLocationCreate,
+    workspace_id: int | None = None,
+) -> SupplierLocation:
     validate_positive_id(location.supplier_id, "Supplier id")
     assert_supplier_exists(cursor, location.supplier_id)
 
@@ -827,6 +994,7 @@ def create_supplier_location(cursor, location: SupplierLocationCreate) -> Suppli
         state=state,
         postal_code=postal_code,
         country=country,
+        workspace_id=workspace_id,
     )
     if _get_supplier_location_id_for_location(cursor, location.supplier_id, location_id) is not None:
         raise ValueError("That address is already assigned to this supplier.")
@@ -950,6 +1118,7 @@ def update_customer_location(
     is_primary: bool | None = None,
     is_active: bool | None = None,
     notes: str | None = None,
+    workspace_id: int | None = None,
 ) -> CustomerLocation | None:
     location = get_customer_location_by_id(cursor, location_id)
     if location is None:
@@ -1009,6 +1178,7 @@ def update_customer_location(
             state=next_state,
             postal_code=next_postal_code,
             country=next_country,
+            workspace_id=workspace_id,
         )
         if _get_customer_location_id_for_location(
             cursor,
@@ -1046,6 +1216,7 @@ def update_supplier_location(
     is_primary: bool | None = None,
     is_active: bool | None = None,
     notes: str | None = None,
+    workspace_id: int | None = None,
 ) -> SupplierLocation | None:
     location = get_supplier_location_by_id(cursor, location_id)
     if location is None:
@@ -1105,6 +1276,7 @@ def update_supplier_location(
             state=next_state,
             postal_code=next_postal_code,
             country=next_country,
+            workspace_id=workspace_id,
         )
         if _get_supplier_location_id_for_location(
             cursor,

@@ -290,12 +290,20 @@ def _update_invoice(
     
     return updated_invoice
 
-def _inactive_product_names_for_invoice(cursor, invoice_id: int) -> list[str]:
-    repo = invoice_items_db.InvoiceItemRepository(cursor)
+def _inactive_product_names_for_invoice(
+    cursor,
+    invoice_id: int,
+    workspace_id: int | None = None,
+) -> list[str]:
+    repo = invoice_items_db.InvoiceItemRepository(cursor, workspace_id=workspace_id)
     inactive_names = []
 
     for item in repo.list_by_invoice_id(invoice_id):
-        product = products_db.get_product_by_id(cursor, item.product_id)
+        product = products_db.get_product_by_id(
+            cursor,
+            item.product_id,
+            workspace_id=workspace_id,
+        )
         if product is not None and not product.is_active:
             inactive_names.append(product.name)
 
@@ -527,7 +535,11 @@ def set_invoice_status(
         raise exceptions.ValidationError(f"Invalid transition {invoice['status']} -> {normalized_status}")
     
     if invoice["status"] == "draft" and normalized_status == "sent":
-        inactive_product_names = _inactive_product_names_for_invoice(cursor, invoice_id)
+        inactive_product_names = _inactive_product_names_for_invoice(
+            cursor,
+            invoice_id,
+            workspace_id=workspace_id,
+        )
         if inactive_product_names:
             names = ", ".join(inactive_product_names)
             raise exceptions.ValidationError(

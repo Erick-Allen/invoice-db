@@ -91,13 +91,21 @@ def _as_validation_error(error: ValueError) -> exceptions.ValidationError:
     return exceptions.ValidationError(str(error))
 
 
-def _require_category(cursor, category_id: int) -> categories_db.ProductCategory:
+def _require_category(
+    cursor,
+    category_id: int,
+    workspace_id: int | None = None,
+) -> categories_db.ProductCategory:
     try:
         validate_positive_id(category_id, "Product category id")
     except ValueError as e:
         raise _as_validation_error(e) from e
 
-    category = categories_db.get_product_category_by_id(cursor, category_id)
+    category = categories_db.get_product_category_by_id(
+        cursor,
+        category_id,
+        workspace_id=workspace_id,
+    )
     if category is None:
         raise exceptions.NotFoundError(f"Product category not found (id={category_id})")
 
@@ -109,8 +117,13 @@ def _raise_if_category_name_exists(
     name: str,
     *,
     current_category_id: int | None = None,
+    workspace_id: int | None = None,
 ) -> None:
-    existing_category = categories_db.get_product_category_by_name(cursor, name)
+    existing_category = categories_db.get_product_category_by_name(
+        cursor,
+        name,
+        workspace_id=workspace_id,
+    )
     if existing_category is not None and existing_category.id != current_category_id:
         raise exceptions.ValidationError(
             f'A product category named "{existing_category.name}" already exists.'
@@ -122,15 +135,17 @@ def create_product_category(
     name: str,
     description: str | None = None,
     is_active: bool = True,
+    workspace_id: int | None = None,
 ) -> ProductCategoryRecord:
     try:
-        _raise_if_category_name_exists(cursor, name)
+        _raise_if_category_name_exists(cursor, name, workspace_id=workspace_id)
         category = categories_db.create_product_category(
             cursor,
             categories_db.ProductCategoryCreate(
                 name=name,
                 description=description,
                 is_active=is_active,
+                workspace_id=workspace_id,
             ),
         )
     except ValueError as e:
@@ -141,20 +156,44 @@ def create_product_category(
     return _to_category_record(category)
 
 
-def list_product_categories(cursor, active_only: bool = False) -> list[ProductCategoryRecord]:
+def list_product_categories(
+    cursor,
+    active_only: bool = False,
+    workspace_id: int | None = None,
+) -> list[ProductCategoryRecord]:
+    categories_db.get_or_create_default_category(cursor, workspace_id=workspace_id)
     return [
         _to_category_record(category)
-        for category in categories_db.get_product_categories(cursor, active_only=active_only)
+        for category in categories_db.get_product_categories(
+            cursor,
+            active_only=active_only,
+            workspace_id=workspace_id,
+        )
     ]
 
 
-def get_product_category_detail(cursor, category_id: int) -> ProductCategoryDetailRecord:
-    category = _require_category(cursor, category_id)
+def get_product_category_detail(
+    cursor,
+    category_id: int,
+    workspace_id: int | None = None,
+) -> ProductCategoryDetailRecord:
+    category = _require_category(cursor, category_id, workspace_id=workspace_id)
     products = [
         _to_category_product_record(row)
-        for row in categories_db.get_products_for_category(cursor, category_id)
+        for row in categories_db.get_products_for_category(
+            cursor,
+            category_id,
+            workspace_id=workspace_id,
+        )
     ]
-    invoices = [dict(row) for row in categories_db.get_invoice_totals_for_category(cursor, category_id)]
+    invoices = [
+        dict(row)
+        for row in categories_db.get_invoice_totals_for_category(
+            cursor,
+            category_id,
+            workspace_id=workspace_id,
+        )
+    ]
     issued_invoices = [
         invoice for invoice in invoices
         if invoice["status"] in {"sent", "paid"}
@@ -182,10 +221,11 @@ def update_product_category_by_id(
     name: str | None = None,
     description: str | None = None,
     is_active: bool | None = None,
+    workspace_id: int | None = None,
 ) -> ProductCategoryRecord:
-    category = _require_category(cursor, category_id)
+    category = _require_category(cursor, category_id, workspace_id=workspace_id)
 
-    if category.id == categories_db.DEFAULT_CATEGORY_ID:
+    if category.name == categories_db.DEFAULT_CATEGORY_NAME:
         raise exceptions.ValidationError("The default product category cannot be edited.")
 
     if name is None and description is None and is_active is None:
@@ -193,7 +233,12 @@ def update_product_category_by_id(
 
     try:
         if name is not None:
-            _raise_if_category_name_exists(cursor, name, current_category_id=category_id)
+            _raise_if_category_name_exists(
+                cursor,
+                name,
+                current_category_id=category_id,
+                workspace_id=workspace_id,
+            )
 
         updated_category = categories_db.update_product_category(
             cursor,
@@ -201,6 +246,7 @@ def update_product_category_by_id(
             name=name,
             description=description,
             is_active=is_active,
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -213,24 +259,41 @@ def update_product_category_by_id(
     return _to_category_record(updated_category)
 
 
-def deactivate_product_category(cursor, category_id: int) -> ProductCategoryRecord:
-    category = _require_category(cursor, category_id)
-    if category.id == categories_db.DEFAULT_CATEGORY_ID:
+def deactivate_product_category(
+    cursor,
+    category_id: int,
+    workspace_id: int | None = None,
+) -> ProductCategoryRecord:
+    category = _require_category(cursor, category_id, workspace_id=workspace_id)
+    if category.name == categories_db.DEFAULT_CATEGORY_NAME:
         raise exceptions.ValidationError("The default product category cannot be deactivated.")
 
     if not category.is_active:
         raise exceptions.ValidationError("Product category is already inactive.")
 
-    return update_product_category_by_id(cursor, category_id, is_active=False)
+    return update_product_category_by_id(
+        cursor,
+        category_id,
+        is_active=False,
+        workspace_id=workspace_id,
+    )
 
 
-def delete_product_category(cursor, category_id: int) -> None:
-    category = _require_category(cursor, category_id)
+def delete_product_category(
+    cursor,
+    category_id: int,
+    workspace_id: int | None = None,
+) -> None:
+    category = _require_category(cursor, category_id, workspace_id=workspace_id)
 
-    if category.id == categories_db.DEFAULT_CATEGORY_ID:
+    if category.name == categories_db.DEFAULT_CATEGORY_NAME:
         raise exceptions.ValidationError("The default product category cannot be deleted.")
 
-    product_count = categories_db.count_products_for_category(cursor, category_id)
+    product_count = categories_db.count_products_for_category(
+        cursor,
+        category_id,
+        workspace_id=workspace_id,
+    )
     if product_count > 0:
         product_word = "product" if product_count == 1 else "products"
         verb = "uses" if product_count == 1 else "use"
@@ -238,6 +301,10 @@ def delete_product_category(cursor, category_id: int) -> None:
             f'Cannot delete product category "{category.name}" because {product_count} {product_word} {verb} it.'
         )
 
-    deleted = categories_db.delete_product_category(cursor, category_id)
+    deleted = categories_db.delete_product_category(
+        cursor,
+        category_id,
+        workspace_id=workspace_id,
+    )
     if not deleted:
         raise exceptions.NotFoundError(f"Product category not found (id={category_id})")

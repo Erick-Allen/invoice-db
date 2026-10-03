@@ -238,13 +238,21 @@ def _require_customer(
     return customer
 
 
-def _require_supplier(cursor, supplier_id: int) -> suppliers_db.Supplier:
+def _require_supplier(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> suppliers_db.Supplier:
     try:
         validate_positive_id(supplier_id, "Supplier id")
     except ValueError as e:
         raise _as_validation_error(e) from e
 
-    supplier = suppliers_db.get_supplier_by_id(cursor, supplier_id)
+    supplier = suppliers_db.get_supplier_by_id(
+        cursor,
+        supplier_id,
+        workspace_id=workspace_id,
+    )
     if supplier is None:
         raise exceptions.NotFoundError(f"Supplier not found (id={supplier_id})")
 
@@ -298,8 +306,9 @@ def _require_supplier_location(
     cursor,
     supplier_id: int,
     location_id: int,
+    workspace_id: int | None = None,
 ) -> locations_db.SupplierLocation:
-    _require_supplier(cursor, supplier_id)
+    _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
     location = _require_supplier_location_record(cursor, location_id)
 
     if location.supplier_id != supplier_id:
@@ -367,7 +376,9 @@ def create_supplier_location(
     is_primary: bool = False,
     is_active: bool = True,
     notes: str | None = None,
+    workspace_id: int | None = None,
 ) -> SupplierLocationRecord:
+    _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
     try:
         location = locations_db.create_supplier_location(
             cursor,
@@ -384,6 +395,7 @@ def create_supplier_location(
                 is_active=is_active,
                 notes=notes,
             ),
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -393,8 +405,14 @@ def create_supplier_location(
     return _to_supplier_location_record(location)
 
 
-def list_locations(cursor) -> list[LocationRecord]:
-    return [_to_global_location_record(location) for location in locations_db.get_locations(cursor)]
+def list_locations(
+    cursor,
+    workspace_id: int | None = None,
+) -> list[LocationRecord]:
+    return [
+        _to_global_location_record(location)
+        for location in locations_db.get_locations(cursor, workspace_id=workspace_id)
+    ]
 
 
 def create_location(
@@ -406,6 +424,7 @@ def create_location(
     postal_code: str,
     address_line2: str | None = None,
     country: str = "US",
+    workspace_id: int | None = None,
 ) -> LocationRecord:
     try:
         location = locations_db.create_location(
@@ -418,6 +437,7 @@ def create_location(
                 postal_code=postal_code,
                 country=country,
             ),
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -437,6 +457,7 @@ def update_location_by_id(
     state: str | None = None,
     postal_code: str | None = None,
     country: str | None = None,
+    workspace_id: int | None = None,
 ) -> LocationRecord:
     try:
         validate_positive_id(location_id, "Location id")
@@ -463,6 +484,7 @@ def update_location_by_id(
             state=state,
             postal_code=postal_code,
             country=country,
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -475,19 +497,40 @@ def update_location_by_id(
     return _to_global_location_record(location)
 
 
-def get_location_detail(cursor, *, location_id: int) -> LocationDetailRecord:
+def get_location_detail(
+    cursor,
+    *,
+    location_id: int,
+    workspace_id: int | None = None,
+) -> LocationDetailRecord:
     try:
         validate_positive_id(location_id, "Location id")
     except ValueError as e:
         raise _as_validation_error(e) from e
 
-    location = locations_db.get_location_by_id(cursor, location_id)
+    location = locations_db.get_location_by_id(
+        cursor,
+        location_id,
+        workspace_id=workspace_id,
+    )
     if location is None:
         raise exceptions.NotFoundError(f"Location not found (id={location_id})")
 
-    assignments = locations_db.get_location_customer_assignments(cursor, location_id)
-    supplier_assignments = locations_db.get_location_supplier_assignments(cursor, location_id)
-    invoices = locations_db.get_location_invoices(cursor, location_id)
+    assignments = locations_db.get_location_customer_assignments(
+        cursor,
+        location_id,
+        workspace_id=workspace_id,
+    )
+    supplier_assignments = locations_db.get_location_supplier_assignments(
+        cursor,
+        location_id,
+        workspace_id=workspace_id,
+    )
+    invoices = locations_db.get_location_invoices(
+        cursor,
+        location_id,
+        workspace_id=workspace_id,
+    )
 
     return {
         "location": _to_global_location_record(location),
@@ -539,8 +582,9 @@ def list_supplier_locations(
     *,
     supplier_id: int,
     active_only: bool = False,
+    workspace_id: int | None = None,
 ) -> list[SupplierLocationRecord]:
-    _require_supplier(cursor, supplier_id)
+    _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
     return [
         _to_supplier_location_record(location)
         for location in locations_db.get_supplier_locations(cursor, supplier_id, active_only=active_only)
@@ -552,8 +596,16 @@ def get_supplier_location_by_id(
     *,
     supplier_id: int,
     location_id: int,
+    workspace_id: int | None = None,
 ) -> SupplierLocationRecord:
-    return _to_supplier_location_record(_require_supplier_location(cursor, supplier_id, location_id))
+    return _to_supplier_location_record(
+        _require_supplier_location(
+            cursor,
+            supplier_id,
+            location_id,
+            workspace_id=workspace_id,
+        )
+    )
 
 
 def update_customer_location_by_id(
@@ -608,6 +660,7 @@ def update_customer_location_by_id(
             is_primary=is_primary,
             is_active=is_active,
             notes=notes,
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -635,8 +688,14 @@ def update_supplier_location_by_id(
     is_primary: bool | None = None,
     is_active: bool | None = None,
     notes: str | None = None,
+    workspace_id: int | None = None,
 ) -> SupplierLocationRecord:
-    location = _require_supplier_location(cursor, supplier_id, location_id)
+    location = _require_supplier_location(
+        cursor,
+        supplier_id,
+        location_id,
+        workspace_id=workspace_id,
+    )
 
     if (
         label is None
@@ -666,6 +725,7 @@ def update_supplier_location_by_id(
             is_primary=is_primary,
             is_active=is_active,
             notes=notes,
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -725,6 +785,7 @@ def deactivate_supplier_location(
     *,
     supplier_id: int,
     location_id: int,
+    workspace_id: int | None = None,
 ) -> SupplierLocationRecord:
     return update_supplier_location_by_id(
         cursor,
@@ -732,6 +793,7 @@ def deactivate_supplier_location(
         location_id=location_id,
         is_active=False,
         is_primary=False,
+        workspace_id=workspace_id,
     )
 
 
@@ -740,8 +802,14 @@ def delete_supplier_location(
     *,
     supplier_id: int,
     location_id: int,
+    workspace_id: int | None = None,
 ) -> None:
-    location = _require_supplier_location(cursor, supplier_id, location_id)
+    location = _require_supplier_location(
+        cursor,
+        supplier_id,
+        location_id,
+        workspace_id=workspace_id,
+    )
 
     try:
         deleted = locations_db.delete_supplier_location(cursor, location.id)

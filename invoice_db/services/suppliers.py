@@ -61,17 +61,29 @@ def _validate_id(value: int, label: str) -> None:
         raise _as_validation_error(e) from e
 
 
-def _require_product(cursor, product_id: int) -> products_db.Product:
+def _require_product(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> products_db.Product:
     _validate_id(product_id, "Product id")
-    product = products_db.get_product_by_id(cursor, product_id)
+    product = products_db.get_product_by_id(cursor, product_id, workspace_id=workspace_id)
     if product is None:
         raise exceptions.NotFoundError(f"Product not found (id={product_id})")
     return product
 
 
-def _require_supplier(cursor, supplier_id: int) -> suppliers_db.Supplier:
+def _require_supplier(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> suppliers_db.Supplier:
     _validate_id(supplier_id, "Supplier id")
-    supplier = suppliers_db.get_supplier_by_id(cursor, supplier_id)
+    supplier = suppliers_db.get_supplier_by_id(
+        cursor,
+        supplier_id,
+        workspace_id=workspace_id,
+    )
     if supplier is None:
         raise exceptions.NotFoundError(f"Supplier not found (id={supplier_id})")
     return supplier
@@ -82,8 +94,13 @@ def _raise_if_supplier_name_exists(
     name: str,
     *,
     current_supplier_id: int | None = None,
+    workspace_id: int | None = None,
 ) -> None:
-    existing_supplier = suppliers_db.get_supplier_by_name(cursor, name)
+    existing_supplier = suppliers_db.get_supplier_by_name(
+        cursor,
+        name,
+        workspace_id=workspace_id,
+    )
     if existing_supplier is not None and existing_supplier.id != current_supplier_id:
         raise exceptions.ValidationError(
             f'A supplier named "{existing_supplier.name}" already exists.'
@@ -97,9 +114,10 @@ def create_supplier(
     email: str | None = None,
     website: str | None = None,
     is_active: bool = True,
+    workspace_id: int | None = None,
 ) -> SupplierRecord:
     try:
-        _raise_if_supplier_name_exists(cursor, name)
+        _raise_if_supplier_name_exists(cursor, name, workspace_id=workspace_id)
         supplier = suppliers_db.create_supplier(
             cursor,
             suppliers_db.SupplierCreate(
@@ -108,6 +126,7 @@ def create_supplier(
                 email=email,
                 website=website,
                 is_active=is_active,
+                workspace_id=workspace_id,
             ),
         )
     except ValueError as e:
@@ -118,15 +137,29 @@ def create_supplier(
     return _to_supplier_record(supplier)
 
 
-def list_suppliers(cursor, active_only: bool = False) -> list[SupplierRecord]:
+def list_suppliers(
+    cursor,
+    active_only: bool = False,
+    workspace_id: int | None = None,
+) -> list[SupplierRecord]:
     return [
         _to_supplier_record(supplier)
-        for supplier in suppliers_db.get_suppliers(cursor, active_only=active_only)
+        for supplier in suppliers_db.get_suppliers(
+            cursor,
+            active_only=active_only,
+            workspace_id=workspace_id,
+        )
     ]
 
 
-def get_supplier_by_id(cursor, supplier_id: int) -> SupplierRecord:
-    return _to_supplier_record(_require_supplier(cursor, supplier_id))
+def get_supplier_by_id(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> SupplierRecord:
+    return _to_supplier_record(
+        _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
+    )
 
 
 def update_supplier_by_id(
@@ -138,15 +171,21 @@ def update_supplier_by_id(
     email: str | None = None,
     website: str | None = None,
     is_active: bool | None = None,
+    workspace_id: int | None = None,
 ) -> SupplierRecord:
-    _require_supplier(cursor, supplier_id)
+    _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
 
     if name is None and phone is None and email is None and website is None and is_active is None:
         raise exceptions.ValidationError("Please provide at least one value to update the supplier.")
 
     try:
         if name is not None:
-            _raise_if_supplier_name_exists(cursor, name, current_supplier_id=supplier_id)
+            _raise_if_supplier_name_exists(
+                cursor,
+                name,
+                current_supplier_id=supplier_id,
+                workspace_id=workspace_id,
+            )
 
         updated_supplier = suppliers_db.update_supplier(
             cursor,
@@ -156,6 +195,7 @@ def update_supplier_by_id(
             email=email,
             website=website,
             is_active=is_active,
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -168,17 +208,34 @@ def update_supplier_by_id(
     return _to_supplier_record(updated_supplier)
 
 
-def deactivate_supplier(cursor, supplier_id: int) -> SupplierRecord:
-    supplier = _require_supplier(cursor, supplier_id)
+def deactivate_supplier(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> SupplierRecord:
+    supplier = _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
     if not supplier.is_active:
         raise exceptions.ValidationError("Supplier is already inactive.")
 
-    return update_supplier_by_id(cursor, supplier_id, is_active=False)
+    return update_supplier_by_id(
+        cursor,
+        supplier_id,
+        is_active=False,
+        workspace_id=workspace_id,
+    )
 
 
-def delete_supplier(cursor, supplier_id: int) -> None:
-    supplier = _require_supplier(cursor, supplier_id)
-    product_count = suppliers_db.count_products_for_supplier(cursor, supplier_id)
+def delete_supplier(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> None:
+    supplier = _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
+    product_count = suppliers_db.count_products_for_supplier(
+        cursor,
+        supplier_id,
+        workspace_id=workspace_id,
+    )
 
     if product_count > 0:
         product_word = "product" if product_count == 1 else "products"
@@ -187,7 +244,7 @@ def delete_supplier(cursor, supplier_id: int) -> None:
             f'Cannot delete supplier "{supplier.name}" because {product_count} {product_word} {verb} it.'
         )
 
-    deleted = suppliers_db.delete_supplier(cursor, supplier_id)
+    deleted = suppliers_db.delete_supplier(cursor, supplier_id, workspace_id=workspace_id)
     if not deleted:
         raise exceptions.NotFoundError(f"Supplier not found (id={supplier_id})")
 
@@ -197,9 +254,10 @@ def add_supplier_to_product(
     product_id: int,
     supplier_id: int,
     note: str | None = None,
+    workspace_id: int | None = None,
 ) -> ProductSupplierRecord:
-    _require_product(cursor, product_id)
-    supplier = _require_supplier(cursor, supplier_id)
+    _require_product(cursor, product_id, workspace_id=workspace_id)
+    supplier = _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
 
     if not supplier.is_active:
         raise exceptions.ValidationError("Inactive suppliers cannot be added to products.")
@@ -221,16 +279,28 @@ def add_supplier_to_product(
     return _to_product_supplier_record(product_supplier)
 
 
-def list_product_suppliers(cursor, product_id: int) -> list[SupplierRecord]:
-    _require_product(cursor, product_id)
+def list_product_suppliers(
+    cursor,
+    product_id: int,
+    workspace_id: int | None = None,
+) -> list[SupplierRecord]:
+    _require_product(cursor, product_id, workspace_id=workspace_id)
     return [
         _to_supplier_record(supplier)
-        for supplier in suppliers_db.get_suppliers_for_product(cursor, product_id)
+        for supplier in suppliers_db.get_suppliers_for_product(
+            cursor,
+            product_id,
+            workspace_id=workspace_id,
+        )
     ]
 
 
-def list_supplier_products(cursor, supplier_id: int) -> list[dict]:
-    _require_supplier(cursor, supplier_id)
+def list_supplier_products(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> list[dict]:
+    _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
     return [
         {
             "id": product.id,
@@ -246,7 +316,11 @@ def list_supplier_products(cursor, supplier_id: int) -> list[dict]:
             "created_at": product.created_at,
             "updated_at": product.updated_at,
         }
-        for product in suppliers_db.get_products_for_supplier(cursor, supplier_id)
+        for product in suppliers_db.get_products_for_supplier(
+            cursor,
+            supplier_id,
+            workspace_id=workspace_id,
+        )
     ]
 
 
@@ -255,9 +329,10 @@ def update_product_supplier_note(
     product_id: int,
     supplier_id: int,
     note: str | None,
+    workspace_id: int | None = None,
 ) -> ProductSupplierRecord:
-    _require_product(cursor, product_id)
-    _require_supplier(cursor, supplier_id)
+    _require_product(cursor, product_id, workspace_id=workspace_id)
+    _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
 
     updated = suppliers_db.update_product_supplier_note(cursor, product_id, supplier_id, note)
     if updated is None:
@@ -268,9 +343,14 @@ def update_product_supplier_note(
     return _to_product_supplier_record(updated)
 
 
-def remove_supplier_from_product(cursor, product_id: int, supplier_id: int) -> None:
-    _require_product(cursor, product_id)
-    _require_supplier(cursor, supplier_id)
+def remove_supplier_from_product(
+    cursor,
+    product_id: int,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> None:
+    _require_product(cursor, product_id, workspace_id=workspace_id)
+    _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
 
     removed = suppliers_db.remove_supplier_from_product(cursor, product_id, supplier_id)
     if not removed:
@@ -279,12 +359,20 @@ def remove_supplier_from_product(cursor, product_id: int, supplier_id: int) -> N
         )
 
 
-def remove_supplier_from_all_products(cursor, supplier_id: int) -> dict:
-    supplier = _require_supplier(cursor, supplier_id)
+def remove_supplier_from_all_products(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> dict:
+    supplier = _require_supplier(cursor, supplier_id, workspace_id=workspace_id)
     if supplier.is_active:
         raise exceptions.ValidationError("Only inactive suppliers can be removed from all products.")
 
-    removed_count = suppliers_db.remove_supplier_from_all_products(cursor, supplier_id)
+    removed_count = suppliers_db.remove_supplier_from_all_products(
+        cursor,
+        supplier_id,
+        workspace_id=workspace_id,
+    )
     return {
         "supplier_id": supplier_id,
         "removed_count": removed_count,
