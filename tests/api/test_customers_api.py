@@ -1,3 +1,7 @@
+import pytest
+from rest_framework.test import APIClient
+
+
 def post_customer(api_client, name, email):
         return api_client.post(
             "/api/customers/",
@@ -155,3 +159,65 @@ def test_patch_missing_customer_returns_404(api_client, test_db):
 def test_delete_missing_customer_returns_404(api_client, test_db):
     response = api_client.delete("/api/customers/9999/")
     assert response.status_code == 404
+
+
+def signed_in_client(email, test_db):
+    client = APIClient()
+    response = client.post(
+        "/api/auth/signup/",
+        {
+            "email": email,
+            "password": "StrongPass123!",
+            "name": email.split("@")[0],
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+    return client
+
+
+@pytest.mark.django_db
+def test_signed_in_customers_are_scoped_to_user_workspace(test_db):
+    user_a = signed_in_client("owner-a@example.com", test_db)
+    user_b = signed_in_client("owner-b@example.com", test_db)
+
+    created_a = post_customer(user_a, name="Shared Email A", email="shared@example.com")
+    created_b = post_customer(user_b, name="Shared Email B", email="shared@example.com")
+
+    assert created_a.status_code == 201
+    assert created_b.status_code == 201
+
+    list_a = user_a.get("/api/customers/")
+    list_b = user_b.get("/api/customers/")
+
+    assert list_a.status_code == 200
+    assert list_b.status_code == 200
+    assert [customer["name"] for customer in list_a.json()] == ["Shared Email A"]
+    assert [customer["name"] for customer in list_b.json()] == ["Shared Email B"]
+
+
+@pytest.mark.django_db
+def test_signed_in_customer_detail_cannot_cross_workspace(test_db):
+    user_a = signed_in_client("detail-a@example.com", test_db)
+    user_b = signed_in_client("detail-b@example.com", test_db)
+
+    created_a = post_customer(user_a, name="Private Customer", email="private@example.com")
+    customer_id = created_a.json()["id"]
+
+    response = user_b.get(f"/api/customers/{customer_id}/")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_signed_in_customer_is_hidden_from_signed_out_requests(api_client, test_db):
+    signed_in = signed_in_client("private-owner@example.com", test_db)
+    created = post_customer(signed_in, name="Private Customer", email="private@example.com")
+    customer_id = created.json()["id"]
+
+    list_response = api_client.get("/api/customers/")
+    detail_response = api_client.get(f"/api/customers/{customer_id}/")
+
+    assert list_response.status_code == 200
+    assert list_response.json() == []
+    assert detail_response.status_code == 404

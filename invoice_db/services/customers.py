@@ -45,20 +45,31 @@ def _as_validation_error(error: ValueError) -> exceptions.ValidationError:
     return exceptions.ValidationError(str(error))
     
 def _require_customer_by_id(cursor, customer_id: int) -> customers_db.Customer:
+    return _require_customer_by_id_in_workspace(cursor, customer_id)
+
+def _require_customer_by_id_in_workspace(
+    cursor,
+    customer_id: int,
+    workspace_id: int | None = None,
+) -> customers_db.Customer:
     try:
         validate_positive_id(customer_id, "Customer id")
     except ValueError as e:
         raise _as_validation_error(e) from e
 
-    customer = customers_db.get_customer_by_id(cursor, customer_id)
+    customer = customers_db.get_customer_by_id(cursor, customer_id, workspace_id=workspace_id)
     if customer is None:
         raise exceptions.NotFoundError(f"Customer not found (id={customer_id})")
     
     return customer
 
-def _require_customer_by_email(cursor, customer_email: str) -> customers_db.Customer:
+def _require_customer_by_email(
+    cursor,
+    customer_email: str,
+    workspace_id: int | None = None,
+) -> customers_db.Customer:
     customer_email = _normalize_customer_email(customer_email)
-    customer = customers_db.get_customer_by_email(cursor, customer_email)
+    customer = customers_db.get_customer_by_email(cursor, customer_email, workspace_id=workspace_id)
     if customer is None:
         raise exceptions.NotFoundError(f"Customer not found (email={customer_email})")
     
@@ -140,6 +151,7 @@ def _update_customer(
             customer_type=normalized_type,
             company_name=normalized_company,
             is_active=normalized_is_active,
+            workspace_id=customer.workspace_id,
         )
     except sqlite3.IntegrityError as e:
         raise exceptions.ValidationError(
@@ -181,6 +193,7 @@ def create_customer(
     customer_type: str = "residential",
     company_name: str | None = None,
     is_active: bool = True,
+    workspace_id: int | None = None,
 ) -> CustomerRecord:
     customer_name = _normalize_customer_name(customer_name)
     customer_email = _normalize_customer_email(customer_email)
@@ -195,6 +208,7 @@ def create_customer(
             customer_type=customer_type,
             company_name=company_name,
             is_active=is_active,
+            workspace_id=workspace_id,
         )
     except ValueError as e:
         raise _as_validation_error(e) from e
@@ -206,22 +220,30 @@ def create_customer(
     if customer_id is None:
         raise exceptions.ServiceError("Failed to create customer.")
     
-    customer = customers_db.get_customer_by_id(cursor, customer_id)
+    customer = customers_db.get_customer_by_id(cursor, customer_id, workspace_id=workspace_id)
     if customer is None:
         raise exceptions.ServiceError("Customer was created but could not be retrieved.")
     
     return _to_customer_record(customer)
 
-def get_customer_by_id(cursor, customer_id: int) -> CustomerRecord:
-    customer = _require_customer_by_id(cursor, customer_id)
+def get_customer_by_id(
+    cursor,
+    customer_id: int,
+    workspace_id: int | None = None,
+) -> CustomerRecord:
+    customer = _require_customer_by_id_in_workspace(cursor, customer_id, workspace_id=workspace_id)
     return _to_customer_record(customer)
 
-def get_customer_by_email(cursor, customer_email: str) -> CustomerRecord:
-    customer = _require_customer_by_email(cursor, customer_email)
+def get_customer_by_email(
+    cursor,
+    customer_email: str,
+    workspace_id: int | None = None,
+) -> CustomerRecord:
+    customer = _require_customer_by_email(cursor, customer_email, workspace_id=workspace_id)
     return _to_customer_record(customer)
 
-def list_customers(cursor) -> list[CustomerRecord]:
-    customers = customers_db.get_customers(cursor)
+def list_customers(cursor, workspace_id: int | None = None) -> list[CustomerRecord]:
+    customers = customers_db.get_customers(cursor, workspace_id=workspace_id)
     return [_to_customer_record(customer) for customer in customers]
 
 def update_customer_by_id(
@@ -233,8 +255,9 @@ def update_customer_by_id(
     new_customer_type: str | None = None,
     new_company_name: str | None = None,
     new_is_active: bool | None = None,
+    workspace_id: int | None = None,
     ) -> CustomerRecord: 
-    customer = _require_customer_by_id(cursor, customer_id)
+    customer = _require_customer_by_id_in_workspace(cursor, customer_id, workspace_id=workspace_id)
     return _to_customer_record(_update_customer(
         cursor,
         customer,
@@ -255,8 +278,9 @@ def update_customer_by_email(
     new_customer_type: str | None = None,
     new_company_name: str | None = None,
     new_is_active: bool | None = None,
+    workspace_id: int | None = None,
     ) -> CustomerRecord: 
-    customer = _require_customer_by_email(cursor, customer_email)
+    customer = _require_customer_by_email(cursor, customer_email, workspace_id=workspace_id)
     updated_customer = _update_customer(
         cursor,
         customer,
@@ -269,12 +293,16 @@ def update_customer_by_email(
     )
     return _to_customer_record(updated_customer)
 
-def delete_customer_by_id(cursor, customer_id: int) -> None:
+def delete_customer_by_id(cursor, customer_id: int, workspace_id: int | None = None) -> None:
     try:
         validate_positive_id(customer_id, "Customer id")
     except ValueError as e:
         raise _as_validation_error(e) from e
-    deleted_customer = customers_db.delete_customer(cursor, customer_id=customer_id)
+    deleted_customer = customers_db.delete_customer(
+        cursor,
+        customer_id=customer_id,
+        workspace_id=workspace_id,
+    )
     
     if not deleted_customer:
         raise exceptions.NotFoundError(f"Customer not found (id={customer_id})")

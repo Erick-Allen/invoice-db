@@ -35,6 +35,7 @@ def drop_db_command(
         cursor.execute("DROP TABLE IF EXISTS suppliers;")
         cursor.execute("DROP TABLE IF EXISTS tags;")
         cursor.execute("DROP TABLE IF EXISTS customers;")
+        cursor.execute("DROP TABLE IF EXISTS workspaces;")
         connect.commit()
     console.print(f"Dropped all tables from {db_path}", style="success")
 

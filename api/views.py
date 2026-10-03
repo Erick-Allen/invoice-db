@@ -209,7 +209,8 @@ class CustomerListCreateView(APIView):
     def get(self, request):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                customer = customer_services.list_customers(cursor)
+                workspace_id = _request_workspace_id(request, cursor)
+                customer = customer_services.list_customers(cursor, workspace_id=workspace_id)
 
         except sqlite3.Error:
             return Response(
@@ -228,6 +229,7 @@ class CustomerListCreateView(APIView):
         
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 customer = customer_services.create_customer(
                 cursor,
                 customer_name=serializer.validated_data['name'],
@@ -236,6 +238,7 @@ class CustomerListCreateView(APIView):
                 customer_type=serializer.validated_data.get("customer_type", "residential"),
                 company_name=serializer.validated_data.get("company_name"),
                 is_active=serializer.validated_data.get("is_active", True),
+                workspace_id=workspace_id,
                 )
         
         except ValidationError as e:
@@ -261,7 +264,12 @@ class CustomerDetailView(APIView):
     def get(self, request, customer_id):
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                customer = customer_services.get_customer_by_id(cursor, customer_id=customer_id)
+                workspace_id = _request_workspace_id(request, cursor)
+                customer = customer_services.get_customer_by_id(
+                    cursor,
+                    customer_id=customer_id,
+                    workspace_id=workspace_id,
+                )
         
         except ValidationError as e:
             return Response(
@@ -296,6 +304,7 @@ class CustomerDetailView(APIView):
         
         try:
             with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
                 customer = customer_services.update_customer_by_id(
                     cursor,
                     customer_id=customer_id,
@@ -309,6 +318,7 @@ class CustomerDetailView(APIView):
                         if "is_active" in request.data
                         else None
                     ),
+                    workspace_id=workspace_id,
                 )
 
         except ValidationError as e:
@@ -338,7 +348,12 @@ class CustomerDetailView(APIView):
     def delete(self, request, customer_id):
         try:
              with connection.db_session(connection.DB_PATH) as (connect, cursor):
-                 customer_services.delete_customer_by_id(cursor, customer_id=customer_id)
+                 workspace_id = _request_workspace_id(request, cursor)
+                 customer_services.delete_customer_by_id(
+                     cursor,
+                     customer_id=customer_id,
+                     workspace_id=workspace_id,
+                 )
 
         except ValidationError as e:
             return Response(

@@ -15,6 +15,7 @@ from .validators import (
 class CustomerCreate:
     name: str
     email: str
+    workspace_id: int | None = None
     phone: str | None = None
     customer_type: str = "residential"
     company_name: str | None = None
@@ -24,6 +25,7 @@ class CustomerCreate:
 @dataclass
 class Customer:
     id: int
+    workspace_id: int | None
     name: str
     email: str
     phone: str | None
@@ -38,6 +40,7 @@ class Customer:
 def _to_customer(row: Row) -> Customer:
     return Customer(
         id=row["id"],
+        workspace_id=row["workspace_id"] if "workspace_id" in row.keys() else None,
         name=row["name"],
         email=row["email"],
         phone=row["phone"],
@@ -65,10 +68,12 @@ def create_customer(
     customer_type: str = "residential",
     company_name: str | None = None,
     is_active: bool = True,
+    workspace_id: int | None = None,
 ) -> int:
     customer = CustomerCreate(
         name=name,
         email=email,
+        workspace_id=workspace_id,
         phone=phone,
         customer_type=customer_type,
         company_name=company_name,
@@ -83,34 +88,57 @@ def create_customer(
 
     cursor.execute(
         """
-        INSERT INTO customers (name, email, phone, customer_type, company_name, is_active)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO customers (workspace_id, name, email, phone, customer_type, company_name, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (name, email, phone, customer_type, company_name, is_active),
+        (customer.workspace_id, name, email, phone, customer_type, company_name, is_active),
     )
 
     return cursor.lastrowid
 
 
 # Read
-def get_customer_by_id(cursor, customer_id: int) -> Customer | None:
-    cursor.execute("SELECT * FROM customers WHERE id = ?", (customer_id,))
+def get_customer_by_id(cursor, customer_id: int, workspace_id: int | None = None) -> Customer | None:
+    if workspace_id is None:
+        cursor.execute(
+            "SELECT * FROM customers WHERE id = ? AND workspace_id IS NULL",
+            (customer_id,),
+        )
+    else:
+        cursor.execute(
+            "SELECT * FROM customers WHERE id = ? AND workspace_id = ?",
+            (customer_id, workspace_id),
+        )
     row = cursor.fetchone()
     return _to_customer(row) if row else None
 
 
-def get_customer_by_email(cursor, email: str) -> Customer | None:
-    cursor.execute("SELECT * FROM customers WHERE lower(email) = lower(?)", (email,))
+def get_customer_by_email(cursor, email: str, workspace_id: int | None = None) -> Customer | None:
+    if workspace_id is None:
+        cursor.execute(
+            "SELECT * FROM customers WHERE lower(email) = lower(?) AND workspace_id IS NULL",
+            (email,),
+        )
+    else:
+        cursor.execute(
+            "SELECT * FROM customers WHERE lower(email) = lower(?) AND workspace_id = ?",
+            (email, workspace_id),
+        )
     row = cursor.fetchone()
     return _to_customer(row) if row else None
 
 
-def get_customer_id_by_email(cursor, email: str) -> int | None:
-    customer = get_customer_by_email(cursor, email)
+def get_customer_id_by_email(cursor, email: str, workspace_id: int | None = None) -> int | None:
+    customer = get_customer_by_email(cursor, email, workspace_id=workspace_id)
     return customer.id if customer else None
 
 
-def get_customers(cursor, min_total_cents: int = 0, active_only: bool = False) -> list[Customer]:
+def get_customers(
+    cursor,
+    min_total_cents: int = 0,
+    active_only: bool = False,
+    workspace_id: int | None = None,
+) -> list[Customer]:
     sql = """
         SELECT
             c.id,
@@ -127,13 +155,22 @@ def get_customers(cursor, min_total_cents: int = 0, active_only: bool = False) -
         LEFT JOIN invoices i ON i.customer_id = c.id
     """
     params = []
+    where_clauses = []
 
+    if workspace_id is not None:
+        where_clauses.append("c.workspace_id = ?")
+        params.append(workspace_id)
+    else:
+        where_clauses.append("c.workspace_id IS NULL")
     if active_only:
-        sql += " WHERE c.is_active = ?"
+        where_clauses.append("c.is_active = ?")
         params.append(1)
 
+    if where_clauses:
+        sql += " WHERE " + " AND ".join(where_clauses)
+
     sql += """
-        GROUP BY c.id, c.name, c.email, c.phone, c.customer_type, c.company_name, c.is_active, c.created_at, c.updated_at
+        GROUP BY c.id, c.workspace_id, c.name, c.email, c.phone, c.customer_type, c.company_name, c.is_active, c.created_at, c.updated_at
         HAVING COALESCE(SUM(i.total), 0) >= ?
         ORDER BY c.id
     """
@@ -160,10 +197,11 @@ def update_customer(
     customer_type: str | None = None,
     company_name: str | None = None,
     is_active: bool | None = None,
+    workspace_id: int | None = None,
 ) -> Customer | None:
     updates, params = [], []
 
-    customer = get_customer_by_id(cursor, customer_id)
+    customer = get_customer_by_id(cursor, customer_id, workspace_id=workspace_id)
     if customer is None:
         return None
 
@@ -173,7 +211,7 @@ def update_customer(
         updates.append("name = ?")
         params.append(normalize_name(name))
     if email is not None:
-        assert_email_unique(cursor, email, exclude_customer_id=customer_id)
+        assert_email_unique(cursor, email, exclude_customer_id=customer_id, workspace_id=customer.workspace_id)
         updates.append("email = ?")
         params.append(normalize_email(email))
     if phone is not None:
@@ -197,12 +235,21 @@ def update_customer(
     query = f"UPDATE customers SET {', '.join(updates)} WHERE id = ?"
     cursor.execute(query, tuple(params))
 
-    return get_customer_by_id(cursor, customer_id)
+    return get_customer_by_id(cursor, customer_id, workspace_id=workspace_id)
 
 
 # Delete
-def delete_customer(cursor, customer_id: int) -> bool:
-    cursor.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
+def delete_customer(cursor, customer_id: int, workspace_id: int | None = None) -> bool:
+    if workspace_id is None:
+        cursor.execute(
+            "DELETE FROM customers WHERE id = ? AND workspace_id IS NULL",
+            (customer_id,),
+        )
+    else:
+        cursor.execute(
+            "DELETE FROM customers WHERE id = ? AND workspace_id = ?",
+            (customer_id, workspace_id),
+        )
     return cursor.rowcount > 0
 
 
@@ -212,10 +259,22 @@ def assert_customer_exists(cursor, customer_id: int) -> None:
         raise ValueError(f"Customer not found (id={customer_id})")
 
 
-def assert_email_unique(cursor, email: str, exclude_customer_id: int | None = None) -> None:
+def assert_email_unique(
+    cursor,
+    email: str,
+    exclude_customer_id: int | None = None,
+    workspace_id: int | None = None,
+) -> None:
     email = email.strip().lower()
-    row = cursor.execute(
-        "SELECT id FROM customers WHERE lower(email) = lower(?)", (email,)
-    ).fetchone()
+    if workspace_id is None:
+        row = cursor.execute(
+            "SELECT id FROM customers WHERE lower(email) = lower(?) AND workspace_id IS NULL",
+            (email,),
+        ).fetchone()
+    else:
+        row = cursor.execute(
+            "SELECT id FROM customers WHERE lower(email) = lower(?) AND workspace_id = ?",
+            (email, workspace_id),
+        ).fetchone()
     if row and (exclude_customer_id is None or row["id"] != exclude_customer_id):
         raise ValueError(f"Email '{email}' already exists.")
