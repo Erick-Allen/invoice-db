@@ -1,6 +1,9 @@
 import sqlite3
 
+from django.contrib.auth import login as django_login
+from django.contrib.auth import logout as django_logout
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -15,6 +18,7 @@ from invoice_db.services import products as product_services
 from invoice_db.services import reports as report_services
 from invoice_db.services import suppliers as supplier_services
 from invoice_db.services import tags as tag_services
+from invoice_db.services import workspaces as workspace_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError, ConflictError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -25,6 +29,7 @@ from invoice_db.services.customers import list_customers
 from scripts.seed import get_connection
 
 from .serializers import (
+    AuthUserSerializer,
     CustomerSerializer,
     CustomerLocationSerializer,
     CustomerLocationUpdateSerializer,
@@ -60,6 +65,8 @@ from .serializers import (
     TagUpdateSerializer,
     InvoiceTagSerializer,
     InvoiceTagCreateSerializer,
+    LoginSerializer,
+    RegisterSerializer,
 )
 
 router = AssistantRouter(use_qwen=True)
@@ -89,12 +96,82 @@ def _with_invoice_items(cursor, invoice: dict) -> dict:
     invoice_data.update(profit_summary)
     return invoice_data
 
+def _workspace_owner_label(user) -> str:
+    return user.get_full_name() or user.email or user.username
+
+def _request_workspace_id(request, cursor) -> int | None:
+    if not request.user.is_authenticated:
+        return None
+
+    workspace = workspace_services.get_or_create_default_workspace(
+        cursor,
+        owner_user_id=request.user.id,
+        owner_label=_workspace_owner_label(request.user),
+    )
+    return workspace["id"]
+
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        with connection.db_session(connection.DB_PATH) as (connect, cursor):
+            workspace_services.get_or_create_default_workspace(
+                cursor,
+                owner_user_id=user.id,
+                owner_label=_workspace_owner_label(user),
+            )
+        django_login(request._request, user)
+
+        return Response(
+            {"user": AuthUserSerializer(user).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+class LoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        django_login(request._request, user)
+
+        return Response(
+            {"user": AuthUserSerializer(user).data},
+            status=status.HTTP_200_OK,
+        )
+
+class LogoutView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        django_logout(request._request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class CurrentUserView(APIView):
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        return Response(
+            {"user": AuthUserSerializer(request.user).data},
+            status=status.HTTP_200_OK,
+        )
+
 @api_view(["GET"])
 def api_root(request):
     return Response(
         {
             "message": "Invoice DB API",
             "endpoints": {
+                "auth": "/api/auth/",
                 "customers": "/api/customers/",
                 "invoices": "/api/invoices",
                 "products": "/api/products/",

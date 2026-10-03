@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.contrib.auth import authenticate, get_user_model, password_validation
 from invoice_db.db.payments import VALID_PAYMENT_METHODS
 from invoice_db.services.invoices import VALID_INVOICE_STATUSES
 from invoice_db import utils
@@ -15,6 +16,64 @@ class StrictSerializer(serializers.Serializer):
                     "detail": f"Unknown field(s): {', '.join(sorted(unknown_fields))}"
                 }
             )
+        return attrs
+
+class AuthUserSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    name = serializers.SerializerMethodField()
+
+    def get_name(self, user):
+        return user.get_full_name() or user.username
+
+class RegisterSerializer(StrictSerializer):
+    email = serializers.EmailField(max_length=254)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+
+    def validate_email(self, value):
+        email = value.strip().lower()
+        User = get_user_model()
+
+        if User.objects.filter(username=email).exists() or User.objects.filter(email=email).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+
+        return email
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        password_validation.validate_password(attrs["password"])
+        return attrs
+
+    def create(self, validated_data):
+        User = get_user_model()
+        email = validated_data["email"]
+        name = validated_data.get("name", "").strip()
+
+        return User.objects.create_user(
+            username=email,
+            email=email,
+            password=validated_data["password"],
+            first_name=name,
+        )
+
+class LoginSerializer(StrictSerializer):
+    email = serializers.EmailField(max_length=254)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        email = attrs["email"].strip().lower()
+        user = authenticate(username=email, password=attrs["password"])
+
+        if user is None:
+            raise serializers.ValidationError({"detail": "Invalid email or password."})
+
+        if not user.is_active:
+            raise serializers.ValidationError({"detail": "This account is inactive."})
+
+        attrs["email"] = email
+        attrs["user"] = user
         return attrs
 
 class CustomerSerializer(StrictSerializer):

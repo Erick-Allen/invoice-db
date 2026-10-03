@@ -143,11 +143,26 @@ def create_triggers(cursor):
     """)
 
 # TABLE CREATION
+def create_workspace_schema(cursor):
+    cursor.executescript("""
+    CREATE TABLE IF NOT EXISTS workspaces (
+        id              INTEGER PRIMARY KEY,
+        name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
+        owner_user_id   INTEGER NOT NULL,
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_workspaces_owner_user_id ON workspaces(owner_user_id);
+    """)
+
 def create_customer_schema(cursor):
     cursor.executescript("""
     -- Customers table: stores basic account information.                       
     CREATE TABLE IF NOT EXISTS customers (
         id              INTEGER PRIMARY KEY,
+        workspace_id    INTEGER,
         name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
         email           TEXT    NOT NULL CHECK (length(trim(email)) > 0),
         phone           TEXT,
@@ -157,16 +172,35 @@ def create_customer_schema(cursor):
         is_active       INTEGER NOT NULL DEFAULT 1
                                 CHECK (is_active IN (0, 1)),
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
     );
 
     -- Enforce case-insensitive unique emails & index customer names.
-    CREATE UNIQUE INDEX IF NOT EXISTS 
-        idx_customers_email_nocase ON customers(lower(email));
     CREATE INDEX IF NOT EXISTS
         idx_customers_name ON customers(name);
     CREATE INDEX IF NOT EXISTS
         idx_customers_is_active ON customers(is_active);
+    """)
+    cursor.execute("PRAGMA table_info(customers)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "workspace_id" not in columns:
+        cursor.execute("ALTER TABLE customers ADD COLUMN workspace_id INTEGER")
+
+    cursor.execute("DROP INDEX IF EXISTS idx_customers_email_nocase")
+    cursor.executescript("""
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_customers_unowned_email_nocase
+        ON customers(lower(email))
+        WHERE workspace_id IS NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_customers_workspace_email_nocase
+        ON customers(workspace_id, lower(email))
+        WHERE workspace_id IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS
+        idx_customers_workspace_id ON customers(workspace_id);
     """)
 
 def create_invoice_schema(cursor):
@@ -541,6 +575,7 @@ def create_customer_summary_view(cursor):
     """)
 
 def create_schema(cursor):
+    create_workspace_schema(cursor)
     create_customer_schema(cursor)
     create_location_schema(cursor)
     create_customer_location_schema(cursor)

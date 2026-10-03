@@ -1,6 +1,7 @@
 from django.urls import  path
 
 from .views import (
+    CurrentUserView,
     CustomerListCreateView,
     CustomerDetailView,
     CustomerLocationListCreateView,
@@ -15,6 +16,7 @@ from .views import (
     PaymentListCreateView,
     PaymentSummaryView,
     PaymentDetailView,
+    LoginView,
     ProductCategoryListCreateView,
     ProductCategoryDetailView,
     ProductCategoryOverviewView,
@@ -38,12 +40,19 @@ from .views import (
     InvoiceTagListCreateView,
     InvoiceTagDetailView,
     ReportingOverviewView,
+    RegisterView,
+    LogoutView,
     AssistantQueryView,
     api_root
 )
 
 urlpatterns = [
     path("", api_root, name="api-root"),
+
+    path("auth/signup/", RegisterView.as_view(), name="auth-signup"),
+    path("auth/login/", LoginView.as_view(), name="auth-login"),
+    path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
+    path("auth/me/", CurrentUserView.as_view(), name="auth-me"),
 
     path("customers/", CustomerListCreateView.as_view(), name="customer-list-create"),
     path("customers/<int:customer_id>/", CustomerDetailView.as_view(), name="customer-detail"),
