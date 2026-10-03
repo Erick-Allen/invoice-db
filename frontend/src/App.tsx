@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import { getCurrentUser, logout, type AuthUser } from "./api/auth";
+import { AuthPage } from "./pages/AuthPage";
 import { CategoryDetailPage } from "./pages/CategoryDetailPage";
 import { CustomerDetailPage } from "./pages/CustomerDetailPage";
 import { CustomersPage } from "./pages/CustomersPage";
@@ -16,6 +19,29 @@ import { TagDetailPage } from "./pages/TagDetailPage";
 import "./App.css";
 
 function App() {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const response = await getCurrentUser();
+        setCurrentUser(response.user);
+      } catch {
+        setCurrentUser(null);
+      }
+    }
+
+    loadCurrentUser();
+  }, []);
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      setCurrentUser(null);
+    }
+  }
+
   return (
     <BrowserRouter>
       <div className="app-shell">
@@ -31,6 +57,14 @@ function App() {
               <NavLink to="/products">Products</NavLink>
               <NavLink to="/locations">Locations</NavLink>
               <NavLink to="/reporting">Reporting</NavLink>
+              {currentUser ? (
+                <div className="auth-session">
+                  <span>{currentUser.name || currentUser.email}</span>
+                  <button type="button" onClick={handleLogout}>Sign Out</button>
+                </div>
+              ) : (
+                <NavLink className="auth-nav-link" to="/auth">Sign In / Sign Up</NavLink>
+              )}
             </nav>
           </div>
         </header>
@@ -51,6 +85,7 @@ function App() {
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/:productId" element={<ProductDetailPage />} />
             <Route path="reporting" element={<ReportingPage />} />
+            <Route path="auth" element={<AuthPage onAuthSuccess={setCurrentUser} />} />
           </Routes>
         </main>
       </div>

@@ -46,7 +46,8 @@
   color: #f9fafb;
 }
 
-.app-nav a:hover {
+.app-nav a:hover,
+.auth-session button:hover {
   background: #374151;
 }
 
@@ -54,6 +55,40 @@
   background: #2563eb;
   color: white;
   box-shadow: 0 0 0 1px #60a5fa;
+}
+
+.app-nav .auth-nav-link {
+  background: #f9fafb;
+  color: #111827;
+  font-weight: 800;
+}
+
+.app-nav .auth-nav-link:hover,
+.app-nav .auth-nav-link.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 1px #93c5fd;
+}
+
+.auth-session {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.auth-session span {
+  color: #d1d5db;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.auth-session button {
+  background: #1f2937;
+  border: 0;
+  border-radius: 0.5rem;
+  color: #f9fafb;
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
 }
 
 .app-main {
@@ -80,6 +115,71 @@
 .page-header p {
   margin: 0;
   color: #6b7280;
+}
+
+.auth-page {
+  display: flex;
+  min-height: calc(100vh - 11rem);
+  justify-content: center;
+  padding: 3rem 1rem;
+  align-items: center;
+}
+
+.auth-card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.75rem;
+  width: min(100%, 30rem);
+}
+
+.auth-copy h2 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  margin: 0 0 0.75rem;
+}
+
+.auth-copy p {
+  color: #6b7280;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.auth-mode-toggle {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.55rem;
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0.25rem;
+}
+
+.auth-mode-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 0.4rem;
+  color: #374151;
+  font-weight: 800;
+  padding: 0.55rem 0.75rem;
+}
+
+.auth-mode-toggle button.active {
+  background: #111827;
+  color: white;
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-submit-button {
+  margin-top: 0.5rem;
+  width: 100%;
 }
 
 .form-card {
@@ -378,6 +478,22 @@
 @media (max-width: 640px) {
   .location-address-line {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 800px) {
+  .app-header-content {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-nav {
+    justify-content: flex-start;
+  }
+
+  .auth-copy,
+  .auth-card {
+    padding: 1.5rem;
   }
 }
 

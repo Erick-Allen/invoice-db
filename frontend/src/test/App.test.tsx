@@ -14,6 +14,7 @@ describe("App", () => {
             "Products",
             "Locations",
             "Reporting",
+            "Sign In / Sign Up",
         ]);
     })
 })

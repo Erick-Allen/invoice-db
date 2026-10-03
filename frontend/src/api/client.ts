@@ -5,6 +5,7 @@ export async function apiRequest<T>(
     options: RequestInit = {}
 ): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${path}`, {
+        credentials: "include",
         headers: {
             "Content-Type": "application/json",
             ...(options.headers ?? {}), 
@@ -23,7 +24,7 @@ export async function apiRequest<T>(
             errorBody.error ??
             JSON.stringify(errorBody);
     } catch {
-        
+        // Keep the default status message when the response is not JSON.
     }
 
     throw new Error(message);
