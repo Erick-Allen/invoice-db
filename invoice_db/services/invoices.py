@@ -189,6 +189,7 @@ def _prepare_invoice_changes(
             cursor,
             customer_id=effective_customer_id,
             location_id=new_location_id,
+            workspace_id=workspace_id,
         )
         
     effective_date_issued = invoice['date_issued'] if normalized_date_issued is None else normalized_date_issued
@@ -326,6 +327,7 @@ def create_invoice(
         cursor,
         customer_id=customer_id,
         location_id=location_id,
+        workspace_id=workspace_id,
     )
     if total not in (None, 0):
         raise exceptions.ValidationError("Invoice totals are calculated from line items.")

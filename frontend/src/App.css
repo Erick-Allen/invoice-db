@@ -46,8 +46,7 @@
   color: #f9fafb;
 }
 
-.app-nav a:hover,
-.auth-session button:hover {
+.app-nav a:hover {
   background: #374151;
 }
 
@@ -76,25 +75,43 @@
   gap: 0.5rem;
 }
 
-.auth-session span {
-  color: #d1d5db;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
 .auth-session button {
+  align-items: center;
   background: #1f2937;
   border: 0;
   border-radius: 0.5rem;
   color: #f9fafb;
+  display: inline-flex;
+  gap: 0.45rem;
   font-weight: 700;
   padding: 0.5rem 0.75rem;
+  transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.auth-session button span:first-child {
+  color: #d1d5db;
+  font-size: 0.9rem;
+}
+
+.auth-session button:hover,
+.auth-session button:focus-visible {
+  background: #374151;
+  box-shadow: 0 0 0 1px #60a5fa;
+}
+
+.auth-session button:hover span,
+.auth-session button:focus-visible span {
+  color: #ffffff;
 }
 
 .app-main {
   max-width: 1100px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+.auth-only-shell .app-main {
+  max-width: none;
 }
 
 .page {
@@ -177,9 +194,28 @@
   gap: 1rem;
 }
 
-.auth-submit-button {
+.primary-button.auth-submit-button {
   margin-top: 0.5rem;
   width: 100%;
+}
+
+.guest-access {
+  border-top: 1px solid #e5e7eb;
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1.25rem;
+}
+
+.guest-access-button {
+  width: 100%;
+}
+
+.guest-access p {
+  color: #6b7280;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  margin: 0;
+  text-align: center;
 }
 
 .form-card {

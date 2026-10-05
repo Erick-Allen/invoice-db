@@ -20,11 +20,26 @@ class StrictSerializer(serializers.Serializer):
 
 class AuthUserSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
-    email = serializers.EmailField(read_only=True)
+    email = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
+    is_guest = serializers.SerializerMethodField()
+    workspace_id = serializers.SerializerMethodField()
+    guest_expires_at = serializers.SerializerMethodField()
+
+    def get_email(self, user):
+        return user.email or None
 
     def get_name(self, user):
         return user.get_full_name() or user.username
+
+    def get_is_guest(self, user):
+        return bool(self.context.get("is_guest", False))
+
+    def get_workspace_id(self, user):
+        return self.context.get("workspace_id")
+
+    def get_guest_expires_at(self, user):
+        return self.context.get("guest_expires_at")
 
 class RegisterSerializer(StrictSerializer):
     email = serializers.EmailField(max_length=254)

@@ -4,6 +4,8 @@ from rest_framework.test import APIClient
 from invoice_db.assistant.schemas import AssistantIntent, IntentParameters
 from invoice_db.assistant.data_source import ServiceInvoiceAssistantDataSource
 from invoice_db.db import connection
+from invoice_db.services import customers as customer_services
+from invoice_db.services import invoices as invoice_services
 from invoice_db.services import workspaces as workspace_services
 
 
@@ -165,9 +167,20 @@ def test_reports_and_assistant_data_source_are_workspace_scoped(test_db):
         assert source_b.count_invoices_by_status("sent") == 0
 
 
-def test_assistant_query_uses_signed_in_workspace_not_unowned_data(api_client, test_db, monkeypatch):
-    legacy_customer = create_customer(api_client, "Legacy Customer", "legacy@example.com")
-    create_invoice(api_client, legacy_customer["id"])
+def test_assistant_query_uses_signed_in_workspace_not_unowned_data(test_db, monkeypatch):
+    with connection.db_session(connection.DB_PATH) as (connect, cursor):
+        legacy_customer = customer_services.create_customer(
+            cursor,
+            "Legacy Customer",
+            "legacy@example.com",
+        )
+        invoice_services.create_invoice(
+            cursor,
+            customer_id=legacy_customer["id"],
+            date_issued=None,
+            date_due=None,
+        )
+
     signed_in, _ = signed_in_client("assistant-scope@example.com", test_db)
 
     def route_to_draft_count(message, customer_names=None):

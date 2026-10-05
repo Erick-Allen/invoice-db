@@ -17,6 +17,7 @@ from .views import (
     PaymentSummaryView,
     PaymentDetailView,
     LoginView,
+    GuestLoginView,
     ProductCategoryListCreateView,
     ProductCategoryDetailView,
     ProductCategoryOverviewView,
@@ -51,6 +52,7 @@ urlpatterns = [
 
     path("auth/signup/", RegisterView.as_view(), name="auth-signup"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
+    path("auth/guest/", GuestLoginView.as_view(), name="auth-guest"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/me/", CurrentUserView.as_view(), name="auth-me"),
 

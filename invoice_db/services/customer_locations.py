@@ -827,9 +827,15 @@ def require_location_for_invoice_customer(
     *,
     customer_id: int,
     location_id: int | None,
+    workspace_id: int | None = None,
 ) -> int | None:
     if location_id is None:
         return None
 
-    _require_customer_location(cursor, customer_id, location_id)
+    _require_customer_location(
+        cursor,
+        customer_id,
+        location_id,
+        workspace_id=workspace_id,
+    )
     return location_id

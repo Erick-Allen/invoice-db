@@ -1,12 +1,27 @@
 import pytest
+import uuid
 from rest_framework.test import APIClient
 
 from invoice_db.db import connection
 from invoice_db.db import schema
 
 @pytest.fixture
-def api_client():
+def signed_out_api_client():
     return APIClient()
+
+
+@pytest.fixture
+def api_client(django_user_model, django_db_blocker):
+    client = APIClient()
+    token = uuid.uuid4().hex
+    with django_db_blocker.unblock():
+        user = django_user_model.objects.create_user(
+            username=f"api-user-{token}@example.com",
+            email=f"api-user-{token}@example.com",
+            password="StrongPass123!",
+        )
+        client.force_authenticate(user=user)
+    return client
 
 @pytest.fixture
 def test_db(tmp_path, monkeypatch):

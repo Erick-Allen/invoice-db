@@ -1,6 +1,12 @@
 INVALID_ID = 9999
 
 
+def _default_category(api_client):
+    response = api_client.get("/api/product-categories/")
+    assert response.status_code == 200
+    return response.json()[0]
+
+
 def test_list_products_returns_200(api_client, test_db):
     response = api_client.get("/api/products/")
 
@@ -9,6 +15,7 @@ def test_list_products_returns_200(api_client, test_db):
 
 
 def test_create_product_returns_201(api_client, test_db):
+    default_category = _default_category(api_client)
     response = api_client.post(
         "/api/products/",
         {
@@ -28,7 +35,7 @@ def test_create_product_returns_201(api_client, test_db):
     assert data["description"] == "A test widget"
     assert data["cost_cents"] == 900
     assert data["unit_price_cents"] == 1234
-    assert data["category_id"] == 1
+    assert data["category_id"] == default_category["id"]
     assert data["category_name"] == "Uncategorized"
     assert data["is_active"] is True
     assert data["product_supplier_count"] == 0
@@ -270,7 +277,6 @@ def test_list_product_categories_returns_seeded_default(api_client, test_db):
 
     assert response.status_code == 200
     data = response.json()
-    assert data[0]["id"] == 1
     assert data[0]["name"] == "Uncategorized"
 
 
@@ -397,8 +403,9 @@ def test_patch_product_category_returns_200(api_client, test_db):
 
 
 def test_patch_default_product_category_returns_400(api_client, test_db):
+    default_category = _default_category(api_client)
     response = api_client.patch(
-        "/api/product-categories/1/",
+        f"/api/product-categories/{default_category['id']}/",
         {"name": "Default"},
         format="json",
     )
@@ -446,7 +453,10 @@ def test_deactivate_product_category_returns_200(api_client, test_db):
 
 
 def test_deactivate_default_product_category_returns_400(api_client, test_db):
-    response = api_client.patch("/api/product-categories/1/deactivate/")
+    default_category = _default_category(api_client)
+    response = api_client.patch(
+        f"/api/product-categories/{default_category['id']}/deactivate/"
+    )
 
     assert response.status_code == 400
     assert response.json()["detail"] == "The default product category cannot be deactivated."
@@ -466,7 +476,8 @@ def test_delete_unused_product_category_returns_204(api_client, test_db):
 
 
 def test_delete_default_product_category_returns_400(api_client, test_db):
-    response = api_client.delete("/api/product-categories/1/")
+    default_category = _default_category(api_client)
+    response = api_client.delete(f"/api/product-categories/{default_category['id']}/")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "The default product category cannot be deleted."

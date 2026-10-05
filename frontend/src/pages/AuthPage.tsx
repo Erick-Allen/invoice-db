@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, signup, type AuthUser } from "../api/auth";
+import { continueAsGuest, login, signup, type AuthUser } from "../api/auth";
 
 type AuthMode = "signin" | "signup";
 
@@ -16,6 +16,7 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGuestSubmitting, setIsGuestSubmitting] = useState(false);
   const isSignUp = authMode === "signup";
 
   function handleModeChange(nextMode: AuthMode) {
@@ -42,12 +43,27 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
     }
   }
 
+  async function handleGuestAccess() {
+    setError("");
+    setIsGuestSubmitting(true);
+
+    try {
+      const response = await continueAsGuest();
+      onAuthSuccess(response.user);
+      navigate("/");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Guest access failed.");
+    } finally {
+      setIsGuestSubmitting(false);
+    }
+  }
+
   return (
     <section className="auth-page">
       <div className="auth-card">
         <div className="auth-copy">
-          <h2>Sign in to save your own invoice data.</h2>
-          <p>Use an account when you want changes to persist.</p>
+          <h2>Sign in to save your invoice data.</h2>
+          <p>Use an account for persistence, or continue as a guest to try the app in a temporary workspace.</p>
         </div>
 
         <div className="auth-mode-toggle" aria-label="Choose auth mode">
@@ -116,6 +132,18 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
             {isSubmitting ? "Working..." : isSignUp ? "Create Account" : "Sign In"}
           </button>
         </form>
+
+        <div className="guest-access">
+          <button
+            className="secondary-button guest-access-button"
+            type="button"
+            disabled={isSubmitting || isGuestSubmitting}
+            onClick={handleGuestAccess}
+          >
+            {isGuestSubmitting ? "Creating Guest Workspace..." : "Continue as Guest"}
+          </button>
+          <p>Guest data is temporary and may be deleted after 24 hours.</p>
+        </div>
       </div>
     </section>
   );

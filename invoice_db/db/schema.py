@@ -149,6 +149,8 @@ def create_workspace_schema(cursor):
         id              INTEGER PRIMARY KEY,
         name            TEXT    NOT NULL CHECK (length(trim(name)) > 0),
         owner_user_id   INTEGER NOT NULL,
+        is_guest        INTEGER NOT NULL DEFAULT 0 CHECK (is_guest IN (0, 1)),
+        expires_at      TEXT,
         created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
         updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
     );
@@ -156,6 +158,17 @@ def create_workspace_schema(cursor):
     CREATE INDEX IF NOT EXISTS
         idx_workspaces_owner_user_id ON workspaces(owner_user_id);
     """)
+    cursor.execute("PRAGMA table_info(workspaces)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "is_guest" not in columns:
+        cursor.execute(
+            "ALTER TABLE workspaces ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0"
+        )
+    if "expires_at" not in columns:
+        cursor.execute("ALTER TABLE workspaces ADD COLUMN expires_at TEXT")
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_workspaces_guest_expires_at ON workspaces(is_guest, expires_at)"
+    )
 
 def create_customer_schema(cursor):
     cursor.executescript("""

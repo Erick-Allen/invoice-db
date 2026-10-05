@@ -21,6 +21,7 @@ import "./App.css";
 function AppShell() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
     async function loadCurrentUser() {
@@ -29,6 +30,8 @@ function AppShell() {
         setCurrentUser(response.user);
       } catch {
         setCurrentUser(null);
+      } finally {
+        setIsCheckingAuth(false);
       }
     }
 
@@ -42,6 +45,32 @@ function AppShell() {
       setCurrentUser(null);
       navigate("/");
     }
+  }
+
+  if (isCheckingAuth) {
+    return (
+      <div className="app-shell auth-only-shell">
+        <main className="app-main">
+          <section className="auth-page">
+            <div className="auth-card">
+              <div className="auth-copy">
+                <h2>Checking account access...</h2>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="app-shell auth-only-shell">
+        <main className="app-main">
+          <AuthPage onAuthSuccess={setCurrentUser} />
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -58,14 +87,16 @@ function AppShell() {
             <NavLink to="/products">Products</NavLink>
             <NavLink to="/locations">Locations</NavLink>
             <NavLink to="/reporting">Reporting</NavLink>
-            {currentUser ? (
-              <div className="auth-session">
-                <span>{currentUser.name || currentUser.email}</span>
-                <button type="button" onClick={handleLogout}>Sign Out</button>
-              </div>
-            ) : (
-              <NavLink className="auth-nav-link" to="/auth">Sign In / Sign Up</NavLink>
-            )}
+            <div className="auth-session">
+              <button
+                className={currentUser.is_guest ? "guest-session-button" : ""}
+                type="button"
+                onClick={handleLogout}
+                aria-label="Sign out"
+              >
+                <span>{currentUser.is_guest ? "Guest" : currentUser.name || currentUser.email} · Sign Out</span>
+              </button>
+            </div>
           </nav>
         </div>
       </header>
@@ -86,7 +117,7 @@ function AppShell() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/:productId" element={<ProductDetailPage />} />
           <Route path="reporting" element={<ReportingPage />} />
-          <Route path="auth" element={<AuthPage onAuthSuccess={setCurrentUser} />} />
+          <Route path="auth" element={<DashboardPage />} />
         </Routes>
       </main>
     </div>

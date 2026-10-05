@@ -1,5 +1,7 @@
 import sqlite3
+import uuid
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.utils.decorators import method_decorator
@@ -22,8 +24,7 @@ from invoice_db.services import suppliers as supplier_services
 from invoice_db.services import tags as tag_services
 from invoice_db.services import workspaces as workspace_services
 from invoice_db.services.exceptions import  ValidationError, NotFoundError, ServiceError, ConflictError
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 from invoice_db.assistant.router import AssistantRouter
 from invoice_db.assistant.dispatcher import AssistantDispatcher
 from invoice_db.assistant.data_source import ServiceInvoiceAssistantDataSource
@@ -108,15 +109,53 @@ def _with_invoice_items(
 def _workspace_owner_label(user) -> str:
     return user.get_full_name() or user.email or user.username
 
+def _auth_response(user, cursor) -> dict:
+    workspace = workspace_services.get_workspace_for_owner(
+        cursor,
+        owner_user_id=user.id,
+    )
+    if workspace is None:
+        workspace = workspace_services.get_or_create_default_workspace(
+            cursor,
+            owner_user_id=user.id,
+            owner_label=_workspace_owner_label(user),
+        )
+
+    return {
+        "isAuthenticated": True,
+        "isGuest": workspace["is_guest"],
+        "workspaceId": workspace["id"],
+        "guestExpiresAt": workspace["expires_at"] if workspace["is_guest"] else None,
+        "user": AuthUserSerializer(
+            user,
+            context={
+                "is_guest": workspace["is_guest"],
+                "workspace_id": workspace["id"],
+                "guest_expires_at": workspace["expires_at"],
+            },
+        ).data,
+    }
+
 def _request_workspace_id(request, cursor) -> int | None:
     if not request.user.is_authenticated:
         return None
 
-    workspace = workspace_services.get_or_create_default_workspace(
+    workspace = workspace_services.get_workspace_for_owner(
         cursor,
         owner_user_id=request.user.id,
-        owner_label=_workspace_owner_label(request.user),
     )
+    if workspace is None:
+        workspace = workspace_services.get_or_create_default_workspace(
+            cursor,
+            owner_user_id=request.user.id,
+            owner_label=_workspace_owner_label(request.user),
+        )
+    elif workspace["is_guest"]:
+        workspace = workspace_services.touch_guest_workspace(
+            cursor,
+            workspace_id=workspace["id"],
+        )
+
     return workspace["id"]
 
 class RegisterView(APIView):
@@ -133,10 +172,11 @@ class RegisterView(APIView):
                 owner_user_id=user.id,
                 owner_label=_workspace_owner_label(user),
             )
+            response_data = _auth_response(user, cursor)
         django_login(request._request, user)
 
         return Response(
-            {"user": AuthUserSerializer(user).data},
+            response_data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -148,12 +188,40 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+        with connection.db_session(connection.DB_PATH) as (connect, cursor):
+            response_data = _auth_response(user, cursor)
         django_login(request._request, user)
 
         return Response(
-            {"user": AuthUserSerializer(user).data},
+            response_data,
             status=status.HTTP_200_OK,
         )
+
+class GuestLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    @method_decorator(ensure_csrf_cookie)
+    def post(self, request):
+        User = get_user_model()
+        guest_token = uuid.uuid4().hex
+        user = User.objects.create_user(
+            username=f"guest-{guest_token}@guest.local",
+            email="",
+            password=None,
+            first_name="Guest",
+        )
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+
+        with connection.db_session(connection.DB_PATH) as (connect, cursor):
+            workspace_services.create_guest_workspace(
+                cursor,
+                owner_user_id=user.id,
+            )
+            response_data = _auth_response(user, cursor)
+
+        django_login(request._request, user)
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 class LogoutView(APIView):
     authentication_classes = []
@@ -164,6 +232,8 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class CurrentUserView(APIView):
+    permission_classes = [AllowAny]
+
     @method_decorator(ensure_csrf_cookie)
     def get(self, request):
         if not request.user.is_authenticated:
@@ -172,12 +242,16 @@ class CurrentUserView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        with connection.db_session(connection.DB_PATH) as (connect, cursor):
+            response_data = _auth_response(request.user, cursor)
+
         return Response(
-            {"user": AuthUserSerializer(request.user).data},
+            response_data,
             status=status.HTTP_200_OK,
         )
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def api_root(request):
     return Response(
         {

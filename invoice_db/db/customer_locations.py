@@ -461,8 +461,12 @@ def supplier_has_locations(cursor, supplier_id: int) -> bool:
     return row is not None
 
 
-def assert_supplier_exists(cursor, supplier_id: int) -> None:
-    if get_supplier_by_id(cursor, supplier_id) is None:
+def assert_supplier_exists(
+    cursor,
+    supplier_id: int,
+    workspace_id: int | None = None,
+) -> None:
+    if get_supplier_by_id(cursor, supplier_id, workspace_id=workspace_id) is None:
         raise ValueError(f"Supplier not found (id={supplier_id}).")
 
 
@@ -973,7 +977,7 @@ def create_supplier_location(
     workspace_id: int | None = None,
 ) -> SupplierLocation:
     validate_positive_id(location.supplier_id, "Supplier id")
-    assert_supplier_exists(cursor, location.supplier_id)
+    assert_supplier_exists(cursor, location.supplier_id, workspace_id=workspace_id)
 
     label = _normalize_required_text(location.label, "Location label")
     address_line1 = _normalize_required_text(location.address_line1, "Address line 1")
