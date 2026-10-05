@@ -1,53 +1,36 @@
 # invoice-db
-A relational database, CLI, API, React UI, and AI assistant application built with Python, SQLite, and TypeScript for managing customers, invoices, and products.
+A relational database, Django API, React UI, AI assistant, and legacy local CLI application built with Python, SQLite, and TypeScript for managing customers, invoices, and products.
 
-The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, command-line workflows, HTTP API endpoints, React-based UI workflows, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
+The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, HTTP API endpoints, React-based UI workflows, session-based authentication, workspace-scoped data, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.18.0**, the project includes support for:
+As of **v0.19.0**, InvoiceDB supports:
 
-- Customer, customer location, invoice, invoice tag, product, product category, product supplier, supplier, line-item, and payment workflows
-- Derived invoice totals, payment summaries, cost snapshots, profit calculations, and invoice status rules
-- Customer, location, supplier, product, category, tag, and invoice detail pages
-- Printable customer invoice output with invoice title, work description, issue/due dates, and customer-facing line items
-- Product catalog browsing, category filtering, supplier tracking, activation controls, and catalog-driven invoice item selection
-- Invoice tagging for job/context reporting
-- Reporting foundation for revenue, outstanding due, cost, profit, status, and tag performance
-- Typer CLI, Django REST API, and React + TypeScript frontend
-- Shared service layer used by CLI and API
-- Guarded natural-language invoice assistant
-- Dockerized backend runtime with persistent SQLite storage
-- Backend and frontend test coverage
+- Signed-in and guest workspaces
+- Customer, invoice, product, supplier, and payment management
+- Draft invoices with line items, statuses, print views, and customer-facing pages
+- Revenue, balance, cost, profit, status, and tag reporting
+- Workspace-scoped assistant queries
+
+The web app and API are the primary product surfaces. The CLI remains available for local development and database inspection.
 
 ## Architecture
 
 ```text
-CLI        → services → db
-API/DRF    → services → db
-React UI   → API → services → db
-Assistant  → router/classifier → validated intent → dispatcher → services → db
+Legacy CLI → services → db
+API/DRF    → session auth → workspace scope → services → db
+React UI   → API → session auth → workspace scope → services → db
+Assistant  → router/classifier → validated intent → dispatcher → workspace-scoped services → db
 Qwen fallback → validated intent/message only
 ```
 
 For the full folder breakdown, see [`invoice_db/docs/PROJECT_STRUCTURE.md`](invoice_db/docs/PROJECT_STRUCTURE.md).
 
 ## Tech Stack
-- Python 3
-- SQLite 3
-- Typer
-- Rich
-- Django REST Framework
-- React
-- TypeScript
-- Vite
-- Vitest
-- React Testing Library
-- Docker
-- pytest
-- scikit-learn
-- Pydantic
-- uv
-- Optional: Ollama/Qwen for assistant fallback
+- **Backend:** Python, Django REST Framework, SQLite
+- **Frontend:** React, TypeScript, Vite
+- **Assistant:** scikit-learn intent routing with optional Ollama/Qwen fallback
+- **Tooling:** uv, pytest, Vitest, Docker
 
 ## Installation (Local)
 
@@ -63,9 +46,10 @@ cd invoice-db
 ```bash
 uv sync --extra dev
 ```
-### 4. Run the CLI
+
+### 4. Run Django migrations
 ```bash
-uv run invoicedb --help
+uv run python manage.py migrate
 ```
 
 ### 5. Run the API server
@@ -100,7 +84,7 @@ docker build -t invoicedb .
 docker run --rm -p 8000:8000 -v ${PWD}/data:/data invoicedb
 ```
 
-The Docker entrypoint creates `/data` if needed and initializes the SQLite schema automatically before starting the API. Mount `/data` to persist the database between container runs.
+The Docker entrypoint creates `/data` if needed, initializes the InvoiceDB SQLite schema, runs Django migrations, and starts the API. Mount `/data` to persist both the invoice data and Django auth/session data between container runs.
 
 ### Interactive Shell
 
@@ -110,12 +94,14 @@ docker run --rm -it -v invoicedb_data:/data --entrypoint /bin/sh invoicedb
 
 ### Docker and Qwen/Ollama fallback
 
-If the Dockerized backend needs to reach Ollama running on the host machine, localhost:11434 will not work from 
+If the Dockerized backend needs to reach Ollama running on the host machine, localhost:11434 will not work from inside the container.
 
 Use:
 
 ```bash
-http://host.docker.internal:11434/api/chat
+docker run --rm -p 8000:8000 -v ${PWD}/data:/data \
+  -e INVOICEDB_OLLAMA_CHAT_URL=http://host.docker.internal:11434/api/chat \
+  invoicedb
 ```
 
 The default local fallback model is:
@@ -124,173 +110,21 @@ qwen3:0.6b
 
 ## CLI Usage
 
-### Database commands
-- `invoicedb db init`
-- `invoicedb db drop`
-- `invoicedb db delete`
+The CLI is retained as legacy/local tooling. Current product development targets the Django API and React frontend. CLI commands may still be useful for local inspection and database workflows, but they are not the primary supported interface going forward.
 
-### Customer commands
-- `invoicedb customers create`
-- `invoicedb customers list`
-- `invoicedb customers get`
-- `invoicedb customers update`
-- `invoicedb customers delete`
+```bash
+uv run invoicedb --help
+```
 
-### Invoice commands
-- `invoicedb invoices create`
-- `invoicedb invoices list`
-- `invoicedb invoices list --include-items`
-- `invoicedb invoices get`
-- `invoicedb invoices tags`
-- `invoicedb invoices add-tag`
-- `invoicedb invoices remove-tag`
-- `invoicedb invoices count`
-- `invoicedb invoices update`
-- `invoicedb invoices set-status`
-- `invoicedb invoices delete`
+## Guest Workspace Cleanup
 
-### Invoice item commands
-- `invoicedb invoice-items add`
-- `invoicedb invoice-items list`
-- `invoicedb invoice-items get`
-- `invoicedb invoice-items update`
-- `invoicedb invoice-items delete`
+Guest workspaces are temporary and may be deleted after 24 hours. Expired guest workspaces and their temporary users can be cleaned up manually with:
 
-### Payment commands
-- `invoicedb payments add`
-- `invoicedb payments list`
-- `invoicedb payments get`
-- `invoicedb payments summary`
-- `invoicedb payments delete`
+```bash
+uv run python manage.py cleanup_guest_workspaces
+```
 
-### Product commands
-- `invoicedb products add`
-- `invoicedb products list`
-- `invoicedb products get`
-- `invoicedb products update`
-- `invoicedb products deactivate`
-- `invoicedb products delete`
-- `invoicedb products add-supplier`
-- `invoicedb products list-suppliers`
-- `invoicedb products remove-supplier`
-
-### Product category commands
-- `invoicedb product-categories add`
-- `invoicedb product-categories list`
-- `invoicedb product-categories update`
-- `invoicedb product-categories deactivate`
-- `invoicedb product-categories delete`
-
-### Tag commands
-- `invoicedb tags add`
-- `invoicedb tags list`
-- `invoicedb tags get`
-- `invoicedb tags update`
-- `invoicedb tags deactivate`
-- `invoicedb tags delete`
-
-### Supplier commands
-- `invoicedb suppliers add`
-- `invoicedb suppliers list`
-- `invoicedb suppliers get`
-- `invoicedb suppliers update`
-- `invoicedb suppliers deactivate`
-- `invoicedb suppliers delete`
-- `invoicedb suppliers products`
-- `invoicedb suppliers remove-from-products`
-
-### Assistant command
-- `invoicedb assistant ask`
-- `invoicedb assistant ask --use-qwen`
-
-**Other**
-- `invoicedb --version`
-
-## API Endpoints
-
-### Customers
-- `GET /api/customers/`
-- `POST /api/customers/`
-- `GET /api/customers/{id}/`
-- `PATCH /api/customers/{id}/`
-- `DELETE /api/customers/{id}/`
-
-### Invoices
-- `GET /api/invoices/`
-- `GET /api/invoices/?include_items=true`
-- `POST /api/invoices/`
-- `GET /api/invoices/{id}/`
-- `GET /api/invoices/{id}/?include_items=true`
-- `PATCH /api/invoices/{id}/`
-- `DELETE /api/invoices/{id}/`
-- `PATCH /api/invoices/{id}/status/`
-- `GET /api/invoices/{id}/items/`
-- `POST /api/invoices/{id}/items/`
-- `GET /api/invoices/{id}/tags/`
-- `POST /api/invoices/{id}/tags/`
-- `DELETE /api/invoices/{id}/tags/{tag_id}/`
-
-### Invoice Items
-- `GET /api/invoice-items/{id}/`
-- `PATCH /api/invoice-items/{id}/`
-- `DELETE /api/invoice-items/{id}/`
-
-### Payments
-- `GET /api/invoices/{id}/payments/`
-- `POST /api/invoices/{id}/payments/`
-- `GET /api/invoices/{id}/payments/summary/`
-- `GET /api/payments/{id}/`
-- `DELETE /api/payments/{id}/`
-
-### Products
-- `GET /api/products/`
-- `GET /api/products/?active_only=true`
-- `POST /api/products/`
-- `GET /api/products/{id}/`
-- `PATCH /api/products/{id}/`
-- `DELETE /api/products/{id}/`
-- `PATCH /api/products/{id}/deactivate/`
-- `GET /api/products/{id}/suppliers/`
-- `POST /api/products/{id}/suppliers/`
-- `PATCH /api/products/{id}/suppliers/{supplier_id}/`
-- `DELETE /api/products/{id}/suppliers/{supplier_id}/`
-
-### Product Categories
-- `GET /api/product-categories/`
-- `POST /api/product-categories/`
-- `PATCH /api/product-categories/{id}/`
-- `DELETE /api/product-categories/{id}/`
-- `PATCH /api/product-categories/{id}/deactivate/`
-
-### Tags
-- `GET /api/tags/`
-- `GET /api/tags/?active_only=true`
-- `POST /api/tags/`
-- `GET /api/tags/{id}/`
-- `PATCH /api/tags/{id}/`
-- `DELETE /api/tags/{id}/`
-- `PATCH /api/tags/{id}/deactivate/`
-
-### Suppliers
-- `GET /api/suppliers/`
-- `GET /api/suppliers/?active_only=true`
-- `POST /api/suppliers/`
-- `GET /api/suppliers/{id}/`
-- `PATCH /api/suppliers/{id}/`
-- `DELETE /api/suppliers/{id}/`
-- `PATCH /api/suppliers/{id}/deactivate/`
-- `GET /api/suppliers/{id}/products/`
-- `POST /api/suppliers/{id}/remove-from-products/`
-
-### Reports
-- `GET /api/reports/overview/`
-- `GET /api/reports/overview/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`
-
-### Assistant
-
-- `POST /api/assistant/query/`
-
-## Sample Data & Demo (CLI)
+## Sample Data & Demo (Legacy CLI)
 ```bash
 uv run python scripts/seed.py
 uv run python scripts/demo.py
@@ -312,155 +146,9 @@ cd frontend
 npm run test:run
 ```
 
-## Version History
+## Project Docs
 
-### [v0.18.0]
-#### Added
-- Reusable location records with customer and supplier assignments across DB, services, CLI, API, and React frontend
-- Location, supplier, product, tag, and category detail pages
-- Invoice title and work description fields across DB, services, CLI, API, and frontend workflows
-- Customer-detail invoice creation with routing to the newly created invoice
-
-#### Changed
-- Refined invoice detail, invoice print, send drawer, and assignment workflows
-- Improved customer financial metrics and invoice-history filtering
-- Simplified invoice, location, supplier, and product list tables
-- Standardized frontend date and money display formatting
-- Enforced 10-digit customer phone numbers with formatted display
-- Added clearer activation paths for inactive records
-
-### [v0.17.0]
-#### Added
-- Product suppliers across DB, services, CLI, API, and React frontend
-
-### [v0.16.0]
-#### Added
-- Product costs and invoice item cost snapshots across DB, services, CLI, API, and React frontend
-- Invoice profit calculations and internal line item controls
-- Reporting foundation with revenue, outstanding due, cost, profit, status, and tag performance
-
-### [v0.15.0]
-#### Added
-- Invoice tags across DB, services, CLI, API, and React frontend
-- Tag management under invoices with create, edit, deactivate, and delete workflows
-- Invoice detail tag assignment for existing active tags
-
-### [v0.14.0]
-#### Added
-- Product categories across DB, services, CLI, API, and React frontend
-- Catalog category management, deletion rules, and product filtering
-- Invoice creation and draft invoice detail item adding from catalog products
-
-#### Changed
-- Improved duplicate product category errors with clearer messages
-- Simplified invoice lists to show item counts instead of inline item/payment controls
-- Moved create workflows into modal forms
-
-### [v0.13.0]
-#### Added
-- Customer detail preview page with customer profile, invoice summary, and recent invoice activity
-- Invoice detail preview page with customer context, invoice status, totals, line items, and payment summary
-- Customer-facing printable invoice view
-
-#### Changed
-- Refined product catalog UI with richer product cards and clearer product status/price presentation
-
-### [v0.12.0]
-#### Added
-- Payments across DB, services, CLI, API, and React frontend
-- Partial/full payment tracking with payment summaries
-- Sent-only payment creation, overpayment protection, and paid-to-sent reopening on payment deletion
-- `invoicedb payments add/list/get/summary/delete`
-- Payment API endpoints and frontend Pay Balance action
-
-#### Changed
-- Manual status changes no longer mark invoices paid; payments control sent/paid transitions.
-
-### [v0.11.0]
-#### Added
-- Invoice line items across DB, services, CLI, API, and React frontend
-- Product-backed line items with price snapshots and locked sent/paid/void edits
-- `include_items=true`, `invoicedb invoice-items`, and `invoicedb invoices list --include-items`
-- Inactive-product checks before adding/replacing line items or sending invoices
-
-#### Changed
-- Invoice totals are calculated from line items instead of manual invoice total inputs.
-- Invoice frontend now shows clearer load and status-change errors.
-
-### [v0.10.0]
-#### Added
-- Product catalog table and DB helpers
-- Product service layer
-- Product CLI commands
-- Product API endpoints
-- React product catalog page
-- Product tests across CLI, API, and frontend
-- Docker entrypoint that initializes the SQLite schema automatically
-
-### [v0.9.0]
-#### Added
-- Natural-language invoice assistant
-- Intent classifier for supported invoice queries
-
-#### Changed
-- Updated Docker runtime from CLI-first behavior to API server behavior
-
-### [v0.8.0]
-#### Added
-- React + TypeScript frontend built with Vite
-- Frontend pages for dashboard, customers, and invoices
-- Customer create, edit, delete, and list workflows
-- Invoice create, edit, delete, list, and status update workflows
-- Frontend API client for customer and invoice endpoints
-- Frontend tests with Vitest and React Testing Library
-
-#### Changed
-- Standardized invoice totals as integer cents across the API, service layer, and database
-
-### [v0.7.0]
-#### Added
-- Shared service layer for customers and invoices
-- Django REST Framework API Layer
-- Customer API endpoints
-- Invoice API endpoints
-- API test coverage for customer and invoice endpoints
-
-#### Changed
-- Updated CLI commands to use the shared service layer
-
-### [v0.6.0]
-#### Added
-- Invoice lifecycle/status logic
-- Overdue invoice querying
-
-#### Changed
-- Improved invoice list and count querying
-
-### [v0.5.0]
-#### Added
-- Rich-based terminal output
-- Packaged CLI as a global console command (`invoicedb`)
-- Docker support
-- Demo automation scripts
-
-### [v0.4.0]
-#### Added
-- Full invoice CRUD support in the CLI
-
-### [v0.3.0]
-#### Added
-- Introduced Typer-based CLI for customer and database management
-
-### [v0.2.0]
-#### Added
-- Added customer and invoice test coverage
-
-### [v0.1.0]
-#### Added
-- Initial SQLite schema and core CRUD functionality
-
-## Roadmap
-### [v0.19.0] (Planned)
-- User accounts
-
-For the full project roadmap, see [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md).
+- API reference: [`invoice_db/docs/API.md`](invoice_db/docs/API.md)
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- Roadmap: [`invoice_db/docs/ROADMAP.md`](invoice_db/docs/ROADMAP.md)
+- Project structure: [`invoice_db/docs/PROJECT_STRUCTURE.md`](invoice_db/docs/PROJECT_STRUCTURE.md)

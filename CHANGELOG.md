@@ -3,6 +3,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.19.0] - 2026-10-05
+
+### Added
+
+* Session-based sign up, sign in, sign out, and current-user API endpoints.
+* Workspace-scoped data boundaries for signed-in users and guest sessions.
+* Guest workspace mode with temporary data and cleanup support.
+* Frontend auth gate with sign in, sign up, and Continue as Guest paths.
+* Workspace-aware assistant and reporting behavior.
+
+### Changed
+
+* Signed-out users must authenticate or continue as guest before accessing app data APIs.
+* Invoice numbers are scoped per workspace.
+* CLI is now considered legacy/local tooling; new product development targets the Django API and React frontend.
+
 ## [0.18.0] - 2026-09-23
 
 ### Added

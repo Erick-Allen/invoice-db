@@ -1,5 +1,8 @@
 invoice-db/
 |-- api/                         # Django REST Framework API app
+|   |-- management/
+|   |   `-- commands/
+|   |       `-- cleanup_guest_workspaces.py
 |   |-- migrations/
 |   |-- serializers.py
 |   |-- urls.py
@@ -8,6 +11,7 @@ invoice-db/
 |-- frontend/                    # React + TypeScript frontend UI
 |   |-- src/
 |   |   |-- api/                 # Frontend API client modules
+|   |   |   |-- auth.ts
 |   |   |   |-- client.ts
 |   |   |   |-- customers.ts
 |   |   |   |-- invoiceItems.ts
@@ -18,6 +22,7 @@ invoice-db/
 |   |   |   `-- tags.ts
 |   |   |
 |   |   |-- pages/               # Page-level React components
+|   |   |   |-- AuthPage.tsx
 |   |   |   |-- CategoryDetailPage.tsx
 |   |   |   |-- CustomerDetailPage.tsx
 |   |   |   |-- CustomersPage.tsx
@@ -35,6 +40,7 @@ invoice-db/
 |   |   |-- test/                # Frontend test setup and UI tests
 |   |   |   |-- setup.ts
 |   |   |   |-- App.test.tsx
+|   |   |   |-- authApi.test.ts
 |   |   |   |-- CategoryDetailPage.test.tsx
 |   |   |   |-- CustomerDetailPage.test.tsx
 |   |   |   |-- CustomersPage.test.tsx
@@ -72,7 +78,7 @@ invoice-db/
 |
 |-- invoice_db/                  # Main Python application package
 |   |-- assistant/               # Natural-language assistant
-|   |-- cli/                     # Typer CLI layer
+|   |-- cli/                     # Legacy/local Typer CLI layer
 |   |   |-- app.py
 |   |   |-- customers_cmds.py
 |   |   |-- db_cmds.py
@@ -106,14 +112,16 @@ invoice-db/
 |   |   |-- schema.py
 |   |   |-- suppliers.py
 |   |   |-- tags.py
-|   |   `-- validators.py
+|   |   |-- validators.py
+|   |   `-- workspaces.py
 |   |
 |   |-- docs/
+|   |   |-- API.md
 |   |   |-- PROJECT_STRUCTURE.md
 |   |   |-- ROADMAP.md
 |   |   `-- ERDdiagram-Roadmap.png
 |   |
-|   |-- services/                # Shared business logic for CLI and API
+|   |-- services/                # Shared business logic used primarily by the API; CLI remains legacy/local
 |   |   |-- customers.py
 |   |   |-- customer_locations.py
 |   |   |-- exceptions.py
@@ -123,7 +131,8 @@ invoice-db/
 |   |   |-- product_categories.py
 |   |   |-- products.py
 |   |   |-- suppliers.py
-|   |   `-- tags.py
+|   |   |-- tags.py
+|   |   `-- workspaces.py
 |   |
 |   |-- __main__.py
 |   `-- utils.py
@@ -137,6 +146,7 @@ invoice-db/
 |-- tests/                       # Backend automated test suite
 |   |-- api/
 |   |   |-- conftest.py
+|   |   |-- test_auth_api.py
 |   |   |-- test_customers_api.py
 |   |   |-- test_customer_locations_api.py
 |   |   |-- test_invoice_items_api.py
@@ -144,7 +154,8 @@ invoice-db/
 |   |   |-- test_payments_api.py
 |   |   |-- test_products_api.py
 |   |   |-- test_suppliers_api.py
-|   |   `-- test_tags_api.py
+|   |   |-- test_tags_api.py
+|   |   `-- test_workspace_scoping_api.py
 |   |
 |   |-- cli/
 |   |   |-- conftest.py

@@ -1,18 +1,18 @@
 # Contributing
 
-First off, thank you for checking out invoice-db
+First off, thank you for checking out invoice-db.
 
 ## My Current Focus
-At this stage **invoice-db is not accepting unsolicited code contributions or Pull Requests.**
+At this stage, **invoice-db is not accepting unsolicited code contributions or pull requests.**
 
-Currently the main focus is building out new features and expanding the database schema according to the [ERDiagram Roadmap](invoice_db/docs/ERDdiagram-Roadmap.png)
-
+The current focus is shaping the web app, API, account model, and invoice workflows. For planned work, see the [roadmap](invoice_db/docs/ROADMAP.md).
 
 ## How You Can Help
-Your feedback is still incredibly valueable in other ways. Feel welcome to:
-* **Bug Reports:** If something is broken, Please let me know!
-* **Feature Ideas:** Saw the roadmap and have a suggestion? Open an issue to start a discussion.
-* **Documentation:** Notice a typo or confusing explanation? Feedback is always appreciated.
+Feedback is still valuable. Feel welcome to open an issue for:
+
+* **Bug reports:** Something broken or confusing.
+* **Feature ideas:** Suggestions that fit the product direction.
+* **Documentation:** Typos, stale notes, or unclear explanations.
 
 ## Proposing Changes
-If you have a significant idea or want to contribute code in the future, please **open an issue first** to discuss it and move forward from there.
+If you have a significant idea or want to contribute code in the future, please **open an issue first** so the direction can be discussed before implementation.
