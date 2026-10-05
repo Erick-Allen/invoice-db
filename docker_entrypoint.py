@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 from invoice_db.db import connection, schema
@@ -19,4 +20,8 @@ def initialize_database() -> None:
 
 if __name__ == "__main__":
     initialize_database()
+    subprocess.run(
+        [sys.executable, "manage.py", "migrate", "--noinput"],
+        check=True,
+    )
     os.execvp(sys.argv[1], sys.argv[1:])

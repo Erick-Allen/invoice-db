@@ -13,6 +13,7 @@ COPY docker_entrypoint.py ./docker_entrypoint.py
 RUN pip install --no-cache-dir -e .
 
 ENV INVOICEDB_PATH=/data/invoicedb.sqlite
+ENV DJANGO_DB_PATH=/data/django.sqlite3
 
 EXPOSE 8000
 

@@ -1,4 +1,5 @@
 from invoice_db.assistant.router import AssistantRouter
+from invoice_db.assistant.qwen_router import QwenIntentRouter
 from invoice_db.assistant.schemas import IntentPrediction
 
 
@@ -38,3 +39,14 @@ def test_routes_low_confidence_prediction_to_unknown():
 
     assert result.intent == "unknown"
     assert result.confidence == 0.40
+
+
+def test_qwen_router_uses_configured_ollama_chat_url(monkeypatch):
+    monkeypatch.setenv(
+        "INVOICEDB_OLLAMA_CHAT_URL",
+        "http://host.docker.internal:11434/api/chat",
+    )
+
+    router = QwenIntentRouter(url="http://localhost:11434/api/chat")
+
+    assert router.url == "http://host.docker.internal:11434/api/chat"

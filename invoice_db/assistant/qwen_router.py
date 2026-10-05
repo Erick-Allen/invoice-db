@@ -53,10 +53,6 @@ Money values must be integer cents:
 - $500 -> 50000
 - $100.25 -> 10025
 
-Money values must be integer cents:
-- $500 -> 50000
-- $100.25 -> 10025
-
 Examples:
 User: find invoices under $500
 Response:
@@ -105,7 +101,7 @@ class QwenRouterUnavailableError(Exception):
 class QwenIntentRouter:
     def __init__(self, model: str | None = None, url: str = OLLAMA_CHAT_URL):
         self.model = model or os.getenv("INVOICEDB_QWEN_MODEL", DEFAULT_QWEN_MODEL)
-        self.url = url
+        self.url = os.getenv("INVOICEDB_OLLAMA_CHAT_URL", url)
 
     def route(self, message: str) -> AssistantIntent:
         payload = {
