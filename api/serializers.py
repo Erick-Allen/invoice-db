@@ -174,6 +174,13 @@ class InvoiceUpdateSerializer(StrictSerializer):
     description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     date_issued = serializers.DateField(required=False, allow_null=True)
     date_due = serializers.DateField(required=False, allow_null=True)
+    tax_rate = serializers.RegexField(
+        r"^(?=(?:\D*\d){1,7}\D*$)\d+(?:\.\d+)?$",
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        error_messages={"invalid": "Enter a tax rate with up to 7 numeric digits."},
+    )
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

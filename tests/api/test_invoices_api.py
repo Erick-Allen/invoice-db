@@ -124,6 +124,83 @@ def test_create_invoice_uses_workspace_default_tax_rate(api_client, test_db, cus
     assert data["tax_cents"] == 725
     assert data["total"] == 10725
 
+def test_update_invoice_tax_rate_recalculates_draft_total(api_client, test_db, customer_john_id, post_invoice, post_product):
+    invoice = post_invoice(customer_id=customer_john_id).json()
+    product = post_product(unit_price_cents=10000).json()
+    item_response = api_client.post(
+        f"/api/invoices/{invoice['id']}/items/",
+        {"product_id": product["id"], "quantity": 1},
+        format="json",
+    )
+    assert item_response.status_code == 201, item_response.json()
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice['id']}/",
+        {"tax_rate": "7.25"},
+        format="json",
+    )
+
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data["subtotal_cents"] == 10000
+    assert data["tax_rate"] == "7.25"
+    assert data["tax_cents"] == 725
+    assert data["total"] == 10725
+
+def test_update_invoice_tax_rate_can_clear_tax(api_client, test_db, customer_john_id, post_product):
+    profile_response = api_client.put(
+        "/api/business-profile/",
+        {"default_tax_rate": "7.25"},
+        format="json",
+    )
+    invoice = create_invoice(api_client, customer_john_id)
+    product = post_product(unit_price_cents=10000).json()
+    item_response = api_client.post(
+        f"/api/invoices/{invoice['id']}/items/",
+        {"product_id": product["id"], "quantity": 1},
+        format="json",
+    )
+    assert profile_response.status_code == 200, profile_response.json()
+    assert item_response.status_code == 201, item_response.json()
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice['id']}/",
+        {"tax_rate": None},
+        format="json",
+    )
+
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data["subtotal_cents"] == 10000
+    assert data["tax_rate"] is None
+    assert data["tax_cents"] == 0
+    assert data["total"] == 10000
+
+def test_update_invoice_tax_rate_rejects_sent_invoice(api_client, test_db, customer_john_id, post_invoice, post_product):
+    invoice = post_invoice(customer_id=customer_john_id).json()
+    product = post_product(unit_price_cents=10000).json()
+    item_response = api_client.post(
+        f"/api/invoices/{invoice['id']}/items/",
+        {"product_id": product["id"], "quantity": 1},
+        format="json",
+    )
+    sent_response = api_client.patch(
+        f"/api/invoices/{invoice['id']}/status/",
+        {"status": "sent"},
+        format="json",
+    )
+    assert item_response.status_code == 201, item_response.json()
+    assert sent_response.status_code == 200, sent_response.json()
+
+    response = api_client.patch(
+        f"/api/invoices/{invoice['id']}/",
+        {"tax_rate": "7.25"},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "draft" in response.json()["detail"]
+
 def test_create_invoice_with_location(api_client, test_db, customer_john_id):
     location_response = api_client.post(
         f"/api/customers/{customer_john_id}/locations/",

@@ -4,11 +4,13 @@ A relational database, Django API, React UI, AI assistant, and legacy local CLI 
 The project emphasizes practical full-stack design: normalized relational schema design, shared service-layer business logic, HTTP API endpoints, React-based UI workflows, session-based authentication, workspace-scoped data, Dockerized runtime support, natural-language invoice querying, and automated test coverage.
 
 ## Features
-As of **v0.19.0**, InvoiceDB supports:
+As of **v0.20.0**, InvoiceDB supports:
 
 - Signed-in and guest workspaces
 - Customer, invoice, product, supplier, and payment management
-- Draft invoices with line items, statuses, print views, and customer-facing pages
+- Draft invoices with services, statuses, profile-aware print views, and customer-facing pages
+- Business profile and invoice settings for sender details, payment terms, accepted payment methods, footer notes, and tax defaults
+- Invoice subtotal, tax, total, amount paid, balance due, and draft-level tax overrides
 - Revenue, balance, cost, profit, status, and tag reporting
 - Workspace-scoped assistant queries
 

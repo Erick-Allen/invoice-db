@@ -363,6 +363,7 @@ def update_invoice(
         date_due: int = None, 
         subtotal_cents: int | None = None,
         tax_rate: str | None = None,
+        update_tax_rate: bool = False,
         tax_cents: int | None = None,
         total: int = None, 
         customer_id: int = None,
@@ -404,7 +405,7 @@ def update_invoice(
         validate_total(subtotal_cents)
         updates.append("subtotal_cents = ?")
         params.append(subtotal_cents)
-    if tax_rate is not None:
+    if update_tax_rate:
         updates.append("tax_rate = ?")
         params.append(tax_rate)
     if tax_cents is not None:
@@ -458,6 +459,40 @@ def set_invoice_status(cursor, invoice_id: int, status: str, workspace_id: int |
             (status, invoice_id, workspace_id),
         )
     return cursor.rowcount > 0
+
+
+def apply_tax_rate_to_untaxed_drafts(
+    cursor,
+    *,
+    workspace_id: int,
+    tax_rate: str,
+) -> list[int]:
+    cursor.execute(
+        """
+        SELECT id
+        FROM invoices
+        WHERE workspace_id = ?
+          AND status = 'draft'
+          AND tax_rate IS NULL
+        """,
+        (workspace_id,),
+    )
+    invoice_ids = [row["id"] for row in cursor.fetchall()]
+
+    if not invoice_ids:
+        return []
+
+    cursor.execute(
+        """
+        UPDATE invoices
+        SET tax_rate = ?
+        WHERE workspace_id = ?
+          AND status = 'draft'
+          AND tax_rate IS NULL
+        """,
+        (tax_rate, workspace_id),
+    )
+    return invoice_ids
 
 # DELETE
 def delete_invoice(cursor, invoice_id: int, workspace_id: int | None = None) -> bool:

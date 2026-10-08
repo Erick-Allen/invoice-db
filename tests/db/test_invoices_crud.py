@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from invoice_db.db import customer_locations, customers, invoices, workspaces
+from invoice_db.db import customer_locations, customers, invoices, schema, workspaces
 import pytest
 
 CUSTOMER_JOHN_EMAIL = "john@test.com"
@@ -44,6 +44,50 @@ def test_invoice_number_increments_per_workspace(cursor):
     assert invoice_a_1["invoice_number"] == 1
     assert invoice_a_2["invoice_number"] == 2
     assert invoice_b_1["invoice_number"] == 1
+
+def test_schema_backfills_default_tax_on_existing_untaxed_drafts(cursor):
+    workspace_id = workspaces.create_workspace(cursor, owner_user_id=1, name="Workspace A")
+    customer_id = customers.create_customer(
+        cursor,
+        "Workspace A",
+        "a@test.com",
+        workspace_id=workspace_id,
+    )
+    cursor.execute(
+        """
+        INSERT INTO business_profiles (workspace_id, default_tax_rate)
+        VALUES (?, ?)
+        """,
+        (workspace_id, "7.25"),
+    )
+    cursor.execute(
+        """
+        INSERT INTO products (workspace_id, name, unit_price)
+        VALUES (?, ?, ?)
+        """,
+        (workspace_id, "Compressor", 10000),
+    )
+    product_id = cursor.lastrowid
+    invoice_id = invoices.add_invoice_to_customer(
+        cursor,
+        customer_id=customer_id,
+        workspace_id=workspace_id,
+    )
+    cursor.execute(
+        """
+        INSERT INTO invoice_items (invoice_id, product_id, quantity, unit_price)
+        VALUES (?, ?, ?, ?)
+        """,
+        (invoice_id, product_id, 1, 10000),
+    )
+
+    schema.backfill_invoice_tax_defaults(cursor)
+
+    invoice = invoices.get_invoice_by_id(cursor, invoice_id, workspace_id=workspace_id)
+    assert invoice["subtotal_cents"] == 10000
+    assert invoice["tax_rate"] == "7.25"
+    assert invoice["tax_cents"] == 725
+    assert invoice["total"] == 10725
 
 def test_create_invoice_with_location(cursor, customer_john):
     location = customer_locations.create_customer_location(

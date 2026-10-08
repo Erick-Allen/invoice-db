@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from invoice_db.db import customers as customers_db
 from invoice_db.db import business_profiles as business_profiles_db
@@ -104,6 +105,31 @@ def _normalize_invoice_description(description: str | None) -> str | None:
     normalized = description.strip()
     if not normalized:
         return None
+
+    return normalized
+
+def _normalize_invoice_tax_rate(tax_rate: str | None) -> str | None:
+    if tax_rate is None:
+        return None
+
+    normalized = str(tax_rate).strip()
+    if not normalized:
+        return None
+
+    digit_count = sum(character.isdigit() for character in normalized)
+    if digit_count < 1 or digit_count > 7:
+        raise exceptions.ValidationError("Enter a tax rate with up to 7 numeric digits.")
+
+    if normalized.count(".") > 1 or any(not (character.isdigit() or character == ".") for character in normalized):
+        raise exceptions.ValidationError("Enter a valid tax rate.")
+
+    try:
+        rate = Decimal(normalized)
+    except InvalidOperation as e:
+        raise exceptions.ValidationError("Enter a valid tax rate.") from e
+
+    if rate < 0:
+        raise exceptions.ValidationError("Tax rate cannot be negative.")
 
     return normalized
     
@@ -510,27 +536,73 @@ def update_invoice_by_id(
     new_customer_id: int | None = None,
     new_location_id: int | None = None,
     update_location: bool = False,
+    new_tax_rate: str | None = None,
+    update_tax_rate: bool = False,
     workspace_id: int | None = None,
     ) -> InvoiceRecord:
     if new_total is not None:
         raise exceptions.ValidationError("Invoice totals are calculated from line items.")
 
     invoice = _require_invoice(cursor, invoice_id, workspace_id=workspace_id)
-
-    updated_invoice = _update_invoice(
-        cursor,
-        invoice=invoice,
-        new_title=new_title,
-        update_title=update_title,
-        new_description=new_description,
-        update_description=update_description,
-        new_date_issued=new_date_issued,
-        new_date_due=new_date_due,
-        new_customer_id=new_customer_id,
-        new_location_id=new_location_id,
-        update_location=update_location,
-        workspace_id=workspace_id,
+    has_standard_updates = any(
+        (
+            update_title,
+            update_description,
+            new_date_issued is not None,
+            new_date_due is not None,
+            new_customer_id is not None,
+            update_location,
+        )
     )
+    normalized_tax_rate = None
+    if update_tax_rate:
+        if invoice["status"] != "draft":
+            raise exceptions.ValidationError("Invoice tax can only be changed while the invoice is a draft.")
+        normalized_tax_rate = _normalize_invoice_tax_rate(new_tax_rate)
+        if normalized_tax_rate == invoice["tax_rate"] and not has_standard_updates:
+            raise exceptions.ValidationError("No changes detected.")
+
+    if has_standard_updates:
+        updated_invoice = _update_invoice(
+            cursor,
+            invoice=invoice,
+            new_title=new_title,
+            update_title=update_title,
+            new_description=new_description,
+            update_description=update_description,
+            new_date_issued=new_date_issued,
+            new_date_due=new_date_due,
+            new_customer_id=new_customer_id,
+            new_location_id=new_location_id,
+            update_location=update_location,
+            workspace_id=workspace_id,
+        )
+    else:
+        updated_invoice = invoice
+
+    if update_tax_rate and normalized_tax_rate != invoice["tax_rate"]:
+        updated = invoices_db.update_invoice(
+            cursor,
+            invoice_id=invoice_id,
+            tax_rate=normalized_tax_rate,
+            update_tax_rate=True,
+            workspace_id=workspace_id,
+        )
+        if not updated:
+            raise exceptions.ServiceError(f"Failed to update invoice {invoice_id} tax.")
+
+        invoice_items_db.InvoiceItemRepository(
+            cursor,
+            workspace_id=workspace_id,
+        ).recalculate_invoice_total(invoice_id)
+        refreshed_invoice = invoices_db.get_invoice_by_id(
+            cursor,
+            invoice_id,
+            workspace_id=workspace_id,
+        )
+        if refreshed_invoice is None:
+            raise exceptions.ServiceError("Updated invoice, but failed to reload record.")
+        updated_invoice = refreshed_invoice
 
     return _to_invoice_record(updated_invoice)
     

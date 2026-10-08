@@ -89,6 +89,30 @@ function getInvoiceSubtotalCents(invoice: Invoice) {
     return invoice.subtotal_cents ?? Math.max(invoice.total - getInvoiceTaxCents(invoice), 0);
 }
 
+function formatTaxInput(value: string) {
+    let nextValue = "";
+    let digitCount = 0;
+    let hasDecimal = false;
+
+    for (const character of value) {
+        if (character >= "0" && character <= "9") {
+            if (digitCount >= 7) {
+                continue;
+            }
+            digitCount += 1;
+            nextValue += character;
+            continue;
+        }
+
+        if (character === "." && !hasDecimal) {
+            hasDecimal = true;
+            nextValue += character;
+        }
+    }
+
+    return nextValue;
+}
+
 const paymentMethodOptions = ["Card", "Bank", "PayPal", "Venmo", "Check"];
 
 function parseBusinessPaymentMethods(profile: BusinessProfile | null) {
@@ -139,6 +163,8 @@ export function InvoiceDetailPage() {
     const [paymentNote, setPaymentNote] = useState("");
     const [isEditInvoiceLocationOpen, setIsEditInvoiceLocationOpen] = useState(false);
     const [editInvoiceLocationId, setEditInvoiceLocationId] = useState("");
+    const [isEditInvoiceTaxOpen, setIsEditInvoiceTaxOpen] = useState(false);
+    const [editInvoiceTaxRate, setEditInvoiceTaxRate] = useState("");
     const [isEditInvoiceTitleOpen, setIsEditInvoiceTitleOpen] = useState(false);
     const [editInvoiceTitle, setEditInvoiceTitle] = useState("");
     const [isEditInvoiceDescriptionOpen, setIsEditInvoiceDescriptionOpen] = useState(false);
@@ -154,6 +180,7 @@ export function InvoiceDetailPage() {
     const [isTagSubmitting, setIsTagSubmitting] = useState(false);
     const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false);
     const [isInvoiceLocationSubmitting, setIsInvoiceLocationSubmitting] = useState(false);
+    const [isInvoiceTaxSubmitting, setIsInvoiceTaxSubmitting] = useState(false);
     const [isInvoiceTitleSubmitting, setIsInvoiceTitleSubmitting] = useState(false);
     const [isInvoiceDescriptionSubmitting, setIsInvoiceDescriptionSubmitting] = useState(false);
     const [isSendingInvoice, setIsSendingInvoice] = useState(false);
@@ -405,6 +432,44 @@ export function InvoiceDetailPage() {
         setEditInvoiceTitle("");
         setIsEditInvoiceTitleOpen(false);
     }
+
+    function openEditInvoiceTax() {
+        setActionError(null);
+        setEditInvoiceTaxRate(invoice?.tax_rate ?? "");
+        setIsEditInvoiceTaxOpen(true);
+    }
+
+    function closeEditInvoiceTax() {
+        if (isInvoiceTaxSubmitting) {
+            return;
+        }
+
+        setEditInvoiceTaxRate("");
+        setIsEditInvoiceTaxOpen(false);
+    }
+
+    const handleUpdateInvoiceTax: SubmitEventHandler<HTMLFormElement> = async (event) => {
+        event.preventDefault();
+
+        if (!invoice) {
+            return;
+        }
+
+        try {
+            setIsInvoiceTaxSubmitting(true);
+            setActionError(null);
+            await updateInvoice(invoice.id, {
+                tax_rate: editInvoiceTaxRate.trim() || null,
+            });
+            setEditInvoiceTaxRate("");
+            setIsEditInvoiceTaxOpen(false);
+            await refreshInvoiceSection(invoice.id);
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : "Failed to update invoice tax.");
+        } finally {
+            setIsInvoiceTaxSubmitting(false);
+        }
+    };
 
     const handleUpdateInvoiceTitle: SubmitEventHandler<HTMLFormElement> = async (event) => {
         event.preventDefault();
@@ -983,7 +1048,7 @@ export function InvoiceDetailPage() {
                         </section>
 
                         <section className="invoice-print-section">
-                            <h2>Line Items</h2>
+                            <h2>Services</h2>
                             {!invoice.items || invoice.items.length === 0 ? (
                                 <p>No line items found for this invoice.</p>
                             ) : (
@@ -1125,7 +1190,19 @@ export function InvoiceDetailPage() {
                             </div>
                             <div>
                                 <dt>{formatTaxLabel(invoice)}</dt>
-                                <dd>${centsToDollars(getInvoiceTaxCents(invoice))}</dd>
+                                <dd className="inline-detail-value">
+                                    <span>${centsToDollars(getInvoiceTaxCents(invoice))}</span>
+                                    {invoice.status === "draft" && (
+                                        <button
+                                            className="tiny-action-button"
+                                            type="button"
+                                            onClick={openEditInvoiceTax}
+                                            aria-label="Edit invoice tax"
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
+                                </dd>
                             </div>
                             <div>
                                 <dt>Total</dt>
@@ -1501,6 +1578,43 @@ export function InvoiceDetailPage() {
                                         </button>
                                         <button className="primary-button" type="submit" disabled={isInvoiceDescriptionSubmitting}>
                                             {isInvoiceDescriptionSubmitting ? "Saving..." : "Save Description"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    {isEditInvoiceTaxOpen && (
+                        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="edit-invoice-tax-heading">
+                            <form className="modal-panel detail-panel" onSubmit={handleUpdateInvoiceTax}>
+                                <div className="modal-header">
+                                    <h3 id="edit-invoice-tax-heading">Edit Tax</h3>
+                                    <button className="icon-button" type="button" onClick={closeEditInvoiceTax} aria-label="Close edit tax">
+                                        x
+                                    </button>
+                                </div>
+                                <div className="form-grid modal-form-grid">
+                                    <div className="form-field">
+                                        <label htmlFor="edit-invoice-tax">Tax Rate</label>
+                                        <div className="tax-rate-input">
+                                            <input
+                                                id="edit-invoice-tax"
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={editInvoiceTaxRate}
+                                                onChange={(event) => setEditInvoiceTaxRate(formatTaxInput(event.target.value))}
+                                                placeholder="0"
+                                            />
+                                            <span>%</span>
+                                        </div>
+                                    </div>
+                                    <div className="modal-actions">
+                                        <button className="secondary-button" type="button" onClick={closeEditInvoiceTax} disabled={isInvoiceTaxSubmitting}>
+                                            Cancel
+                                        </button>
+                                        <button className="primary-button" type="submit" disabled={isInvoiceTaxSubmitting}>
+                                            {isInvoiceTaxSubmitting ? "Saving..." : "Save Tax"}
                                         </button>
                                     </div>
                                 </div>

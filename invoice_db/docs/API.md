@@ -41,7 +41,7 @@ Stores workspace-scoped settings for business sender details and invoice default
 - `POST /api/invoices/{id}/tags/`
 - `DELETE /api/invoices/{id}/tags/{tag_id}/`
 
-Invoice responses include `subtotal_cents`, `tax_rate`, `tax_cents`, and final `total`. New invoices copy the workspace default tax rate at creation time; line-item changes recalculate subtotal, tax, and total.
+Invoice responses include `subtotal_cents`, `tax_rate`, `tax_cents`, and final `total`. New invoices copy the workspace default tax rate at creation time. Draft invoices can override or clear `tax_rate` through `PATCH /api/invoices/{id}/`; tax edits and line-item changes recalculate subtotal, tax, and total.
 
 ## Invoice Items
 

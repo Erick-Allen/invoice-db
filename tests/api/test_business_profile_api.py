@@ -117,6 +117,53 @@ def test_business_profile_rejects_tax_rates_over_seven_digits(signed_out_api_cli
 
 
 @pytest.mark.django_db
+def test_business_profile_tax_rate_updates_existing_untaxed_drafts(signed_out_api_client, test_db):
+    _signup(signed_out_api_client, "profile-tax-drafts@example.com")
+    customer_response = signed_out_api_client.post(
+        "/api/customers/",
+        {"name": "Tax Customer", "email": "tax-draft@example.com"},
+        format="json",
+    )
+    product_response = signed_out_api_client.post(
+        "/api/products/",
+        {"name": "Compressor", "unit_price_cents": 10000, "cost_cents": 5000},
+        format="json",
+    )
+    invoice_response = signed_out_api_client.post(
+        "/api/invoices/",
+        {"customer_id": customer_response.json()["id"]},
+        format="json",
+    )
+    item_response = signed_out_api_client.post(
+        f"/api/invoices/{invoice_response.json()['id']}/items/",
+        {"product_id": product_response.json()["id"], "quantity": 1},
+        format="json",
+    )
+
+    assert customer_response.status_code == 201
+    assert product_response.status_code == 201
+    assert invoice_response.status_code == 201
+    assert item_response.status_code == 201
+
+    profile_response = signed_out_api_client.put(
+        "/api/business-profile/",
+        {"default_tax_rate": "7.25"},
+        format="json",
+    )
+    invoice_detail_response = signed_out_api_client.get(
+        f"/api/invoices/{invoice_response.json()['id']}/?include_items=true"
+    )
+
+    assert profile_response.status_code == 200
+    assert invoice_detail_response.status_code == 200
+    invoice = invoice_detail_response.json()
+    assert invoice["subtotal_cents"] == 10000
+    assert invoice["tax_rate"] == "7.25"
+    assert invoice["tax_cents"] == 725
+    assert invoice["total"] == 10725
+
+
+@pytest.mark.django_db
 def test_business_profiles_are_workspace_scoped(test_db):
     user_a = APIClient()
     user_b = APIClient()

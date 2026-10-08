@@ -2133,7 +2133,9 @@
   }
 
   .invoice-print-document {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    min-height: 9.8in;
   }
 
   .invoice-print-header {
@@ -2327,8 +2329,12 @@
     border-top: 1px solid #d1d5db;
     color: #374151;
     font-size: 10pt;
-    margin-top: 1.25rem;
+    line-height: 1.4;
+    margin-top: auto;
     padding-top: 0.65rem;
+    page-break-inside: avoid;
+    text-align: right;
+    white-space: pre-line;
   }
 
 }

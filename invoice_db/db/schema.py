@@ -808,6 +808,43 @@ def create_customer_summary_view(cursor):
         c.id, c.name, c.email, c.phone, c.customer_type, c.company_name, c.is_active;
     """)
 
+
+def backfill_invoice_tax_defaults(cursor):
+    cursor.executescript("""
+    UPDATE invoices
+    SET tax_rate = (
+        SELECT business_profiles.default_tax_rate
+        FROM business_profiles
+        WHERE business_profiles.workspace_id = invoices.workspace_id
+    )
+    WHERE status = 'draft'
+      AND tax_rate IS NULL
+      AND workspace_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM business_profiles
+        WHERE business_profiles.workspace_id = invoices.workspace_id
+          AND business_profiles.default_tax_rate IS NOT NULL
+      );
+
+    UPDATE invoices
+    SET subtotal_cents = (
+        SELECT COALESCE(SUM(quantity * unit_price), 0)
+        FROM invoice_items
+        WHERE invoice_items.invoice_id = invoices.id
+    )
+    WHERE status = 'draft'
+      AND tax_rate IS NOT NULL;
+
+    UPDATE invoices
+    SET
+        tax_cents = CAST((subtotal_cents * CAST(tax_rate AS REAL) / 100.0) + 0.5 AS INTEGER),
+        total = subtotal_cents + CAST((subtotal_cents * CAST(tax_rate AS REAL) / 100.0) + 0.5 AS INTEGER)
+    WHERE status = 'draft'
+      AND tax_rate IS NOT NULL;
+    """)
+
+
 def create_schema(cursor):
     create_workspace_schema(cursor)
     create_business_profile_schema(cursor)
@@ -824,4 +861,5 @@ def create_schema(cursor):
     create_invoice_item_schema(cursor)
     create_payment_schema(cursor)
     create_customer_summary_view(cursor)
+    backfill_invoice_tax_defaults(cursor)
     create_triggers(cursor)

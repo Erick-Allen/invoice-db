@@ -3,6 +3,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.20.0] - 2026-10-08
+
+### Added
+
+* Workspace-scoped business profile and invoice settings.
+* Business sender details, default payment terms, accepted payment methods, default invoice footer, and default tax rate.
+* Profile-aware printable invoices with sender details, payment methods, subtotal, tax, total, amount paid, and balance due.
+* Draft invoice tax overrides with recalculated subtotal, tax, and total.
+
+### Changed
+
+* Existing untaxed draft invoices can pick up workspace default tax rates.
+* Printable invoice layout now uses customer-facing service wording and footer placement.
+
 ## [0.19.0] - 2026-10-05
 
 ### Added

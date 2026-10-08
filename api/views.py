@@ -965,6 +965,8 @@ class InvoiceDetailView(APIView):
                     new_customer_id=serializer.validated_data.get("customer_id"),
                     new_location_id=serializer.validated_data.get("location_id"),
                     update_location="location_id" in serializer.validated_data,
+                    new_tax_rate=serializer.validated_data.get("tax_rate"),
+                    update_tax_rate="tax_rate" in serializer.validated_data,
                     workspace_id=workspace_id,
                 )
         

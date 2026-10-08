@@ -21,16 +21,18 @@
 - `v0.17.0` - Product suppliers
 - `v0.18.0` - Customer records, reusable locations, detail pages, and workflow polish
 - `v0.19.0` - User accounts and guest mode
+- `v0.20.0` - Business profile and invoice settings
 
 ## Current
 
-- `v0.20.0` - Business profile
+- `v0.21.0` - Business documents
 
 ## Planned
 
-- `v0.21.0` - Invoice delivery
-- `v0.22.0` - Activity history
-- `v0.23.0` - Accounting integrations
-- `v0.24.0` - Billing automation
-- `v0.25.0` - Assistant routing
+- `v0.22.0` - Invoice delivery
+- `v0.23.0` - Activity history
+- `v0.24.0` - Accounting integrations
+- `v0.25.0` - Billing automation
+- `v0.26.0` - Assistant routing
+- `v0.27.0` - UI refresh and interaction polish
 - `v1.0.0` - Stable deployable release

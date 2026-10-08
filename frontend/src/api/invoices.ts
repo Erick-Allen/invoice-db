@@ -39,6 +39,7 @@ export type UpdateInvoicePayload = {
     description?: string | null;
     date_issued?: string | null;
     date_due?: string | null;
+    tax_rate?: string | null;
 }
 
 type ListInvoiceOptions = {

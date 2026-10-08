@@ -384,6 +384,47 @@ describe("InvoiceDetailPage", () => {
         expect(screen.queryByRole("dialog", { name: "Edit Location" })).not.toBeInTheDocument();
     });
 
+    it("updates draft invoice tax from invoice detail", async () => {
+        mockedGetInvoice.mockResolvedValue({
+            id: 7,
+            customer_id: 1,
+            location_id: 10,
+            date_issued: "2026-06-01",
+            date_due: "2026-07-01",
+            subtotal_cents: 5000,
+            tax_rate: null,
+            tax_cents: 0,
+            total: 5000,
+            status: "draft",
+            cost_total_cents: 2000,
+            profit_total_cents: 3000,
+            profit_margin_percent: 60,
+            items: [],
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        fireEvent.click(await screen.findByRole("button", { name: "Edit invoice tax" }));
+
+        const dialog = await screen.findByRole("dialog", { name: "Edit Tax" });
+        fireEvent.change(within(dialog).getByLabelText("Tax Rate"), {
+            target: { value: "7.25" },
+        });
+        fireEvent.click(within(dialog).getByRole("button", { name: "Save Tax" }));
+
+        await waitFor(() => {
+            expect(mockedUpdateInvoice).toHaveBeenCalledWith(7, {
+                tax_rate: "7.25",
+            });
+        });
+    });
+
     it("changes invoice status from invoice detail", async () => {
         render(
             <MemoryRouter initialEntries={["/invoices/7"]}>

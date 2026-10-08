@@ -1,4 +1,6 @@
 from invoice_db.db import business_profiles as business_profiles_db
+from invoice_db.db import invoice_items as invoice_items_db
+from invoice_db.db import invoices as invoices_db
 from invoice_db.db.validators import validate_positive_id
 
 from . import exceptions
@@ -88,4 +90,18 @@ def save_business_profile(cursor, *, workspace_id: int, profile_data: dict) -> d
         workspace_id=workspace_id,
         profile_data=normalized_data,
     )
+    default_tax_rate = normalized_data.get("default_tax_rate")
+    if default_tax_rate is not None:
+        invoice_ids = invoices_db.apply_tax_rate_to_untaxed_drafts(
+            cursor,
+            workspace_id=workspace_id,
+            tax_rate=default_tax_rate,
+        )
+        invoice_repository = invoice_items_db.InvoiceItemRepository(
+            cursor,
+            workspace_id=workspace_id,
+        )
+        for invoice_id in invoice_ids:
+            invoice_repository.recalculate_invoice_total(invoice_id)
+
     return _to_dict(profile)
