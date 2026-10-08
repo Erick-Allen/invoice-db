@@ -30,6 +30,17 @@ def create_triggers(cursor):
         WHERE id = NEW.id;
     END;
 
+    CREATE TRIGGER IF NOT EXISTS trigger_business_profiles_updated
+    AFTER UPDATE ON
+        business_profiles
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE business_profiles
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
+
     CREATE TRIGGER IF NOT EXISTS trigger_customer_locations_updated
     AFTER UPDATE ON
         customer_locations
@@ -170,6 +181,53 @@ def create_workspace_schema(cursor):
         "CREATE INDEX IF NOT EXISTS idx_workspaces_guest_expires_at ON workspaces(is_guest, expires_at)"
     )
 
+def create_business_profile_schema(cursor):
+    cursor.executescript("""
+    CREATE TABLE IF NOT EXISTS business_profiles (
+        id                      INTEGER PRIMARY KEY,
+        workspace_id            INTEGER NOT NULL UNIQUE,
+        business_name           TEXT,
+        email                   TEXT,
+        phone                   TEXT,
+        website                 TEXT,
+        address_line1           TEXT,
+        address_line2           TEXT,
+        city                    TEXT,
+        state                   TEXT,
+        postal_code             TEXT,
+        default_payment_terms_days INTEGER CHECK (
+                                    default_payment_terms_days IS NULL
+                                    OR default_payment_terms_days >= 0
+                                ),
+        ways_to_pay            TEXT,
+        default_tax_rate       TEXT,
+        default_invoice_footer  TEXT,
+        logo_url                TEXT,
+        created_at              TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at              TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_business_profiles_workspace_id ON business_profiles(workspace_id);
+    """)
+    cursor.execute("PRAGMA table_info(business_profiles)")
+    columns = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
+    if "default_payment_terms_days" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE business_profiles
+            ADD COLUMN default_payment_terms_days INTEGER CHECK (
+                default_payment_terms_days IS NULL
+                OR default_payment_terms_days >= 0
+            )
+            """
+        )
+    if "ways_to_pay" not in columns:
+        cursor.execute("ALTER TABLE business_profiles ADD COLUMN ways_to_pay TEXT")
+    if "default_tax_rate" not in columns:
+        cursor.execute("ALTER TABLE business_profiles ADD COLUMN default_tax_rate TEXT")
+
 def create_customer_schema(cursor):
     cursor.executescript("""
     -- Customers table: stores basic account information.                       
@@ -229,6 +287,11 @@ def create_invoice_schema(cursor):
         description     TEXT,
         date_issued     TEXT,
         date_due        TEXT,
+        subtotal_cents  INTEGER NOT NULL DEFAULT 0
+                        CHECK (subtotal_cents >= 0 AND subtotal_cents = CAST(subtotal_cents AS INTEGER)),
+        tax_rate        TEXT,
+        tax_cents       INTEGER NOT NULL DEFAULT 0
+                        CHECK (tax_cents >= 0 AND tax_cents = CAST(tax_cents AS INTEGER)),
         total           INTEGER NOT NULL DEFAULT 0 
                         CHECK (total >= 0 AND total = CAST(total AS INTEGER)),
         status          TEXT    NOT NULL DEFAULT 'draft'
@@ -267,6 +330,13 @@ def create_invoice_schema(cursor):
         cursor.execute("ALTER TABLE invoices ADD COLUMN title TEXT")
     if "description" not in columns:
         cursor.execute("ALTER TABLE invoices ADD COLUMN description TEXT")
+    if "subtotal_cents" not in columns:
+        cursor.execute("ALTER TABLE invoices ADD COLUMN subtotal_cents INTEGER NOT NULL DEFAULT 0")
+        cursor.execute("UPDATE invoices SET subtotal_cents = total WHERE total > 0")
+    if "tax_rate" not in columns:
+        cursor.execute("ALTER TABLE invoices ADD COLUMN tax_rate TEXT")
+    if "tax_cents" not in columns:
+        cursor.execute("ALTER TABLE invoices ADD COLUMN tax_cents INTEGER NOT NULL DEFAULT 0")
     cursor.execute("PRAGMA index_list(invoices)")
     indexes = {row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()}
     if (
@@ -740,6 +810,7 @@ def create_customer_summary_view(cursor):
 
 def create_schema(cursor):
     create_workspace_schema(cursor)
+    create_business_profile_schema(cursor)
     create_customer_schema(cursor)
     create_location_schema(cursor)
     create_customer_location_schema(cursor)

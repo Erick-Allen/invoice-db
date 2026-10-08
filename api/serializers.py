@@ -91,6 +91,32 @@ class LoginSerializer(StrictSerializer):
         attrs["user"] = user
         return attrs
 
+class BusinessProfileSerializer(StrictSerializer):
+    id = serializers.IntegerField(read_only=True, allow_null=True)
+    workspace_id = serializers.IntegerField(read_only=True)
+    business_name = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    email = serializers.EmailField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    phone = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    website = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    address_line1 = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    address_line2 = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    city = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    state = serializers.CharField(max_length=64, required=False, allow_blank=True, allow_null=True)
+    postal_code = serializers.CharField(max_length=32, required=False, allow_blank=True, allow_null=True)
+    default_payment_terms_days = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    ways_to_pay = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    default_tax_rate = serializers.RegexField(
+        r"^(?=(?:\D*\d){1,7}\D*$)\d+(?:\.\d+)?$",
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        error_messages={"invalid": "Enter a tax rate with up to 7 numeric digits."},
+    )
+    default_invoice_footer = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    logo_url = serializers.CharField(max_length=500, required=False, allow_blank=True, allow_null=True)
+    created_at = serializers.CharField(read_only=True, allow_null=True)
+    updated_at = serializers.CharField(read_only=True, allow_null=True)
+
 class CustomerSerializer(StrictSerializer):
     id = serializers.IntegerField(read_only=True)
     name = serializers.CharField(max_length=50)
@@ -127,6 +153,9 @@ class InvoiceSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     date_issued = serializers.DateField(required=False, allow_null=True)
     date_due = serializers.DateField(required=False, allow_null=True)
+    subtotal_cents = serializers.IntegerField(read_only=True)
+    tax_rate = serializers.CharField(read_only=True, allow_null=True)
+    tax_cents = serializers.IntegerField(read_only=True)
     total = serializers.IntegerField()
     status = serializers.ChoiceField(choices=VALID_INVOICE_STATUSES)
 

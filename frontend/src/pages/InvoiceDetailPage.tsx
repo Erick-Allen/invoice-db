@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type SubmitEventHandler } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { getBusinessProfile, type BusinessProfile } from "../api/businessProfile";
 import { getCustomer, listCustomerLocations, type Customer, type CustomerLocation } from "../api/customers";
 import { createInvoiceItem, deleteInvoiceItem, updateInvoiceItem } from "../api/invoiceItems";
 import { getInvoice, updateInvoice, updateInvoiceStatus, type Invoice, type InvoiceStatus } from "../api/invoices";
@@ -31,6 +32,78 @@ function restoreScrollPosition(scrollY: number) {
     window.requestAnimationFrame(() => window.scrollTo({ top: scrollY }));
 }
 
+function formatBusinessAddress(profile: BusinessProfile | null) {
+    if (!profile) {
+        return null;
+    }
+
+    const street = [profile.address_line1, profile.address_line2]
+        .map((part) => part?.trim())
+        .filter(Boolean)
+        .join(", ");
+    const locality = [profile.city, profile.state, profile.postal_code]
+        .map((part) => part?.trim())
+        .filter(Boolean)
+        .join(", ");
+
+    return [street, locality].filter(Boolean).join("\n") || null;
+}
+
+function hasBusinessSenderDetails(profile: BusinessProfile | null) {
+    if (!profile) {
+        return false;
+    }
+
+    return Boolean([
+        profile.business_name,
+        profile.email,
+        profile.phone,
+        profile.website,
+        profile.address_line1,
+        profile.address_line2,
+        profile.city,
+        profile.state,
+        profile.postal_code,
+    ].some((value) => value?.trim()));
+}
+
+function formatBusinessPaymentTerms(profile: BusinessProfile | null) {
+    const termsDays = profile?.default_payment_terms_days;
+    if (termsDays === null || termsDays === undefined || termsDays === 0) {
+        return "Due on receipt";
+    }
+
+    return `Net ${termsDays}`;
+}
+
+function formatTaxLabel(invoice: Invoice) {
+    const rate = invoice.tax_rate?.trim();
+    return rate ? `Tax (${rate}%)` : "Tax";
+}
+
+function getInvoiceTaxCents(invoice: Invoice) {
+    return invoice.tax_cents ?? 0;
+}
+
+function getInvoiceSubtotalCents(invoice: Invoice) {
+    return invoice.subtotal_cents ?? Math.max(invoice.total - getInvoiceTaxCents(invoice), 0);
+}
+
+const paymentMethodOptions = ["Card", "Bank", "PayPal", "Venmo", "Check"];
+
+function parseBusinessPaymentMethods(profile: BusinessProfile | null) {
+    if (!profile?.ways_to_pay) {
+        return [];
+    }
+
+    const selectedMethods = profile.ways_to_pay
+        .split(",")
+        .map((method) => method.trim())
+        .filter(Boolean);
+
+    return paymentMethodOptions.filter((method) => selectedMethods.includes(method));
+}
+
 type InvoiceDetailLocationState = {
     fromCustomerId?: number;
 };
@@ -41,6 +114,7 @@ export function InvoiceDetailPage() {
     const { invoiceId } = useParams();
     const location = useLocation();
     const [invoice, setInvoice] = useState<Invoice | null>(null);
+    const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null);
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [customerLocations, setCustomerLocations] = useState<CustomerLocation[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -190,7 +264,8 @@ export function InvoiceDetailPage() {
             setError(null);
 
             const invoiceData = await getInvoice(parsedInvoiceId, true);
-            const [customerData, locationData, paymentData, summaryData, productData, tagData, invoiceTagData] = await Promise.all([
+            const [profileData, customerData, locationData, paymentData, summaryData, productData, tagData, invoiceTagData] = await Promise.all([
+                getBusinessProfile(),
                 getCustomer(invoiceData.customer_id),
                 listCustomerLocations(invoiceData.customer_id),
                 listPayments(invoiceData.id),
@@ -201,6 +276,7 @@ export function InvoiceDetailPage() {
             ]);
 
             setInvoice(invoiceData);
+            setBusinessProfile(profileData);
             setCustomer(customerData);
             setCustomerLocations(locationData);
             setPayments(paymentData);
@@ -860,13 +936,15 @@ export function InvoiceDetailPage() {
                     {(() => {
                         const printableIssueDate = printIssueDateOverride ?? invoice.date_issued;
                         const printableDueDate = printDueDateOverride ?? invoice.date_due;
+                        const businessAddress = formatBusinessAddress(businessProfile);
+                        const shouldPrintSender = hasBusinessSenderDetails(businessProfile);
+                        const paymentMethods = parseBusinessPaymentMethods(businessProfile);
 
                         return (
                     <section className="invoice-print-document print-only" aria-label="Printable customer invoice">
                         <header className="invoice-print-header">
                             <div>
-                                <p className="invoice-print-brand">InvoiceDB</p>
-                                <h1>{getInvoiceTitle(invoice)}</h1>
+                                <h1>Invoice {formatInvoiceNumber(invoice)}</h1>
                             </div>
                             <dl>
                                 <div>
@@ -879,6 +957,23 @@ export function InvoiceDetailPage() {
                                 </div>
                             </dl>
                         </header>
+
+                        {shouldPrintSender && (
+                        <section className="invoice-print-party">
+                            <span>Send From</span>
+                            <div className="invoice-print-party-grid">
+                                <div>
+                                    {businessProfile?.business_name && <strong>{businessProfile.business_name}</strong>}
+                                    {businessProfile?.email && <p>{businessProfile.email}</p>}
+                                    {businessProfile?.phone && <p>{businessProfile.phone}</p>}
+                                    {businessProfile?.website && <p>{businessProfile.website}</p>}
+                                </div>
+                                {businessAddress && (
+                                    <p className="invoice-print-address">{businessAddress}</p>
+                                )}
+                            </div>
+                        </section>
+                        )}
 
                         <section className="invoice-print-bill-to">
                             <span>Bill To</span>
@@ -922,22 +1017,54 @@ export function InvoiceDetailPage() {
                             </section>
                         )}
 
-                        <section className="invoice-print-totals" aria-label="Printable invoice totals">
-                            <dl>
-                                <div>
-                                    <dt>Total</dt>
-                                    <dd>${centsToDollars(invoice.total)}</dd>
+                        <section className="invoice-print-payment-summary" aria-label="Printable payment summary">
+                            {paymentMethods.length > 0 && (
+                                <div className="invoice-print-ways-to-pay">
+                                    <h2>Ways To Pay</h2>
+                                    <div className="invoice-print-payment-badges" aria-label="Accepted payment methods">
+                                        {paymentMethods.map((method) => (
+                                            <span key={method}>{method}</span>
+                                        ))}
+                                    </div>
+                                    <div className="invoice-print-pay-button">View and pay</div>
                                 </div>
-                                <div>
-                                    <dt>Amount Paid</dt>
-                                    <dd>${centsToDollars(paymentSummary?.amount_paid_cents ?? 0)}</dd>
-                                </div>
-                                <div className="invoice-print-balance">
-                                    <dt>Balance Due</dt>
-                                    <dd>${centsToDollars(paymentSummary?.balance_due_cents ?? invoice.total)}</dd>
-                                </div>
-                            </dl>
+                            )}
+
+                            <div className="invoice-print-totals" aria-label="Printable invoice totals">
+                                <dl>
+                                    <div>
+                                        <dt>Terms</dt>
+                                        <dd>{formatBusinessPaymentTerms(businessProfile)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Subtotal</dt>
+                                        <dd>${centsToDollars(getInvoiceSubtotalCents(invoice))}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>{formatTaxLabel(invoice)}</dt>
+                                        <dd>${centsToDollars(getInvoiceTaxCents(invoice))}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Total</dt>
+                                        <dd>${centsToDollars(invoice.total)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Amount Paid</dt>
+                                        <dd>${centsToDollars(paymentSummary?.amount_paid_cents ?? 0)}</dd>
+                                    </div>
+                                    <div className="invoice-print-balance">
+                                        <dt>Balance Due</dt>
+                                        <dd>${centsToDollars(paymentSummary?.balance_due_cents ?? invoice.total)}</dd>
+                                    </div>
+                                </dl>
+                            </div>
                         </section>
+
+                        {businessProfile?.default_invoice_footer && (
+                            <footer className="invoice-print-footer">
+                                {businessProfile.default_invoice_footer}
+                            </footer>
+                        )}
                     </section>
                         );
                     })()}
@@ -991,6 +1118,14 @@ export function InvoiceDetailPage() {
                                         Edit
                                     </button>
                                 </dd>
+                            </div>
+                            <div>
+                                <dt>Subtotal</dt>
+                                <dd>${centsToDollars(getInvoiceSubtotalCents(invoice))}</dd>
+                            </div>
+                            <div>
+                                <dt>{formatTaxLabel(invoice)}</dt>
+                                <dd>${centsToDollars(getInvoiceTaxCents(invoice))}</dd>
                             </div>
                             <div>
                                 <dt>Total</dt>

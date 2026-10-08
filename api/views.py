@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from invoice_db.db import connection
 from invoice_db.services import customers as customer_services
 from invoice_db.services import customer_locations as customer_location_services
+from invoice_db.services import business_profiles as business_profile_services
 from invoice_db.services import invoices as invoice_services
 from invoice_db.services import invoice_items as invoice_item_services
 from invoice_db.services import payments as payment_services
@@ -32,6 +33,7 @@ from scripts.seed import get_connection
 
 from .serializers import (
     AuthUserSerializer,
+    BusinessProfileSerializer,
     CustomerSerializer,
     CustomerLocationSerializer,
     CustomerLocationUpdateSerializer,
@@ -258,6 +260,7 @@ def api_root(request):
             "message": "Invoice DB API",
             "endpoints": {
                 "auth": "/api/auth/",
+                "business_profile": "/api/business-profile/",
                 "customers": "/api/customers/",
                 "invoices": "/api/invoices",
                 "products": "/api/products/",
@@ -292,6 +295,59 @@ class ReportingOverviewView(APIView):
             )
 
         return Response(report, status=status.HTTP_200_OK)
+
+class BusinessProfileView(APIView):
+    def get(self, request):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
+                profile = business_profile_services.get_business_profile(
+                    cursor,
+                    workspace_id=workspace_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the business profile."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = BusinessProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request):
+        serializer = BusinessProfileSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
+                profile = business_profile_services.save_business_profile(
+                    cursor,
+                    workspace_id=workspace_id,
+                    profile_data=serializer.validated_data,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while saving the business profile."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = BusinessProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class CustomerListCreateView(APIView):
     def get(self, request):

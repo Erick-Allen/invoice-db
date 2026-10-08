@@ -12,6 +12,9 @@ export type Invoice = {
     description?: string | null;
     date_issued: string | null;
     date_due: string | null;
+    subtotal_cents?: number;
+    tax_rate?: string | null;
+    tax_cents?: number;
     total: number;
     status: InvoiceStatus;
     cost_total_cents?: number;

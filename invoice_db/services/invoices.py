@@ -2,6 +2,7 @@ import sqlite3
 from datetime import date, timedelta
 
 from invoice_db.db import customers as customers_db
+from invoice_db.db import business_profiles as business_profiles_db
 from invoice_db.db import invoice_items as invoice_items_db
 from invoice_db.db import invoices as invoices_db
 from invoice_db.db import products as products_db
@@ -34,6 +35,9 @@ class InvoiceRecord(TypedDict):
     location_id: int | None
     title: str | None
     description: str | None
+    subtotal_cents: int
+    tax_rate: str | None
+    tax_cents: int
     total: float
     status: str
     date_issued: str | None
@@ -334,6 +338,12 @@ def create_invoice(
     title = _normalize_invoice_title(title)
     description = _normalize_invoice_description(description)
     date_issued, date_due = _prepare_invoice_dates(date_issued, date_due)
+    profile = (
+        business_profiles_db.get_business_profile(cursor, workspace_id=workspace_id)
+        if workspace_id is not None
+        else None
+    )
+    tax_rate = profile.default_tax_rate if profile is not None else None
     
     try:
         invoice_id = invoices_db.add_invoice_to_customer(
@@ -342,6 +352,9 @@ def create_invoice(
             title=title,
             description=description,
             total=0,
+            subtotal_cents=0,
+            tax_rate=tax_rate,
+            tax_cents=0,
             date_issued=date_issued,
             date_due=date_due,
             location_id=location_id,

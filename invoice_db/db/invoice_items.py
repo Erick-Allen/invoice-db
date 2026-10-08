@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from sqlite3 import Row
 
 from .invoices import get_invoice_by_id
@@ -153,17 +154,46 @@ class InvoiceItemRepository:
         row = self.cursor.fetchone()
         return row["total"] if row else 0
 
+    def _calculate_tax_cents(self, subtotal_cents: int, tax_rate: str | None) -> int:
+        if not tax_rate:
+            return 0
+
+        try:
+            rate = Decimal(tax_rate)
+        except InvalidOperation:
+            return 0
+
+        if rate <= 0:
+            return 0
+
+        tax = Decimal(subtotal_cents) * rate / Decimal("100")
+        return int(tax.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
     def recalculate_invoice_total(self, invoice_id: int) -> int:
-        total = self.sum_invoice_items(invoice_id)
+        subtotal_cents = self.sum_invoice_items(invoice_id)
+        invoice = get_invoice_by_id(self.cursor, invoice_id, workspace_id=self.workspace_id)
+        tax_cents = self._calculate_tax_cents(
+            subtotal_cents,
+            invoice["tax_rate"] if invoice is not None else None,
+        )
+        total = subtotal_cents + tax_cents
         if self.workspace_id is None:
             self.cursor.execute(
-                "UPDATE invoices SET total = ? WHERE id = ? AND workspace_id IS NULL",
-                (total, invoice_id),
+                """
+                UPDATE invoices
+                SET subtotal_cents = ?, tax_cents = ?, total = ?
+                WHERE id = ? AND workspace_id IS NULL
+                """,
+                (subtotal_cents, tax_cents, total, invoice_id),
             )
         else:
             self.cursor.execute(
-                "UPDATE invoices SET total = ? WHERE id = ? AND workspace_id = ?",
-                (total, invoice_id, self.workspace_id),
+                """
+                UPDATE invoices
+                SET subtotal_cents = ?, tax_cents = ?, total = ?
+                WHERE id = ? AND workspace_id = ?
+                """,
+                (subtotal_cents, tax_cents, total, invoice_id, self.workspace_id),
             )
         return total
 

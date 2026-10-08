@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { getCurrentUser, logout, type AuthUser } from "./api/auth";
 import { AuthPage } from "./pages/AuthPage";
+import { BusinessProfilePage } from "./pages/BusinessProfilePage";
 import { CategoryDetailPage } from "./pages/CategoryDetailPage";
 import { CustomerDetailPage } from "./pages/CustomerDetailPage";
 import { CustomersPage } from "./pages/CustomersPage";
@@ -87,6 +88,7 @@ function AppShell() {
             <NavLink to="/products">Products</NavLink>
             <NavLink to="/locations">Locations</NavLink>
             <NavLink to="/reporting">Reporting</NavLink>
+            <NavLink to="/settings">Settings</NavLink>
             <div className="auth-session">
               <button
                 className={currentUser.is_guest ? "guest-session-button" : ""}
@@ -104,6 +106,8 @@ function AppShell() {
       <main className="app-main">
         <Routes>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="settings" element={<BusinessProfilePage />} />
+          <Route path="business-profile" element={<Navigate to="/settings" replace />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="customers/:customerId" element={<CustomerDetailPage />} />
           <Route path="locations" element={<LocationsPage />} />

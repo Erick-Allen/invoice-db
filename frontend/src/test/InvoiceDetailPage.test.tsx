@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getBusinessProfile } from "../api/businessProfile";
 import { getCustomer, listCustomerLocations } from "../api/customers";
 import { createInvoiceItem, deleteInvoiceItem, updateInvoiceItem } from "../api/invoiceItems";
 import { getInvoice, updateInvoice, updateInvoiceStatus } from "../api/invoices";
@@ -13,6 +14,10 @@ import { formatDisplayDate, getDefaultSentInvoiceDueDate, getDefaultSentInvoiceI
 vi.mock("../api/customers", () => ({
     getCustomer: vi.fn(),
     listCustomerLocations: vi.fn(),
+}));
+
+vi.mock("../api/businessProfile", () => ({
+    getBusinessProfile: vi.fn(),
 }));
 
 vi.mock("../api/invoices", () => ({
@@ -47,6 +52,7 @@ vi.mock("../api/tags", () => ({
     removeInvoiceTag: vi.fn(),
 }));
 
+const mockedGetBusinessProfile = vi.mocked(getBusinessProfile);
 const mockedGetCustomer = vi.mocked(getCustomer);
 const mockedListCustomerLocations = vi.mocked(listCustomerLocations);
 const mockedCreateInvoiceItem = vi.mocked(createInvoiceItem);
@@ -84,6 +90,26 @@ describe("InvoiceDetailPage", () => {
         vi.clearAllMocks();
         printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
 
+        mockedGetBusinessProfile.mockResolvedValue({
+            id: 1,
+            workspace_id: 1,
+            business_name: "Allen Studio",
+            email: "billing@allen.example",
+            phone: "555-123-4567",
+            website: "https://allen.example",
+            address_line1: "789 Business Ave",
+            address_line2: null,
+            city: "Atlanta",
+            state: "GA",
+            postal_code: "30301",
+            default_payment_terms_days: 15,
+            ways_to_pay: "Card,Bank",
+            default_tax_rate: "7.25",
+            default_invoice_footer: "Thank you for your business.",
+            logo_url: null,
+            created_at: "2026-01-01",
+            updated_at: "2026-01-01",
+        });
         mockedGetInvoice.mockResolvedValue({
             id: 7,
             customer_id: 1,
@@ -561,6 +587,16 @@ describe("InvoiceDetailPage", () => {
         const printableInvoice = await screen.findByLabelText("Printable customer invoice");
 
         expect(within(printableInvoice).getByRole("heading", { name: "Invoice #7" })).toBeInTheDocument();
+        expect(within(printableInvoice).getByText("Send From")).toBeInTheDocument();
+        expect(printableInvoice).toHaveTextContent("Allen Studio");
+        expect(printableInvoice).toHaveTextContent("billing@allen.example");
+        expect(printableInvoice).toHaveTextContent("789 Business Ave");
+        expect(within(printableInvoice).getByText("Net 15")).toBeInTheDocument();
+        expect(within(printableInvoice).getByText("Ways To Pay")).toBeInTheDocument();
+        expect(within(printableInvoice).getByText("Card")).toBeInTheDocument();
+        expect(within(printableInvoice).getByText("Bank")).toBeInTheDocument();
+        expect(within(printableInvoice).queryByText("Venmo")).not.toBeInTheDocument();
+        expect(within(printableInvoice).getByText("Thank you for your business.")).toBeInTheDocument();
 	        expect(within(printableInvoice).getByText("Bill To")).toBeInTheDocument();
 	        expect(within(printableInvoice).getByText("John Doe")).toBeInTheDocument();
 	        expect(
@@ -574,6 +610,43 @@ describe("InvoiceDetailPage", () => {
 	        expect(within(printableInvoice).queryByText("Labor")).not.toBeInTheDocument();
 	        expect(within(printableInvoice).queryByText("Payments")).not.toBeInTheDocument();
 	    });
+
+    it("omits the sender block when the business profile is empty", async () => {
+        mockedGetBusinessProfile.mockResolvedValueOnce({
+            id: null,
+            workspace_id: 1,
+            business_name: null,
+            email: null,
+            phone: null,
+            website: null,
+            address_line1: null,
+            address_line2: null,
+            city: null,
+            state: null,
+            postal_code: null,
+            default_payment_terms_days: null,
+            ways_to_pay: null,
+            default_tax_rate: null,
+            default_invoice_footer: null,
+            logo_url: null,
+            created_at: null,
+            updated_at: null,
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/invoices/7"]}>
+                <Routes>
+                    <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        const printableInvoice = await screen.findByLabelText("Printable customer invoice");
+
+        expect(within(printableInvoice).queryByText("Send From")).not.toBeInTheDocument();
+        expect(within(printableInvoice).queryByText("InvoiceDB")).not.toBeInTheDocument();
+        expect(within(printableInvoice).getByText("Bill To")).toBeInTheDocument();
+    });
 
     it("prints the invoice detail", async () => {
         const printSpy = vi.spyOn(window, "print").mockImplementation(() => undefined);

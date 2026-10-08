@@ -1,6 +1,7 @@
 from django.urls import  path
 
 from .views import (
+    BusinessProfileView,
     CurrentUserView,
     CustomerListCreateView,
     CustomerDetailView,
@@ -55,6 +56,8 @@ urlpatterns = [
     path("auth/guest/", GuestLoginView.as_view(), name="auth-guest"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/me/", CurrentUserView.as_view(), name="auth-me"),
+
+    path("business-profile/", BusinessProfileView.as_view(), name="business-profile"),
 
     path("customers/", CustomerListCreateView.as_view(), name="customer-list-create"),
     path("customers/<int:customer_id>/", CustomerDetailView.as_view(), name="customer-detail"),

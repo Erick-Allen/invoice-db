@@ -93,7 +93,32 @@ def test_create_invoice_item_recalculates_invoice_total(cursor, invoice_item_rep
     )
 
     invoice = invoices.get_invoice_by_id(cursor, invoice_john)
+    assert invoice["subtotal_cents"] == 5000
+    assert invoice["tax_cents"] == 0
     assert invoice["total"] == 5000
+
+
+def test_create_invoice_item_applies_invoice_tax_rate(cursor, customer_john, product_widget):
+    invoice_id = invoices.add_invoice_to_customer(
+        cursor,
+        customer_id=customer_john,
+        tax_rate="7.25",
+    )
+    invoice_item_repo = invoice_items.InvoiceItemRepository(cursor)
+
+    invoice_item_repo.create(
+        invoice_items.InvoiceItemCreate(
+            invoice_id=invoice_id,
+            product_id=product_widget.id,
+            quantity=4,
+        ),
+    )
+
+    invoice = invoices.get_invoice_by_id(cursor, invoice_id)
+    assert invoice["subtotal_cents"] == 10000
+    assert invoice["tax_rate"] == "7.25"
+    assert invoice["tax_cents"] == 725
+    assert invoice["total"] == 10725
 
 
 def test_list_by_invoice_id_returns_invoice_items(invoice_item_repo, invoice_john, product_widget):

@@ -4,8 +4,11 @@ from datetime import date, timedelta
 from invoice_db.db import invoice_items, products
 from invoice_db.db import invoices as invoices_db
 from invoice_db.db.products import ProductCreate
+from invoice_db.services import business_profiles
+from invoice_db.services import customers as customer_services
 from invoice_db.services import customer_locations, exceptions
 from invoice_db.services import invoices as invoice_services
+from invoice_db.services import workspaces as workspace_services
 
 
 def test_create_invoice_defaults_total_to_zero(cursor, customer_john):
@@ -16,8 +19,40 @@ def test_create_invoice_defaults_total_to_zero(cursor, customer_john):
         date_due=None,
     )
 
+    assert invoice["subtotal_cents"] == 0
+    assert invoice["tax_rate"] is None
+    assert invoice["tax_cents"] == 0
     assert invoice["total"] == 0
     assert invoice["location_id"] is None
+
+
+def test_create_invoice_copies_workspace_default_tax_rate(cursor):
+    workspace = workspace_services.get_or_create_default_workspace(
+        cursor,
+        owner_user_id=1,
+        owner_label="Tax Owner",
+    )
+    customer = customer_services.create_customer(
+        cursor,
+        customer_name="Tax Customer",
+        customer_email="tax@example.com",
+        workspace_id=workspace["id"],
+    )
+    business_profiles.save_business_profile(
+        cursor,
+        workspace_id=workspace["id"],
+        profile_data={"default_tax_rate": "8.875"},
+    )
+
+    invoice = invoice_services.create_invoice(
+        cursor,
+        customer_id=customer["id"],
+        date_issued=None,
+        date_due=None,
+        workspace_id=workspace["id"],
+    )
+
+    assert invoice["tax_rate"] == "8.875"
 
 
 def test_create_invoice_with_title(cursor, customer_john):

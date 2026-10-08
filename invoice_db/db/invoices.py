@@ -29,6 +29,9 @@ def add_invoice_to_customer(
     customer_id: int,
     date_issued: str = None,
     total: int = 0,
+    subtotal_cents: int | None = None,
+    tax_rate: str | None = None,
+    tax_cents: int = 0,
     date_due: str = None,
     status: str = "draft",
     location_id: int | None = None,
@@ -49,10 +52,41 @@ def add_invoice_to_customer(
 
     invoice_number = _next_invoice_number(cursor, workspace_id=workspace_id)
 
+    if subtotal_cents is None:
+        subtotal_cents = total
+
     cursor.execute("""
-        INSERT INTO invoices (workspace_id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, total, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (workspace_id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, total, status))
+        INSERT INTO invoices (
+            workspace_id,
+            invoice_number,
+            customer_id,
+            location_id,
+            title,
+            description,
+            date_issued,
+            date_due,
+            subtotal_cents,
+            tax_rate,
+            tax_cents,
+            total,
+            status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        workspace_id,
+        invoice_number,
+        customer_id,
+        location_id,
+        title,
+        description,
+        date_issued,
+        date_due,
+        subtotal_cents,
+        tax_rate,
+        tax_cents,
+        total,
+        status,
+    ))
     return cursor.lastrowid
 
 # READ
@@ -80,7 +114,7 @@ def get_invoices_by_customer_id(cursor, customer_id: int, workspace_id: int | No
     workspace_clause = "workspace_id IS NULL" if workspace_id is None else "workspace_id = ?"
     params = (customer_id,) if workspace_id is None else (customer_id, workspace_id)
     cursor.execute("""
-    SELECT id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, total, created_at, updated_at, status
+    SELECT id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, subtotal_cents, tax_rate, tax_cents, total, created_at, updated_at, status
     FROM invoices
     WHERE customer_id = ? AND """ + workspace_clause + """
     ORDER BY date_issued DESC, id DESC
@@ -103,7 +137,7 @@ def get_invoices_by_customer_and_range(
         else (customer_id, start_date, end_date, workspace_id)
     )
     cursor.execute("""
-    SELECT id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, total, created_at, updated_at, status
+    SELECT id, invoice_number, customer_id, location_id, title, description, date_issued, date_due, subtotal_cents, tax_rate, tax_cents, total, created_at, updated_at, status
     FROM invoices
     WHERE customer_id = ? AND date_issued BETWEEN ? AND ? AND """ + workspace_clause + """
     ORDER BY date_issued DESC, id DESC
@@ -181,6 +215,9 @@ def list_invoices(
         i.description,
         i.date_issued, 
         i.date_due, 
+        i.subtotal_cents,
+        i.tax_rate,
+        i.tax_cents,
         i.total, 
         i.created_at, 
         i.updated_at, 
@@ -255,6 +292,9 @@ def list_overdue_invoices(
         i.description,
         i.date_issued,
         i.date_due,
+        i.subtotal_cents,
+        i.tax_rate,
+        i.tax_cents,
         i.total,
         i.status,
         i.created_at,
@@ -321,6 +361,9 @@ def update_invoice(
         update_description: bool = False,
         date_issued: int = None, 
         date_due: int = None, 
+        subtotal_cents: int | None = None,
+        tax_rate: str | None = None,
+        tax_cents: int | None = None,
         total: int = None, 
         customer_id: int = None,
         location_id: int | None = None,
@@ -357,6 +400,17 @@ def update_invoice(
         validate_total(total)
         updates.append("total = ?")
         params.append(total)
+    if subtotal_cents is not None:
+        validate_total(subtotal_cents)
+        updates.append("subtotal_cents = ?")
+        params.append(subtotal_cents)
+    if tax_rate is not None:
+        updates.append("tax_rate = ?")
+        params.append(tax_rate)
+    if tax_cents is not None:
+        validate_total(tax_cents)
+        updates.append("tax_cents = ?")
+        params.append(tax_cents)
     if  customer_id is not None:
         assert_customer_exists(cursor, customer_id, workspace_id=workspace_id)
         updates.append("customer_id = ?")

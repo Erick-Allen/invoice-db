@@ -10,6 +10,13 @@ Most app data endpoints require an active session. Users must either sign in or 
 - `POST /api/auth/logout/`
 - `GET /api/auth/me/`
 
+## Business Profile
+
+- `GET /api/business-profile/`
+- `PUT /api/business-profile/`
+
+Stores workspace-scoped settings for business sender details and invoice defaults, including payment terms, selected payment methods, invoice footer, and optional default tax rate (`default_tax_rate`).
+
 ## Customers
 
 - `GET /api/customers/`
@@ -33,6 +40,8 @@ Most app data endpoints require an active session. Users must either sign in or 
 - `GET /api/invoices/{id}/tags/`
 - `POST /api/invoices/{id}/tags/`
 - `DELETE /api/invoices/{id}/tags/{tag_id}/`
+
+Invoice responses include `subtotal_cents`, `tax_rate`, `tax_cents`, and final `total`. New invoices copy the workspace default tax rate at creation time; line-item changes recalculate subtotal, tax, and total.
 
 ## Invoice Items
 

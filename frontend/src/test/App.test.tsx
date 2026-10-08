@@ -42,6 +42,7 @@ describe("App", () => {
             "Products",
             "Locations",
             "Reporting",
+            "Settings",
         ]);
         expect(screen.getByRole("button", { name: "Sign out" })).toHaveTextContent("Test User · Sign Out");
     })

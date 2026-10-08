@@ -11,6 +11,7 @@ invoice-db/
 |-- frontend/                    # React + TypeScript frontend UI
 |   |-- src/
 |   |   |-- api/                 # Frontend API client modules
+|   |   |   |-- businessProfile.ts
 |   |   |   |-- auth.ts
 |   |   |   |-- client.ts
 |   |   |   |-- customers.ts
@@ -23,6 +24,7 @@ invoice-db/
 |   |   |
 |   |   |-- pages/               # Page-level React components
 |   |   |   |-- AuthPage.tsx
+|   |   |   |-- BusinessProfilePage.tsx
 |   |   |   |-- CategoryDetailPage.tsx
 |   |   |   |-- CustomerDetailPage.tsx
 |   |   |   |-- CustomersPage.tsx
@@ -41,6 +43,7 @@ invoice-db/
 |   |   |   |-- setup.ts
 |   |   |   |-- App.test.tsx
 |   |   |   |-- authApi.test.ts
+|   |   |   |-- BusinessProfilePage.test.tsx
 |   |   |   |-- CategoryDetailPage.test.tsx
 |   |   |   |-- CustomerDetailPage.test.tsx
 |   |   |   |-- CustomersPage.test.tsx
@@ -101,6 +104,7 @@ invoice-db/
 |   |   `-- ui.py
 |   |
 |   |-- db/                      # SQLite database layer
+|   |   |-- business_profiles.py
 |   |   |-- connection.py
 |   |   |-- customers.py
 |   |   |-- customer_locations.py
@@ -122,6 +126,7 @@ invoice-db/
 |   |   `-- ERDdiagram-Roadmap.png
 |   |
 |   |-- services/                # Shared business logic used primarily by the API; CLI remains legacy/local
+|   |   |-- business_profiles.py
 |   |   |-- customers.py
 |   |   |-- customer_locations.py
 |   |   |-- exceptions.py
@@ -147,6 +152,7 @@ invoice-db/
 |   |-- api/
 |   |   |-- conftest.py
 |   |   |-- test_auth_api.py
+|   |   |-- test_business_profile_api.py
 |   |   |-- test_customers_api.py
 |   |   |-- test_customer_locations_api.py
 |   |   |-- test_invoice_items_api.py

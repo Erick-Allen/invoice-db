@@ -91,9 +91,38 @@ def test_create_invoice_returns_201(api_client, test_db, customer_john_id):
     assert data["description"] == "Installed mini split in upstairs bedroom."
     assert data["date_issued"] == "2026-05-20" 
     assert data["date_due"] == "2026-06-20"
+    assert data["subtotal_cents"] == 0
+    assert data["tax_rate"] is None
+    assert data["tax_cents"] == 0
     assert data["total"] == 0
     assert data["status"] == "draft"
     assert data["location_id"] is None
+
+def test_create_invoice_uses_workspace_default_tax_rate(api_client, test_db, customer_john_id, post_product):
+    profile_response = api_client.put(
+        "/api/business-profile/",
+        {"default_tax_rate": "7.25"},
+        format="json",
+    )
+    assert profile_response.status_code == 200, profile_response.json()
+
+    invoice = create_invoice(api_client, customer_john_id)
+    product = post_product(unit_price_cents=10000).json()
+
+    item_response = api_client.post(
+        f"/api/invoices/{invoice['id']}/items/",
+        {"product_id": product["id"], "quantity": 1},
+        format="json",
+    )
+    assert item_response.status_code == 201, item_response.json()
+
+    response = api_client.get(f"/api/invoices/{invoice['id']}/?include_items=true")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["subtotal_cents"] == 10000
+    assert data["tax_rate"] == "7.25"
+    assert data["tax_cents"] == 725
+    assert data["total"] == 10725
 
 def test_create_invoice_with_location(api_client, test_db, customer_john_id):
     location_response = api_client.post(
@@ -203,6 +232,9 @@ def test_get_invoice_include_items_returns_line_items(api_client, test_db, custo
     assert data["cost_total_cents"] == 1000
     assert data["profit_total_cents"] == 1468
     assert data["profit_margin_percent"] == 59.48
+    assert data["subtotal_cents"] == 2468
+    assert data["tax_cents"] == 0
+    assert data["total"] == 2468
 
 def test_list_invoices_include_items_returns_line_items(api_client, test_db, customer_john_id, post_invoice, post_product):
     invoice_response = post_invoice(customer_id=customer_john_id)
