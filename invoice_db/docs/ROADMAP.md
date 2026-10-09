@@ -22,15 +22,15 @@
 - `v0.18.0` - Customer records, reusable locations, detail pages, and workflow polish
 - `v0.19.0` - User accounts and guest mode
 - `v0.20.0` - Business profile and invoice settings
+- `v0.21.0` - Business documents
 
 ## Current
 
-- `v0.21.0` - Business documents
+- `v0.22.0` - Invoice delivery
 
 ## Planned
 
-- `v0.22.0` - Invoice delivery
-- `v0.23.0` - Activity history
+- `v0.23.0` - Product packages
 - `v0.24.0` - Accounting integrations
 - `v0.25.0` - Billing automation
 - `v0.26.0` - Assistant routing

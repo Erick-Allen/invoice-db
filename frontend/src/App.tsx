@@ -7,6 +7,7 @@ import { CategoryDetailPage } from "./pages/CategoryDetailPage";
 import { CustomerDetailPage } from "./pages/CustomerDetailPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DocumentsPage } from "./pages/DocumentsPage";
 import { InvoiceDetailPage } from "./pages/InvoiceDetailPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { LocationDetailPage } from "./pages/LocationDetailPage";
@@ -78,15 +79,17 @@ function AppShell() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-content">
-          <h1 className="app-title">InvoiceDB</h1>
+          <NavLink className="app-title-link" to="/" aria-label="Dashboard">
+            <h1 className="app-title">InvoiceDB</h1>
+          </NavLink>
 
           <nav className="app-nav">
-            <NavLink to="/" end>Dashboard</NavLink>
             <NavLink to="/customers">Customers</NavLink>
             <NavLink to="/invoices">Invoices</NavLink>
             <NavLink to="/suppliers">Suppliers</NavLink>
             <NavLink to="/products">Products</NavLink>
             <NavLink to="/locations">Locations</NavLink>
+            <NavLink to="/documents">Documents</NavLink>
             <NavLink to="/reporting">Reporting</NavLink>
             <NavLink to="/settings">Settings</NavLink>
             <div className="auth-session">
@@ -112,6 +115,7 @@ function AppShell() {
           <Route path="customers/:customerId" element={<CustomerDetailPage />} />
           <Route path="locations" element={<LocationsPage />} />
           <Route path="locations/:locationId" element={<LocationDetailPage />} />
+          <Route path="documents" element={<DocumentsPage />} />
           <Route path="invoices" element={<InvoicesPage />} />
           <Route path="invoices/:invoiceId" element={<InvoiceDetailPage />} />
           <Route path="suppliers" element={<SuppliersPage />} />

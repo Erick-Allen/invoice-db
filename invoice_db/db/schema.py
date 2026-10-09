@@ -41,6 +41,17 @@ def create_triggers(cursor):
         WHERE id = NEW.id;
     END;
 
+    CREATE TRIGGER IF NOT EXISTS trigger_business_documents_updated
+    AFTER UPDATE ON
+        business_documents
+    WHEN
+        NEW.updated_at = OLD.updated_at
+    BEGIN
+        UPDATE business_documents
+        SET updated_at = datetime('now', 'localtime')
+        WHERE id = NEW.id;
+    END;
+
     CREATE TRIGGER IF NOT EXISTS trigger_customer_locations_updated
     AFTER UPDATE ON
         customer_locations
@@ -227,6 +238,29 @@ def create_business_profile_schema(cursor):
         cursor.execute("ALTER TABLE business_profiles ADD COLUMN ways_to_pay TEXT")
     if "default_tax_rate" not in columns:
         cursor.execute("ALTER TABLE business_profiles ADD COLUMN default_tax_rate TEXT")
+
+
+def create_business_document_schema(cursor):
+    cursor.executescript("""
+    CREATE TABLE IF NOT EXISTS business_documents (
+        id              INTEGER PRIMARY KEY,
+        workspace_id    INTEGER NOT NULL,
+        title           TEXT    NOT NULL CHECK (length(trim(title)) > 0),
+        category        TEXT    NOT NULL DEFAULT 'General' CHECK (length(trim(category)) > 0),
+        content_json    TEXT    NOT NULL CHECK (length(trim(content_json)) > 0),
+        content_text    TEXT    NOT NULL DEFAULT '',
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS
+        idx_business_documents_workspace_id ON business_documents(workspace_id);
+    CREATE INDEX IF NOT EXISTS
+        idx_business_documents_workspace_category ON business_documents(workspace_id, category);
+    CREATE INDEX IF NOT EXISTS
+        idx_business_documents_workspace_updated ON business_documents(workspace_id, updated_at);
+    """)
 
 def create_customer_schema(cursor):
     cursor.executescript("""
@@ -848,6 +882,7 @@ def backfill_invoice_tax_defaults(cursor):
 def create_schema(cursor):
     create_workspace_schema(cursor)
     create_business_profile_schema(cursor)
+    create_business_document_schema(cursor)
     create_customer_schema(cursor)
     create_location_schema(cursor)
     create_customer_location_schema(cursor)

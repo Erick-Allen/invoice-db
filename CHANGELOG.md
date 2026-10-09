@@ -3,6 +3,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.21.0] - 2026-10-09
+
+### Added
+
+* Workspace-scoped business documents.
+* Documents API endpoints for create, list, retrieve, update, and delete workflows.
+* Rich text document editor with title, category, heading, bold, italicize, bullet, and numbered-list controls.
+* Read/edit document modes, sidebar search, saved-draft state handling, and document previews.
+* Assistant-ready `content_text` extraction from saved document JSON.
+
 ## [0.20.0] - 2026-10-08
 
 ### Added

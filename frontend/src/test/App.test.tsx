@@ -34,13 +34,15 @@ describe("App", () => {
 
         render(<App />)
         expect(await screen.findByRole("heading" , { name: "InvoiceDB" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Dashboard" })).toHaveTextContent("InvoiceDB");
         expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual([
-            "Dashboard",
+            "InvoiceDB",
             "Customers",
             "Invoices",
             "Suppliers",
             "Products",
             "Locations",
+            "Documents",
             "Reporting",
             "Settings",
         ]);

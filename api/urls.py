@@ -1,6 +1,8 @@
 from django.urls import  path
 
 from .views import (
+    BusinessDocumentDetailView,
+    BusinessDocumentListCreateView,
     BusinessProfileView,
     CurrentUserView,
     CustomerListCreateView,
@@ -58,6 +60,8 @@ urlpatterns = [
     path("auth/me/", CurrentUserView.as_view(), name="auth-me"),
 
     path("business-profile/", BusinessProfileView.as_view(), name="business-profile"),
+    path("documents/", BusinessDocumentListCreateView.as_view(), name="business-document-list-create"),
+    path("documents/<int:document_id>/", BusinessDocumentDetailView.as_view(), name="business-document-detail"),
 
     path("customers/", CustomerListCreateView.as_view(), name="customer-list-create"),
     path("customers/<int:customer_id>/", CustomerDetailView.as_view(), name="customer-detail"),

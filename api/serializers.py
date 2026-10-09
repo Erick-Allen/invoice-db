@@ -117,6 +117,31 @@ class BusinessProfileSerializer(StrictSerializer):
     created_at = serializers.CharField(read_only=True, allow_null=True)
     updated_at = serializers.CharField(read_only=True, allow_null=True)
 
+class BusinessDocumentSerializer(StrictSerializer):
+    id = serializers.IntegerField(read_only=True)
+    workspace_id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(max_length=255)
+    category = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    content_json = serializers.JSONField()
+    content_text = serializers.CharField(read_only=True)
+    created_at = serializers.CharField(read_only=True)
+    updated_at = serializers.CharField(read_only=True)
+
+class BusinessDocumentUpdateSerializer(StrictSerializer):
+    title = serializers.CharField(max_length=255, required=False)
+    category = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    content_json = serializers.JSONField(required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        if not attrs:
+            raise serializers.ValidationError(
+                "At least one field must be provided."
+            )
+
+        return attrs
+
 class CustomerSerializer(StrictSerializer):
     id = serializers.IntegerField(read_only=True)
     name = serializers.CharField(max_length=50)

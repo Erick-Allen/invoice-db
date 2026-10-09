@@ -15,6 +15,7 @@ invoice-db/
 |   |   |   |-- auth.ts
 |   |   |   |-- client.ts
 |   |   |   |-- customers.ts
+|   |   |   |-- documents.ts
 |   |   |   |-- invoiceItems.ts
 |   |   |   |-- invoices.ts
 |   |   |   |-- payments.ts
@@ -29,6 +30,7 @@ invoice-db/
 |   |   |   |-- CustomerDetailPage.tsx
 |   |   |   |-- CustomersPage.tsx
 |   |   |   |-- DashboardPage.tsx
+|   |   |   |-- DocumentsPage.tsx
 |   |   |   |-- InvoiceDetailPage.tsx
 |   |   |   |-- InvoicesPage.tsx
 |   |   |   |-- LocationDetailPage.tsx
@@ -47,6 +49,7 @@ invoice-db/
 |   |   |   |-- CategoryDetailPage.test.tsx
 |   |   |   |-- CustomerDetailPage.test.tsx
 |   |   |   |-- CustomersPage.test.tsx
+|   |   |   |-- DocumentsPage.test.tsx
 |   |   |   |-- InvoiceDetailPage.test.tsx
 |   |   |   |-- InvoicesPage.test.tsx
 |   |   |   |-- LocationDetailPage.test.tsx
@@ -104,6 +107,7 @@ invoice-db/
 |   |   `-- ui.py
 |   |
 |   |-- db/                      # SQLite database layer
+|   |   |-- business_documents.py
 |   |   |-- business_profiles.py
 |   |   |-- connection.py
 |   |   |-- customers.py
@@ -126,6 +130,7 @@ invoice-db/
 |   |   `-- ERDdiagram-Roadmap.png
 |   |
 |   |-- services/                # Shared business logic used primarily by the API; CLI remains legacy/local
+|   |   |-- business_documents.py
 |   |   |-- business_profiles.py
 |   |   |-- customers.py
 |   |   |-- customer_locations.py
@@ -152,6 +157,7 @@ invoice-db/
 |   |-- api/
 |   |   |-- conftest.py
 |   |   |-- test_auth_api.py
+|   |   |-- test_business_documents_api.py
 |   |   |-- test_business_profile_api.py
 |   |   |-- test_customers_api.py
 |   |   |-- test_customer_locations_api.py

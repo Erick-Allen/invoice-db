@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from invoice_db.db import connection
 from invoice_db.services import customers as customer_services
 from invoice_db.services import customer_locations as customer_location_services
+from invoice_db.services import business_documents as business_document_services
 from invoice_db.services import business_profiles as business_profile_services
 from invoice_db.services import invoices as invoice_services
 from invoice_db.services import invoice_items as invoice_item_services
@@ -33,6 +34,8 @@ from scripts.seed import get_connection
 
 from .serializers import (
     AuthUserSerializer,
+    BusinessDocumentSerializer,
+    BusinessDocumentUpdateSerializer,
     BusinessProfileSerializer,
     CustomerSerializer,
     CustomerLocationSerializer,
@@ -261,6 +264,7 @@ def api_root(request):
             "endpoints": {
                 "auth": "/api/auth/",
                 "business_profile": "/api/business-profile/",
+                "documents": "/api/documents/",
                 "customers": "/api/customers/",
                 "invoices": "/api/invoices",
                 "products": "/api/products/",
@@ -348,6 +352,154 @@ class BusinessProfileView(APIView):
 
         serializer = BusinessProfileSerializer(profile)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class BusinessDocumentListCreateView(APIView):
+    def get(self, request):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
+                documents = business_document_services.list_business_documents(
+                    cursor,
+                    workspace_id=workspace_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving business documents."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = BusinessDocumentSerializer(documents, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = BusinessDocumentSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
+                document = business_document_services.create_business_document(
+                    cursor,
+                    workspace_id=workspace_id,
+                    title=serializer.validated_data["title"],
+                    category=serializer.validated_data.get("category"),
+                    content_json=serializer.validated_data["content_json"],
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while creating the business document."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = BusinessDocumentSerializer(document)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class BusinessDocumentDetailView(APIView):
+    def get(self, request, document_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
+                document = business_document_services.get_business_document_by_id(
+                    cursor,
+                    document_id,
+                    workspace_id=workspace_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while retrieving the business document."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = BusinessDocumentSerializer(document)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, document_id):
+        serializer = BusinessDocumentUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
+                document = business_document_services.update_business_document_by_id(
+                    cursor,
+                    document_id,
+                    workspace_id=workspace_id,
+                    updates=serializer.validated_data,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while updating the business document."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = BusinessDocumentSerializer(document)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, document_id):
+        try:
+            with connection.db_session(connection.DB_PATH) as (connect, cursor):
+                workspace_id = _request_workspace_id(request, cursor)
+                business_document_services.delete_business_document_by_id(
+                    cursor,
+                    document_id,
+                    workspace_id=workspace_id,
+                )
+
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except NotFoundError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except sqlite3.Error:
+            return Response(
+                {"detail": "A database error occurred while deleting the business document."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class CustomerListCreateView(APIView):
     def get(self, request):

@@ -17,6 +17,16 @@ Most app data endpoints require an active session. Users must either sign in or 
 
 Stores workspace-scoped settings for business sender details and invoice defaults, including payment terms, selected payment methods, invoice footer, and optional default tax rate (`default_tax_rate`).
 
+## Business Documents
+
+- `GET /api/documents/`
+- `POST /api/documents/`
+- `GET /api/documents/{id}/`
+- `PATCH /api/documents/{id}/`
+- `DELETE /api/documents/{id}/`
+
+Stores workspace-scoped business reference documents. Document records include `title`, `category`, editable TipTap `content_json`, generated searchable `content_text`, `created_at`, and `updated_at`.
+
 ## Customers
 
 - `GET /api/customers/`

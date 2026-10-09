@@ -34,6 +34,7 @@ def drop_db_command(
         cursor.execute("DROP TABLE IF EXISTS product_categories;")
         cursor.execute("DROP TABLE IF EXISTS suppliers;")
         cursor.execute("DROP TABLE IF EXISTS tags;")
+        cursor.execute("DROP TABLE IF EXISTS business_documents;")
         cursor.execute("DROP TABLE IF EXISTS business_profiles;")
         cursor.execute("DROP TABLE IF EXISTS customers;")
         cursor.execute("DROP TABLE IF EXISTS workspaces;")
